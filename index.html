@@ -1181,11 +1181,11 @@ if(FIREBASE_ENABLED){
 /* ============ EMAILJS (OPSİYONEL E-POSTA BİLDİRİMİ) ============ */
 // console.emailjs.com üzerinden ücretsiz hesap aç, bir "Email Service" bağla (ör. Gmail) ve iki şablon oluştur:
 // biri başvurana giden onay e-postası, biri sana gelen bildirim e-postası. Şablon değişkenleri: to_email, to_name, subject_line, message_body.
-const EMAILJS_PUBLIC_KEY = "YOUR_EMAILJS_PUBLIC_KEY";
-const EMAILJS_SERVICE_ID = "YOUR_SERVICE_ID";
-const EMAILJS_TEMPLATE_APPLICANT = "YOUR_TEMPLATE_ID_APPLICANT";
-const EMAILJS_TEMPLATE_ADMIN = "YOUR_TEMPLATE_ID_ADMIN";
-const ADMIN_NOTIFY_EMAIL = "YOUR_EMAIL@ornek.com";
+const EMAILJS_PUBLIC_KEY = "BQOuVLYDOiQvWyzMc";
+const EMAILJS_SERVICE_ID = "service_r8bspvz";
+const EMAILJS_TEMPLATE_APPLICANT = "template_09hr06n";
+const EMAILJS_TEMPLATE_ADMIN = "template_09hr06n";
+const ADMIN_NOTIFY_EMAIL = "suko.crc06@gmail.com";
 const EMAILJS_ENABLED = typeof emailjs !== 'undefined' && EMAILJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLIC_KEY';
 if(EMAILJS_ENABLED){
   try{ emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY }); }catch(e){ console.warn('EmailJS başlatılamadı.', e); }
@@ -1388,9 +1388,63 @@ function fmtDate(d){
 }
 
 /* ============ GENEL DURUM SENKRONU (yalnızca public görünüm) ============ */
+function parseTrDate(str){
+  if(!str) return null;
+  const parts = String(str).split('.');
+  if(parts.length !== 3) return null;
+  const d = parseInt(parts[0],10), m = parseInt(parts[1],10), y = parseInt(parts[2],10);
+  if(!d || !m || !y) return null;
+  return new Date(y, m-1, d);
+}
+
+function computeEcoStats(){
+  const all = [].concat(state.applications||[], state.zirveRegistrations||[]);
+  const total = all.length;
+  const now = new Date();
+  const oneDay = 24*60*60*1000;
+  let thisWeek = 0, lastWeek = 0;
+  all.forEach(item=>{
+    const d = parseTrDate(item.date);
+    if(!d) return;
+    const diffDays = Math.floor((now - d) / oneDay);
+    if(diffDays >= 0 && diffDays < 7) thisWeek++;
+    else if(diffDays >= 7 && diffDays < 14) lastWeek++;
+  });
+  let growth;
+  if(lastWeek === 0){ growth = thisWeek > 0 ? 100 : 0; }
+  else { growth = Math.round(((thisWeek - lastWeek) / lastWeek) * 100); }
+  return { total, growth };
+}
+
+let _ecoCountDisplayed = null;
+function animateEcoCount(el, target){
+  const start = _ecoCountDisplayed === null ? 0 : _ecoCountDisplayed;
+  if(start === target){ el.textContent = target; return; }
+  const duration = 600;
+  const startTime = performance.now();
+  function step(now){
+    const t = Math.min(1, (now - startTime) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = Math.round(start + (target - start) * eased);
+    if(t < 1) requestAnimationFrame(step);
+    else { el.textContent = target; _ecoCountDisplayed = target; }
+  }
+  requestAnimationFrame(step);
+}
+
+function updateEcoStats(){
+  const ecoStats = computeEcoStats();
+  const countEl = document.getElementById('ecoUserCount');
+  if(countEl) animateEcoCount(countEl, ecoStats.total);
+  const growthEl = document.getElementById('ecoUserGrowth');
+  if(growthEl) growthEl.textContent = (ecoStats.growth >= 0 ? '+' : '-') + '%' + Math.abs(ecoStats.growth);
+}
+
 function syncGlobalStatus(){
   const active = state.competitionActive;
   const dateRange = (state.startDate && state.endDate) ? `${fmtDate(state.startDate)} – ${fmtDate(state.endDate)}` : 'Belirlenmedi';
+
+  updateEcoStats();
 
   const heroBadge = document.getElementById('heroStatusBadge');
   heroBadge.textContent = active ? 'YARIŞMA AKTİF' : 'YARIŞMA BAŞLAMADI';
