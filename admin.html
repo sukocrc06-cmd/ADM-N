@@ -946,6 +946,12 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
             <button class="tab-btn" data-tab="reddedilen">Reddedilen</button>
             <button class="tab-btn" data-tab="tumu">Tümü</button>
           </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0 6px;">
+            <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-dim);cursor:pointer;">
+              <input type="checkbox" id="bsSelectAll"> Tümünü seç
+            </label>
+            <button class="btn btn-red" id="bsDeleteSelectedBtn" style="padding:8px 16px;font-size:12px;display:none;">SEÇİLENLERİ SİL</button>
+          </div>
           <div id="basvuruList">
             <div class="empty-state"><div class="icon">—</div><strong>Bekleyen başvuru yok</strong><span>Zirve Lig başvuruları açıldığında yeni kayıtlar burada görünecek.</span></div>
           </div>
@@ -1228,6 +1234,7 @@ let appIdCounter = 1;
 let zirveIdCounter = 1;
 let currentBasvuruFilter = 'bekleyen';
 let selectedAppId = null;
+let bulkDeleteSelection = new Set();
 let currentZirveFilter = 'tumu';
 let selectedZirveId = null;
 
@@ -1637,24 +1644,89 @@ function renderBasvuruList(){
   const term = (document.getElementById('basvuruSearch').value || '').toLowerCase().trim();
   if(term) list = list.filter(a => (a.name+' '+a.email+' '+a.org).toLowerCase().includes(term));
 
+  // Silinen/gizlenen kayıtları seçim setinden temizle (görünmeyen kayıt seçili kalmasın).
+  const visibleIds = new Set(list.map(a=>a.id));
+  Array.from(bulkDeleteSelection).forEach(id=>{ if(!visibleIds.has(id)) bulkDeleteSelection.delete(id); });
+
   const container = document.getElementById('basvuruList');
   if(list.length===0){
     const m = basvuruEmptyMsgs[currentBasvuruFilter] || basvuruEmptyMsgs.tumu;
     container.innerHTML = `<div class="empty-state"><div class="icon">${m.icon}</div><strong>${m.title}</strong><span>${m.desc}</span></div>`;
+    updateBulkDeleteUI();
     return;
   }
   container.innerHTML = list.map(a => `
     <div class="list-item" style="cursor:pointer;${selectedAppId===a.id ? 'border-color:var(--blue);' : ''}" data-app-id="${a.id}">
-      <div>
-        <div style="font-weight:600;font-size:14px;">${a.name}</div>
-        <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${a.email} • ${a.level}</div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <input type="checkbox" class="bs-row-check" data-app-id="${a.id}" ${bulkDeleteSelection.has(a.id) ? 'checked' : ''} onclick="event.stopPropagation();">
+        <div>
+          <div style="font-weight:600;font-size:14px;">${a.name}</div>
+          <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${a.email} • ${a.level}</div>
+        </div>
       </div>
       <span class="status-pill ${a.status==='onayli'?'green':a.status==='reddedildi'?'red':'yellow'}">${a.status==='onayli'?'ONAYLI':a.status==='reddedildi'?'REDDEDİLDİ':'BEKLİYOR'}</span>
     </div>`).join('');
-  container.querySelectorAll('[data-app-id]').forEach(el=>{
+  container.querySelectorAll('[data-app-id].list-item').forEach(el=>{
     el.addEventListener('click', ()=>{ selectedAppId = Number(el.dataset.appId); renderBasvuruList(); renderBasvuruDetail(); });
   });
+  container.querySelectorAll('.bs-row-check').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const id = Number(cb.dataset.appId);
+      if(cb.checked) bulkDeleteSelection.add(id); else bulkDeleteSelection.delete(id);
+      updateBulkDeleteUI();
+    });
+  });
+  updateBulkDeleteUI();
 }
+
+function updateBulkDeleteUI(){
+  const selectAllBox = document.getElementById('bsSelectAll');
+  const deleteBtn = document.getElementById('bsDeleteSelectedBtn');
+  const visibleChecks = document.querySelectorAll('#basvuruList .bs-row-check');
+  const count = bulkDeleteSelection.size;
+  if(deleteBtn){
+    deleteBtn.style.display = count > 0 ? 'inline-flex' : 'none';
+    deleteBtn.textContent = `SEÇİLENLERİ SİL (${count})`;
+  }
+  if(selectAllBox){
+    selectAllBox.checked = visibleChecks.length > 0 && Array.from(visibleChecks).every(cb=>cb.checked);
+  }
+}
+
+function deleteApplications(ids){
+  if(!ids || ids.length === 0) return;
+  const idSet = new Set(ids);
+  const removed = state.applications.filter(a=>idSet.has(a.id));
+  if(removed.length === 0) return;
+  state.applications = state.applications.filter(a=>!idSet.has(a.id));
+  if(idSet.has(selectedAppId)) selectedAppId = null;
+  ids.forEach(id=>bulkDeleteSelection.delete(id));
+  renderBasvuruList();
+  renderBasvuruDetail();
+  renderDashboardDynamic();
+  saveShared();
+  const msg = removed.length === 1 ? `${removed[0].name} sistemden kalıcı olarak silindi.` : `${removed.length} yarışmacı sistemden kalıcı olarak silindi.`;
+  addActivity(msg);
+  showToast(msg, 'success');
+}
+
+document.getElementById('bsSelectAll').addEventListener('change', function(){
+  const checks = document.querySelectorAll('#basvuruList .bs-row-check');
+  checks.forEach(cb=>{
+    cb.checked = this.checked;
+    const id = Number(cb.dataset.appId);
+    if(this.checked) bulkDeleteSelection.add(id); else bulkDeleteSelection.delete(id);
+  });
+  updateBulkDeleteUI();
+});
+
+document.getElementById('bsDeleteSelectedBtn').addEventListener('click', function(){
+  const ids = Array.from(bulkDeleteSelection);
+  if(ids.length === 0) return;
+  const ok = confirm(`${ids.length} yarışmacıyı kalıcı olarak silmek istediğine emin misin?\n\nBu işlem GERİ ALINAMAZ — silinenler ne bekleyen, ne onaylı, ne reddedilen listesinde görünmeyecek; sistemden tamamen kaldırılacak.`);
+  if(!ok) return;
+  deleteApplications(ids);
+});
 
 function renderBasvuruDetail(){
   const el = document.getElementById('basvuruDetayContent');
@@ -1675,7 +1747,8 @@ function renderBasvuruDetail(){
     <div class="btn-row">
       <button class="btn btn-green" style="flex:1;" id="approveAppBtn" ${app.status==='onayli'?'disabled':''}>ONAYLA</button>
       <button class="btn btn-red" style="flex:1;" id="rejectAppBtn" ${app.status==='reddedildi'?'disabled':''}>REDDET</button>
-    </div>`;
+    </div>
+    <button class="btn" style="width:100%;margin-top:10px;background:transparent;border:1px solid #fca5a5;color:#fca5a5;" id="deleteAppBtn">SİSTEMDEN SİL</button>`;
   document.getElementById('approveAppBtn')?.addEventListener('click', ()=>{
     app.status='onayli'; showToast(app.name+' başvurusu onaylandı.','success');
     renderBasvuruList(); renderBasvuruDetail(); renderDashboardDynamic(); saveShared();
@@ -1683,6 +1756,11 @@ function renderBasvuruDetail(){
   document.getElementById('rejectAppBtn')?.addEventListener('click', ()=>{
     app.status='reddedildi'; showToast(app.name+' başvurusu reddedildi.','error');
     renderBasvuruList(); renderBasvuruDetail(); renderDashboardDynamic(); saveShared();
+  });
+  document.getElementById('deleteAppBtn')?.addEventListener('click', ()=>{
+    const ok = confirm(`${app.name} adlı yarışmacıyı kalıcı olarak silmek istediğine emin misin?\n\nBu işlem GERİ ALINAMAZ — ne bekleyen, ne onaylı, ne reddedilen listesinde görünecek; sistemden tamamen kaldırılacak.`);
+    if(!ok) return;
+    deleteApplications([app.id]);
   });
 }
 
