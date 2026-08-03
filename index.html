@@ -741,6 +741,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
     </div>
     <button class="pub-nav-toggle" id="pubNavToggle" aria-label="Menü">☰</button>
     <div class="pub-nav-links" id="pubNavLinks">
+      <button data-pubnav="pub-ekosistem">ANA SAYFA</button>
       <button data-pubnav="pub-home">YARIŞMA</button>
       <button data-pubnav="kurallar">KURALLAR</button>
       <button data-pubnav="pub-sonuclar">SONUÇLAR</button>
@@ -951,7 +952,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
               <div class="field"><label>E-posta</label><input type="email" id="pbEmail" placeholder="mail@ornek.com"></div>
             </div>
             <div class="field-row">
-              <div class="field"><label>Üniversite / Kurum</label><input type="text" id="pbOrg" placeholder="Kurum bilgisi"></div>
+              <div class="field"><label>Üniversite / Bölüm</label><input type="text" id="pbOrg" placeholder="Üniversite ve bölüm bilgisi"></div>
               <div class="field"><label>Deneyim Seviyesi</label><input type="text" id="pbLevel" placeholder="Başlangıç / Orta / İleri"></div>
             </div>
             <div class="field"><label>Kısa Motivasyon</label><textarea id="pbMotivation" rows="3" placeholder="Fintelig yarışmasına neden katılmak istediğinizi kısaca yazın."></textarea></div>
@@ -1052,7 +1053,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
         <div class="card">
           <div class="field-label" style="margin-bottom:8px;">ERİŞİM DURUMU</div>
           <div style="font-family:'Oswald',sans-serif;font-size:19px;margin-bottom:10px;">KULÜP BAŞVURUSU</div>
-          <span class="status-pill green" style="margin-bottom:14px;display:inline-flex;">FORM AÇIK</span>
+          <span class="status-pill green" id="zirveErisimBadge" style="margin-bottom:14px;display:inline-flex;">FORM AÇIK</span>
           <p style="color:var(--text-dim);font-size:12.5px;line-height:1.6;">Her kulüp başvurusunda 5 öğrenci katılımcı bilgisi zorunludur.</p>
         </div>
       </div>
@@ -1061,6 +1062,10 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
         <div class="card">
           <h3 class="section-title">KULÜP BAŞVURU FORMU</h3>
           <p class="section-desc">FinTeClub Zirve'ye kulüp olarak katılım sağlamak için bilgileri tamamlayın.</p>
+          <div id="zirveClosedNotice" class="empty-state hidden" style="padding:16px;border:1px solid var(--yellow);border-radius:var(--radius-sm);margin-bottom:18px;">
+            <strong style="color:var(--yellow);">Zirve kayıtları şu anda kapalı</strong>
+            <span>YAKINDA tekrar açılacak, takipte kal.</span>
+          </div>
           <form id="pubZirveForm">
             <div class="field-row">
               <div class="field"><label>Kulüp Adı</label><input type="text" id="pzClub"></div>
@@ -1093,7 +1098,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
               </div>
             </div>
             <div class="g-recaptcha-slot" data-form-id="zirve" style="margin:14px 0;"></div>
-            <button type="submit" class="btn btn-blue" style="margin-top:10px;">KAYDI TAMAMLA</button>
+            <button type="submit" class="btn btn-blue" id="pzSubmitBtn" style="margin-top:10px;">KAYDI TAMAMLA</button>
           </form>
         </div>
         <div class="card">
@@ -1147,6 +1152,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 const state = {
   competitionActive: false,
   applicationsOpen: false,
+  zirveOpen: true,
   broadcastLive: false,
   compName: '',
   startDate: '',
@@ -1229,6 +1235,7 @@ function loadShared(){
 function saveShared(){
   const payload = {
     applicationsOpen: state.applicationsOpen,
+    zirveOpen: state.zirveOpen,
     competitionActive: state.competitionActive,
     broadcastLive: state.broadcastLive,
     compName: state.compName,
@@ -1246,6 +1253,7 @@ function hydrateFromShared(){
   const shared = loadShared();
   if(!shared) return;
   state.applicationsOpen = shared.applicationsOpen ?? state.applicationsOpen;
+  state.zirveOpen = shared.zirveOpen ?? state.zirveOpen;
   state.competitionActive = shared.competitionActive ?? state.competitionActive;
   state.broadcastLive = shared.broadcastLive ?? state.broadcastLive;
   state.compName = shared.compName ?? state.compName;
@@ -1458,6 +1466,7 @@ function syncGlobalStatus(){
   document.getElementById('pubSonucBadge').className = 'status-pill ' + (active ? 'green' : '');
 
   updatePublicBasvuruAvailability();
+  updatePublicZirveAvailability();
 }
 
 function updatePublicBasvuruAvailability(){
@@ -1468,6 +1477,20 @@ function updatePublicBasvuruAvailability(){
   document.getElementById('basvuruClosedNotice').classList.toggle('hidden', open);
   document.getElementById('pbSubmitBtn').disabled = !open;
   document.querySelectorAll('#pubBasvuruForm input, #pubBasvuruForm textarea').forEach(el => el.disabled = !open);
+}
+
+function updatePublicZirveAvailability(){
+  const open = state.zirveOpen;
+  const badge = document.getElementById('zirveErisimBadge');
+  if(badge){
+    badge.textContent = open ? 'FORM AÇIK' : 'YAKINDA';
+    badge.className = 'status-pill ' + (open ? 'green' : 'yellow');
+  }
+  const notice = document.getElementById('zirveClosedNotice');
+  if(notice) notice.classList.toggle('hidden', open);
+  const submitBtn = document.getElementById('pzSubmitBtn');
+  if(submitBtn) submitBtn.disabled = !open;
+  document.querySelectorAll('#pubZirveForm input, #pubZirveForm textarea').forEach(el => el.disabled = !open);
 }
 
 /* ============ PUBLIC: BAŞVURU FORMU ============ */
@@ -1526,6 +1549,7 @@ document.getElementById('pzFileInput').addEventListener('change', function(){
 
 document.getElementById('pubZirveForm').addEventListener('submit', function(e){
   e.preventDefault();
+  if(!state.zirveOpen){ showToast('Zirve kayıtları şu anda kapalı.', 'error'); return; }
   const club = document.getElementById('pzClub').value.trim();
   const org = document.getElementById('pzOrg').value.trim();
   const contact = document.getElementById('pzContact').value.trim();

@@ -1117,6 +1117,21 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
         <div class="stat-card"><div class="stat-label">UYGUN OLMAYAN</div><div class="stat-value" style="color:#fca5a5;" id="zvUygunsuzCount">0</div><div class="stat-sub">FinteLig erişimi yok</div></div>
       </div>
 
+      <div class="card" style="margin-bottom:20px;">
+        <h3 class="section-title">Zirve Kayıt Ayarları</h3>
+        <p class="section-desc">FinTeClub Zirve kulüp başvuru formunun herkese açık sitede görünürlüğünü yönetin.</p>
+        <div class="field-row">
+          <div class="field">
+            <label>Kayıt Durumu</label>
+            <div class="toggle-group" id="toggleZirveKatilim">
+              <button type="button" class="toggle-opt on-green active" data-value="acik">Açık</button>
+              <button type="button" class="toggle-opt off" data-value="kapali">Kapalı</button>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-blue" id="saveZirveSettingsBtn" style="margin-top:6px;">AYARLARI KAYDET</button>
+      </div>
+
       <div class="grid-2">
         <div class="card">
           <h3 class="section-title">Zirve Kayıt Listesi</h3>
@@ -1199,6 +1214,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 const state = {
   competitionActive: false,
   applicationsOpen: false,
+  zirveOpen: true,
   broadcastLive: false,
   compName: '',
   startDate: '',
@@ -1276,6 +1292,7 @@ function loadShared(){
 function saveShared(){
   const payload = {
     applicationsOpen: state.applicationsOpen,
+    zirveOpen: state.zirveOpen,
     competitionActive: state.competitionActive,
     broadcastLive: state.broadcastLive,
     compName: state.compName,
@@ -1293,6 +1310,7 @@ function hydrateFromShared(){
   const shared = loadShared();
   if(!shared) return;
   state.applicationsOpen = shared.applicationsOpen ?? state.applicationsOpen;
+  state.zirveOpen = shared.zirveOpen ?? state.zirveOpen;
   state.competitionActive = shared.competitionActive ?? state.competitionActive;
   state.broadcastLive = shared.broadcastLive ?? state.broadcastLive;
   state.compName = shared.compName ?? state.compName;
@@ -1306,6 +1324,7 @@ function hydrateFromShared(){
 function onSharedDataUpdated(){
   hydrateFromShared();
   renderBasvuruList(); renderBasvuruDetail(); renderZirveList(); renderZirveDetail(); renderDashboardDynamic();
+  syncZirveSettingsUI();
 }
 window.addEventListener('storage', (e)=>{
   if(e.key === SHARED_KEY) onSharedDataUpdated();
@@ -1487,6 +1506,7 @@ function navigateTo(pageId){
   window.scrollTo({top:0,behavior:'smooth'});
   closeMobileSidebar();
   updateNotifications();
+  if(pageId === 'page-zirve') syncZirveSettingsUI();
 }
 
 document.querySelectorAll('.nav-item').forEach(btn=>{
@@ -1533,6 +1553,22 @@ document.getElementById('saveSettingsBtn').addEventListener('click', function(){
   syncGlobalStatus();
   addActivity('Yarışma ayarları güncellendi' + (state.compName ? ` (${state.compName})` : '') + '.');
   showToast('Ayarlar kaydedildi.', 'success');
+  saveShared();
+});
+
+/* ============ ZİRVE KAYIT AYARLARI (Açık/Kapalı) ============ */
+function syncZirveSettingsUI(){
+  const group = document.getElementById('toggleZirveKatilim');
+  if(!group) return;
+  group.querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value === (state.zirveOpen ? 'acik' : 'kapali')));
+}
+
+document.getElementById('saveZirveSettingsBtn').addEventListener('click', function(){
+  const zirveKatilim = document.querySelector('#toggleZirveKatilim .toggle-opt.active').dataset.value;
+  state.zirveOpen = zirveKatilim === 'acik';
+  saveShared();
+  addActivity('Zirve kayıt durumu güncellendi (' + (state.zirveOpen ? 'Açık' : 'Kapalı') + ').');
+  showToast('Zirve kayıt ayarları kaydedildi.', 'success');
 });
 
 function addActivity(text){
@@ -1843,6 +1879,7 @@ renderZirveList();
 renderZirveDetail();
 renderDashboardDynamic();
 syncGlobalStatus();
+syncZirveSettingsUI();
 showScreen('login');
 </script>
 
