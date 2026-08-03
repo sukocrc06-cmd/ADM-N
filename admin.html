@@ -1750,7 +1750,8 @@ function renderBasvuruDetail(){
     </div>
     <button class="btn" style="width:100%;margin-top:10px;background:transparent;border:1px solid #fca5a5;color:#fca5a5;" id="deleteAppBtn">SİSTEMDEN SİL</button>`;
   document.getElementById('approveAppBtn')?.addEventListener('click', ()=>{
-    app.status='onayli'; showToast(app.name+' başvurusu onaylandı.','success');
+    app.status='onayli'; app.approvedDate = new Date().toLocaleDateString('tr-TR');
+    showToast(app.name+' başvurusu onaylandı.','success');
     renderBasvuruList(); renderBasvuruDetail(); renderDashboardDynamic(); saveShared();
   });
   document.getElementById('rejectAppBtn')?.addEventListener('click', ()=>{
@@ -1842,7 +1843,8 @@ function renderZirveDetail(){
       <button class="btn btn-red" style="flex:1;" id="rejectZirveBtn" ${z.status==='reddedildi'?'disabled':''}>REDDET</button>
     </div>`;
   document.getElementById('approveZirveBtn')?.addEventListener('click', ()=>{
-    z.status='onayli'; showToast(z.club+' kaydı onaylandı.','success');
+    z.status='onayli'; z.approvedDate = new Date().toLocaleDateString('tr-TR');
+    showToast(z.club+' kaydı onaylandı.','success');
     renderZirveList(); renderZirveDetail(); renderDashboardDynamic(); saveShared();
   });
   document.getElementById('rejectZirveBtn')?.addEventListener('click', ()=>{
@@ -1887,6 +1889,7 @@ function renderDashboardDynamic(){
       const app = state.applications.find(x=>x.id===Number(btn.dataset.quickApprove));
       if(app){
         app.status='onayli';
+        app.approvedDate = new Date().toLocaleDateString('tr-TR');
         showToast(app.name+' onaylandı.','success');
         renderDashboardDynamic(); renderBasvuruList(); renderBasvuruDetail(); saveShared();
       }

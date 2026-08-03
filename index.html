@@ -1406,13 +1406,17 @@ function parseTrDate(str){
 }
 
 function computeEcoStats(){
-  const all = [].concat(state.applications||[], state.zirveRegistrations||[]);
+  // Sadece admin tarafından ONAYLANAN başvuru/kayıtlar "Canlı Kayıt" sayısına dahil edilir.
+  const all = [].concat(
+    (state.applications||[]).filter(a=>a.status==='onayli'),
+    (state.zirveRegistrations||[]).filter(z=>z.status==='onayli')
+  );
   const total = all.length;
   const now = new Date();
   const oneDay = 24*60*60*1000;
   let thisWeek = 0, lastWeek = 0;
   all.forEach(item=>{
-    const d = parseTrDate(item.date);
+    const d = parseTrDate(item.approvedDate || item.date);
     if(!d) return;
     const diffDays = Math.floor((now - d) / oneDay);
     if(diffDays >= 0 && diffDays < 7) thisWeek++;
@@ -1503,6 +1507,10 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
   const level = document.getElementById('pbLevel').value.trim();
   const motivation = document.getElementById('pbMotivation').value.trim();
   if(!name || !email || !org){ showToast('Lütfen zorunlu alanları (ad soyad, e-posta, kurum) doldurun.', 'error'); return; }
+  if(state.applications.some(a => (a.email||'').toLowerCase() === email.toLowerCase())){
+    showToast('Bu e-posta adresiyle daha önce başvuru yapılmış. Bir e-posta ile yalnızca bir kez başvurulabilir.', 'error');
+    return;
+  }
   if(!isRecaptchaVerified('basvuru')){ showToast('Lütfen "Ben robot değilim" doğrulamasını tamamlayın.', 'error'); return; }
   state.applications.push({id: appIdCounter++, name, email, org, level: level || 'Belirtilmedi', motivation, status:'bekliyor', date: new Date().toLocaleDateString('tr-TR')});
   this.reset();
@@ -1558,6 +1566,10 @@ document.getElementById('pubZirveForm').addEventListener('submit', function(e){
   const area = document.getElementById('pzArea').value.trim();
   const reason = document.getElementById('pzReason').value.trim();
   if(!club || !org || !contact || !contactEmail){ showToast('Lütfen kulüp ve temsilci bilgilerini eksiksiz doldurun.', 'error'); return; }
+  if(state.zirveRegistrations.some(z => (z.contactEmail||'').toLowerCase() === contactEmail.toLowerCase())){
+    showToast('Bu temsilci e-postasıyla daha önce bir Zirve kaydı yapılmış. Bir e-posta ile yalnızca bir kez kayıt olunabilir.', 'error');
+    return;
+  }
   const students = [];
   for(let i=1;i<=5;i++){
     const name = document.getElementById('pzStuName'+i).value.trim();
