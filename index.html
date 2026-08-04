@@ -1208,6 +1208,20 @@ function sendNotificationEmail(templateId, params){
   if(!EMAILJS_ENABLED) return;
   try{ emailjs.send(EMAILJS_SERVICE_ID, templateId, params).catch(e=>console.warn('E-posta gönderilemedi:', e)); }catch(e){ console.warn('E-posta gönderilemedi:', e); }
 }
+// (Doğrulama sağlamlaştırması, 2. tur) admin.html'deki sendOplabAccessEmail
+// ile birebir aynı mantık — sadece burada, admin onayından SONRA hâlâ
+// verifyToken'ı olmayan eski (bu değişiklikten önce onaylanmış) başvurular
+// için "yakalama" e-postası göndermek amacıyla kullanılıyor (bkz.
+// statusQueryBtn handler'ındaki backfill). Kod hiçbir zaman ekrana yazılmaz.
+function sendOplabAccessEmail(app){
+  if(!app || !app.email || !app.verifyToken) return;
+  const link = OPTIPULSE_URL + '?ftc_token=' + encodeURIComponent(app.verifyToken);
+  sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
+    to_email: app.email, to_name: app.name,
+    subject_line: 'FinteLig Başvurun Onaylandı — OPLab Giriş Linkin',
+    message_body: `Merhaba ${app.name}, FinteLig başvurun onaylandı! OPLab (alım-satım platformu) üzerinde "FinteLig Yarışmacısı" olarak doğrulanmak için aşağıdaki linke tıkla:\n\n${link}\n\nLink çalışmazsa OPLab'ı aç, profil panelindeki "FinteLig Doğrulama — Kod" alanına şu kodu yapıştır:\n${app.verifyToken}\n\nBu kod ve link SADECE sana özeldir, kimseyle paylaşma.`
+  });
+}
 
 /* ============ RECAPTCHA (OPSİYONEL SPAM/BOT KORUMASI) ============ */
 // google.com/recaptcha/admin üzerinden ücretsiz bir "reCAPTCHA v2 - Kutucuk" site anahtarı oluştur ve aşağıya yapıştır.
@@ -1665,9 +1679,21 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
   const zirveStatusMap = {incelemede:{label:'İNCELEMEDE', cls:'yellow'}, onayli:{label:'ONAYLANDI', cls:'green'}, reddedildi:{label:'UYGUN DEĞİL', cls:'red'}};
   let html = '';
   if(app){
+    // (Doğrulama sağlamlaştırması, 2. tur) Önceden OPLab giriş kodu burada
+    // EKRANDA gösteriliyordu — bu, e-postayı bilen/tahmin eden HERKESİN
+    // (bu sorgu hiçbir sahiplik kanıtı istemiyor) kodu görüp başka birinin
+    // rozetini çalabilmesi anlamına geliyordu. Kod artık asla burada
+    // gösterilmiyor — admin onayı anında SADECE başvurandaki gerçek
+    // e-postaya gönderiliyor (bkz. admin.html sendOplabAccessEmail).
     // Eski (bu değişiklikten önce) onaylanmış başvurularda verifyToken
-    // olmayabilir — ilk ihtiyaç anında burada üretip kalıcı olarak kaydediyoruz.
-    if(app.status === 'onayli' && !app.verifyToken){ app.verifyToken = generateVerifyToken(); saveShared(); }
+    // olmayabilir — ilk ihtiyaç anında burada üretip kaydediyoruz ve
+    // (varsa) bir kerelik "yakalama" e-postası göndeririz; hiçbir zaman
+    // ekrana yazdırmıyoruz.
+    if(app.status === 'onayli' && !app.verifyToken){
+      app.verifyToken = generateVerifyToken();
+      saveShared();
+      sendOplabAccessEmail(app);
+    }
     const s = appStatusMap[app.status] || {label:app.status, cls:''};
     html += `<div class="card" style="margin-bottom:16px;">
       <div class="field-label" style="margin-bottom:8px;">FINTELIG BAŞVURUSU</div>
@@ -1675,8 +1701,7 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
       <span class="status-pill ${s.cls}">${s.label}</span>
       <p style="color:var(--text-dimmer);font-size:12.5px;margin-top:12px;">Başvuru tarihi: ${app.date}</p>
       ${app.status === 'onayli' ? `
-        <button type="button" class="btn btn-blue" id="statusOplabBtn" style="margin-top:14px;">OPLAB'A GİT →</button>
-        <p style="color:var(--text-dimmer);font-size:11px;margin-top:10px;">OPLab'ı başka bir cihazda açtıysan, doğrulama koduyla elle de bağlanabilirsin: <code style="color:var(--text-dim);">${app.verifyToken}</code></p>
+        <p style="color:var(--text-dim);font-size:12.5px;margin-top:14px;">✓ OPLab (alım-satım platformu) giriş linkin, kayıtlı e-posta adresine gönderildi. Gelen kutunu (ve spam klasörünü) kontrol et.</p>
       ` : ''}
     </div>`;
   }
@@ -1690,8 +1715,8 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
     </div>`;
   }
   resultArea.innerHTML = html;
-  const oplabBtnInResult = document.getElementById('statusOplabBtn');
-  if(oplabBtnInResult){ oplabBtnInResult.addEventListener('click', ()=> openOplab(app.verifyToken)); }
+  // (statusOplabBtn artık DOM'da yok — OPLab giriş kodu bu sayfada hiçbir
+  // zaman gösterilmiyor/tıklanılabilir olmuyor, bkz. yukarıdaki yorum.)
 });
 
 /* ============ TANITIM SİHİRBAZI (SITE TOUR) ============ */

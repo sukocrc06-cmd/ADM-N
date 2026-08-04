@@ -10,6 +10,10 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<!-- EmailJS (OPLab doğrulama sağlamlaştırması) — admin bir başvuruyu onayladığında
+     OPLab giriş linkini/kodunu başvurandaki GERÇEK e-postaya göndermek için.
+     index.html'deki AYNI EmailJS hesabını kullanıyor. -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
 /* ============ RESET & BASE ============ */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -1806,6 +1810,37 @@ document.getElementById('saveZirveSettingsBtn').addEventListener('click', functi
 // index.html içindeki OPTIPULSE_URL ile BİREBİR AYNI olmalıdır.
 const OPTIPULSE_URL = 'https://rekabet-testi.vercel.app/';
 
+/* ============ EMAILJS (OPLAB DOĞRULAMA — GİRİŞ LİNKİNİ E-POSTAYLA TESLİM) ============ */
+// (Doğrulama sağlamlaştırması, 2. tur) Önceden OPLab giriş kodu (verifyToken)
+// FinTeClub'ın herkese açık "Başvuru Durumu Sorgula" sonucunda ekranda
+// gösteriliyordu — bu da e-postayı bilen/tahmin eden HERKESİN kodu görüp
+// başkasının rozetini çalabilmesi anlamına geliyordu (bkz. sohbet). Artık
+// kod hiçbir zaman herkese açık bir ekranda gösterilmiyor: admin onay
+// verdiği ANDA, kod sadece başvurandaki GERÇEK e-posta kutusuna gönderiliyor
+// (index.html'in başvuru/zirve bildirimlerinde zaten kullandığı AYNI
+// EmailJS hesabıyla) — böylece kodu ele geçirmek artık o kişinin e-posta
+// hesabına erişmeyi gerektiriyor, sadece adresini bilmeyi değil.
+const EMAILJS_PUBLIC_KEY = "BQOuVLYDOiQvWyzMc";
+const EMAILJS_SERVICE_ID = "service_r8bspvz";
+const EMAILJS_TEMPLATE_APPLICANT = "template_09hr06n";
+const EMAILJS_ENABLED = typeof emailjs !== 'undefined' && EMAILJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLIC_KEY';
+if(EMAILJS_ENABLED){
+  try{ emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY }); }catch(e){ console.warn('EmailJS başlatılamadı.', e); }
+}
+function sendNotificationEmail(templateId, params){
+  if(!EMAILJS_ENABLED) return;
+  try{ emailjs.send(EMAILJS_SERVICE_ID, templateId, params).catch(e=>console.warn('E-posta gönderilemedi:', e)); }catch(e){ console.warn('E-posta gönderilemedi:', e); }
+}
+function sendOplabAccessEmail(app){
+  if(!app || !app.email || !app.verifyToken) return;
+  const link = OPTIPULSE_URL + '?ftc_token=' + encodeURIComponent(app.verifyToken);
+  sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
+    to_email: app.email, to_name: app.name,
+    subject_line: 'FinteLig Başvurun Onaylandı — OPLab Giriş Linkin',
+    message_body: `Merhaba ${app.name}, FinteLig başvurun onaylandı! OPLab (alım-satım platformu) üzerinde "FinteLig Yarışmacısı" olarak doğrulanmak için aşağıdaki linke tıkla:\n\n${link}\n\nLink çalışmazsa OPLab'ı aç, profil panelindeki "FinteLig Doğrulama — Kod" alanına şu kodu yapıştır:\n${app.verifyToken}\n\nBu kod ve link SADECE sana özeldir, kimseyle paylaşma.`
+  });
+}
+
 function syncOplabSettingsUI(){
   const group = document.getElementById('toggleOplabErisim');
   if(group){ group.querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value === (state.oplabEnabled ? 'acik' : 'kapali'))); }
@@ -2142,16 +2177,27 @@ function renderBasvuruDetail(){
       <button class="btn btn-green" style="flex:1;" id="approveAppBtn" ${app.status==='onayli'?'disabled':''}>ONAYLA</button>
       <button class="btn btn-red" style="flex:1;" id="rejectAppBtn" ${app.status==='reddedildi'?'disabled':''}>REDDET</button>
     </div>
+    ${app.status==='onayli' ? `
+    <button class="btn" style="width:100%;margin-top:10px;background:transparent;border:1px solid var(--border-strong);color:var(--text-dim);" id="resendOplabEmailBtn">OPLAB KODUNU TEKRAR GÖNDER</button>
+    <p style="font-size:11px;color:var(--text-dimmer);margin-top:6px;">E-posta spam'e düştüyse veya kullanıcı bulamadıysa buradan tekrar gönderebilirsin. Kod hiçbir zaman ekranda gösterilmez, sadece bu e-postaya gider: ${app.email}</p>
+    ` : ''}
     <button class="btn" style="width:100%;margin-top:10px;background:transparent;border:1px solid #fca5a5;color:#fca5a5;" id="deleteAppBtn">SİSTEMDEN SİL</button>`;
   document.getElementById('approveAppBtn')?.addEventListener('click', ()=>{
     app.status='onayli'; app.approvedDate = new Date().toLocaleDateString('tr-TR');
     ensureVerifyToken(app);
-    showToast(app.name+' başvurusu onaylandı.','success');
+    sendOplabAccessEmail(app);
+    showToast(app.name+' başvurusu onaylandı, OPLab giriş linki e-postasına gönderildi.','success');
     renderBasvuruList(); renderBasvuruDetail(); renderDashboardDynamic(); saveShared();
   });
   document.getElementById('rejectAppBtn')?.addEventListener('click', ()=>{
     app.status='reddedildi'; showToast(app.name+' başvurusu reddedildi.','error');
     renderBasvuruList(); renderBasvuruDetail(); renderDashboardDynamic(); saveShared();
+  });
+  document.getElementById('resendOplabEmailBtn')?.addEventListener('click', ()=>{
+    ensureVerifyToken(app);
+    sendOplabAccessEmail(app);
+    showToast('OPLab giriş linki '+app.email+' adresine tekrar gönderildi.','success');
+    saveShared();
   });
   document.getElementById('deleteAppBtn')?.addEventListener('click', ()=>{
     const ok = confirm(`${app.name} adlı yarışmacıyı kalıcı olarak silmek istediğine emin misin?\n\nBu işlem GERİ ALINAMAZ — ne bekleyen, ne onaylı, ne reddedilen listesinde görünecek; sistemden tamamen kaldırılacak.`);
@@ -2321,7 +2367,8 @@ function renderDashboardDynamic(){
         app.status='onayli';
         app.approvedDate = new Date().toLocaleDateString('tr-TR');
         ensureVerifyToken(app);
-        showToast(app.name+' onaylandı.','success');
+        sendOplabAccessEmail(app);
+        showToast(app.name+' onaylandı, OPLab giriş linki e-postasına gönderildi.','success');
         renderDashboardDynamic(); renderBasvuruList(); renderBasvuruDetail(); saveShared();
       }
     });
