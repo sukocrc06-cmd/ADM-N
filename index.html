@@ -965,6 +965,18 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
             <div class="field"><label>Kısa Motivasyon</label><textarea id="pbMotivation" rows="3" placeholder="Fintelig yarışmasına neden katılmak istediğinizi kısaca yazın."></textarea></div>
             <div class="g-recaptcha-slot" data-form-id="basvuru" style="margin:14px 0;"></div>
             <button type="submit" class="btn btn-blue" id="pbSubmitBtn">KAYIT OL</button>
+            <!-- (Silinen başvuru sonrası yeniden başvurabilme) Firebase Authentication
+                 hesapları istemci taraflı bir siteden silinemez (bkz. aşağıdaki JS
+                 yorumu) — admin "SİSTEMDEN SİL" dediğinde bu blok, eski şifre
+                 tutmadığında devreye girer ve kullanıcıya şifre sıfırlama seçeneği sunar. -->
+            <div id="pbReapplyNotice" class="hidden" style="margin-top:14px;padding:14px 16px;border:1px solid var(--yellow);border-radius:var(--radius-sm);background:rgba(250,204,21,0.06);">
+              <p style="font-size:12.5px;color:var(--text-dim);line-height:1.7;margin:0 0 10px;">Bu e-postayla önceden bir hesap açılmış (belki daha önce başvurup admin tarafından sistemden silinmiştir) ama şu an sistemde aktif bir başvurun görünmüyor. Devam etmek için:</p>
+              <ul style="font-size:12px;color:var(--text-dimmer);line-height:1.8;margin:0 0 12px;padding-left:18px;">
+                <li>Yukarıya <strong>önceki şifreni</strong> doğru girip "KAYIT OL"a tekrar bas, ya da</li>
+                <li>Önceki şifreni hatırlamıyorsan aşağıdan sıfırlama bağlantısı iste.</li>
+              </ul>
+              <button type="button" class="btn" id="pbResetPasswordBtn" style="width:100%;">ŞİFREMİ SIFIRLA (E-POSTA GÖNDER)</button>
+            </div>
           </form>
         </div>
         <div class="card">
@@ -1603,7 +1615,12 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
   }
   if(!isRecaptchaVerified('basvuru')){ showToast('Lütfen "Ben robot değilim" doğrulamasını tamamlayın.', 'error'); return; }
 
+  const reapplyNotice = document.getElementById('pbReapplyNotice');
+  function hideReapplyNotice(){ if(reapplyNotice) reapplyNotice.classList.add('hidden'); }
+  function showReapplyNotice(){ if(reapplyNotice) reapplyNotice.classList.remove('hidden'); }
+
   function finishApplication(){
+    hideReapplyNotice();
     state.applications.push({id: appIdCounter++, name, email, org, level: level || 'Belirtilmedi', motivation, status:'bekliyor', date: new Date().toLocaleDateString('tr-TR')});
     form.reset();
     resetRecaptcha('basvuru');
@@ -1623,23 +1640,66 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
     });
   }
 
+  function resetSubmitBtn(){
+    submitBtn.disabled = !state.applicationsOpen;
+    submitBtn.textContent = 'KAYIT OL';
+  }
+
   const submitBtn = document.getElementById('pbSubmitBtn');
+  hideReapplyNotice();
   if(AUTH_ENABLED && fbAuth){
     submitBtn.disabled = true;
     submitBtn.textContent = 'GÖNDERİLİYOR...';
     fbAuth.createUserWithEmailAndPassword(email, password).then(function(){
       finishApplication();
+      resetSubmitBtn();
     }).catch(function(err){
+      // (Silinen başvuru sonrası "hiç olmamış gibi" yeniden başvurabilme)
+      // Firebase Authentication hesapları istemci taraflı (Admin SDK/backend
+      // OLMAYAN) bir siteden SİLİNEMEZ — bu Firebase'in kendi güvenlik kısıtı.
+      // Admin panelinden "SİSTEMDEN SİL" dendiğinde biz sadece başvuru
+      // kaydını ve OPLab'daki canlı veri izlerini (portföy/aktivasyon)
+      // temizleyebiliyoruz; Firebase'in KENDİ hesap tablosundaki e-posta+şifre
+      // kaydı olduğu gibi kalır. Bu yüzden aynı e-postayla yeni bir hesap
+      // OLUŞTURMA isteği Firebase tarafından "zaten var" diye reddedilir.
+      // Pratik çözüm: önce az önce girilen şifreyle o (eski) hesaba GİRİŞ
+      // yapmayı deniyoruz — tutarsa başvuru sanki sıfırdan gönderilmiş gibi
+      // sorunsuz devam eder. Tutmazsa kullanıcıya şifre sıfırlama seçeneği
+      // sunuyoruz (aşağıdaki ŞİFREMİ SIFIRLA butonu).
+      if(err && err.code === 'auth/email-already-in-use'){
+        fbAuth.signInWithEmailAndPassword(email, password).then(function(){
+          finishApplication();
+        }).catch(function(){
+          showReapplyNotice();
+          showToast('Bu e-postayla önceden bir hesap açılmış ama artık sistemde aktif bir başvurun yok. Az önce girdiğin şifre önceki hesabınla eşleşmiyor — aşağıdaki seçeneklerden birini kullan.', 'error');
+        }).finally(resetSubmitBtn);
+        return;
+      }
       showToast(publicAuthErrorMessage(err), 'error');
-    }).finally(function(){
-      submitBtn.disabled = !state.applicationsOpen;
-      submitBtn.textContent = 'KAYIT OL';
+      resetSubmitBtn();
     });
   } else {
     // Firebase Auth yapılandırılmamışsa (tarayıcı-içi mod) hesap oluşturma
     // atlanır, başvuru eskisi gibi kaydedilir — "hiçbir şey bozulmaz".
     finishApplication();
   }
+});
+
+document.getElementById('pbResetPasswordBtn')?.addEventListener('click', function(){
+  const email = document.getElementById('pbEmail').value.trim();
+  if(!email){ showToast('Önce yukarıya e-posta adresini gir.', 'error'); return; }
+  if(!AUTH_ENABLED || !fbAuth){ showToast('Şu anda bu özellik kullanılamıyor.', 'error'); return; }
+  const btn = this;
+  btn.disabled = true;
+  btn.textContent = 'GÖNDERİLİYOR...';
+  fbAuth.sendPasswordResetEmail(email).then(function(){
+    showToast('Şifre sıfırlama bağlantısı ' + email + ' adresine gönderildi. Gelen kutunu (ve spam klasörünü) kontrol et.', 'success');
+  }).catch(function(err){
+    showToast('Şifre sıfırlama e-postası gönderilemedi: ' + (err && err.message ? err.message : 'bilinmeyen hata'), 'error');
+  }).finally(function(){
+    btn.disabled = false;
+    btn.textContent = 'ŞİFREMİ SIFIRLA (E-POSTA GÖNDER)';
+  });
 });
 
 /* ============ PUBLIC: ZİRVE KAYIT FORMU ============ */
