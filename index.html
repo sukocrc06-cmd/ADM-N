@@ -1223,13 +1223,39 @@ const EMAILJS_SERVICE_ID = "service_r8bspvz";
 const EMAILJS_TEMPLATE_APPLICANT = "template_09hr06n";
 const EMAILJS_TEMPLATE_ADMIN = "template_09hr06n";
 const ADMIN_NOTIFY_EMAIL = "suko.crc06@gmail.com";
-const EMAILJS_ENABLED = typeof emailjs !== 'undefined' && EMAILJS_PUBLIC_KEY !== 'YOUR_EMAILJS_PUBLIC_KEY';
-if(EMAILJS_ENABLED){
-  try{ emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY }); }catch(e){ console.warn('EmailJS başlatılamadı.', e); }
+// (Sessiz e-posta hatası düzeltmesi) Kütüphanenin varlığı artık her
+// gönderimde CANLI kontrol ediliyor (sayfa yüklenirken bir kez değil) ve
+// gerçek başarı/başarısızlık true/false olarak döndürülüyor + konsola (F12)
+// ayrıntılı log yazılıyor — bkz. admin.html'deki aynı düzeltme.
+let _emailjsInitDone = false;
+function ensureEmailJsInit(){
+  if(_emailjsInitDone || typeof emailjs === 'undefined') return;
+  try{ emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY }); _emailjsInitDone = true; }
+  catch(e){ console.warn('[EmailJS] init hatası:', e); }
 }
+ensureEmailJsInit();
 function sendNotificationEmail(templateId, params){
-  if(!EMAILJS_ENABLED) return;
-  try{ emailjs.send(EMAILJS_SERVICE_ID, templateId, params).catch(e=>console.warn('E-posta gönderilemedi:', e)); }catch(e){ console.warn('E-posta gönderilemedi:', e); }
+  if(typeof emailjs === 'undefined'){
+    console.warn('[EmailJS] Kütüphane tarayıcıda bulunamadı (CDN yüklenemedi/engellendi) — e-posta GÖNDERİLMEDİ:', templateId, params && params.to_email);
+    return Promise.resolve(false);
+  }
+  if(EMAILJS_PUBLIC_KEY === 'YOUR_EMAILJS_PUBLIC_KEY'){
+    console.warn('[EmailJS] Public key ayarlanmamış — e-posta GÖNDERİLMEDİ:', templateId, params && params.to_email);
+    return Promise.resolve(false);
+  }
+  ensureEmailJsInit();
+  try{
+    return emailjs.send(EMAILJS_SERVICE_ID, templateId, params).then(function(res){
+      console.log('[EmailJS] Gönderildi ✓', templateId, '->', params && params.to_email, res);
+      return true;
+    }).catch(function(e){
+      console.warn('[EmailJS] Gönderilemedi ✕ (servis/şablon ID\'lerini ve EmailJS hesap ayarlarını kontrol edin):', templateId, '->', params && params.to_email, e);
+      return false;
+    });
+  }catch(e){
+    console.warn('[EmailJS] Senkron hata:', e);
+    return Promise.resolve(false);
+  }
 }
 /* ============ RECAPTCHA (OPSİYONEL SPAM/BOT KORUMASI) ============ */
 // google.com/recaptcha/admin üzerinden ücretsiz bir "reCAPTCHA v2 - Kutucuk" site anahtarı oluştur ve aşağıya yapıştır.
