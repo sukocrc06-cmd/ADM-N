@@ -1998,6 +1998,58 @@ function sendApplicationDecisionEmail(app, decision){
   return Promise.resolve(false);
 }
 
+/* ============ BACKEND (ÜCRETSİZ VERCEL SUNUCU FONKSİYONU) ============ */
+// (Gerçek Firebase hesap silme) Tarayıcıdan çalışan bu admin paneli, başka
+// birinin Firebase Authentication hesabını SİLEMEZ — bu, Firebase'in bilinçli
+// güvenlik kısıtı, sadece "Admin SDK" (sunucu tarafı, ayrıcalıklı erişim) ile
+// mümkün. "SİSTEMDEN SİL" dediğimizde önceden sadece başvuru kaydı + OPLab
+// canlı veri izleri temizleniyordu, kişinin GERÇEK hesabı kalıyordu — bu da
+// aynı e-postayla tekrar başvurulmak istendiğinde "e-posta zaten kullanılıyor"
+// hatasına yol açıyordu.
+//
+// Çözüm: Firebase Cloud Functions (ücretli Blaze plan + kart gerektirir)
+// YERİNE, zaten kullandığımız Vercel'in ÜCRETSİZ (kart istemeyen) sunucu
+// fonksiyonu özelliğini kullanıyoruz — bkz. /api/delete-user.js. O dosya bu
+// projenin Vercel'e deploy edilen KÖKÜNE eklenmeli (bkz. kurulum notları).
+// Backend kurulmadıysa (ya da admin gerçek bir Firebase oturumuyla giriş
+// yapmadıysa) bu adım sessizce atlanır — yerel silme zaten tamamlanmış olur,
+// "hiçbir şey bozulmaz" felsefesiyle aynı.
+//
+// Kendi Vercel domain'in değişirse burayı güncelle:
+const BACKEND_API_BASE = 'https://adm-n-one.vercel.app';
+
+function deleteFirebaseAuthAccounts(emails){
+  const list = (emails || []).filter(Boolean);
+  if(!list.length) return;
+  if(!AUTH_ENABLED || !firebase.auth().currentUser){
+    console.warn('[Backend] Gerçek hesap silme atlandı — admin gerçek bir Firebase oturumuyla giriş yapmamış (ya da Firebase Auth yapılandırılmamış).');
+    return;
+  }
+  firebase.auth().currentUser.getIdToken().then(function(idToken){
+    return fetch(BACKEND_API_BASE + '/api/delete-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+      body: JSON.stringify({ emails: list })
+    });
+  }).then(function(res){
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }).then(function(data){
+    const failed = (data.results || []).filter(function(r){ return !r.deleted; });
+    if(failed.length){
+      console.warn('[Backend] Bazı Firebase hesapları silinemedi:', failed);
+      showToast(failed.length + ' hesap Firebase\'den silinemedi (F12 konsolu kontrol edin).', 'warn');
+    } else {
+      console.log('[Backend] Firebase hesapları gerçekten silindi ✓', list);
+    }
+  }).catch(function(e){
+    // Backend henüz kurulmadıysa (api/delete-user.js deploy edilmediyse) bu
+    // istek 404/ağ hatasıyla düşer — sessizce loglanır, yerel silme zaten
+    // tamamlanmış olduğu için kullanıcı deneyimi bozulmaz.
+    console.warn('[Backend] Hesap silme isteği başarısız (backend henüz kurulmamış olabilir):', e);
+  });
+}
+
 function syncOplabSettingsUI(){
   const group = document.getElementById('toggleOplabErisim');
   if(group){ group.querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value === (state.oplabEnabled ? 'acik' : 'kapali'))); }
@@ -2237,11 +2289,15 @@ function deleteApplications(ids){
   renderBasvuruDetail();
   renderDashboardDynamic();
   renderKullaniciVeritabani();
-  cleanupOplabDataForIds(ids);
   saveShared();
   const msg = removed.length === 1 ? `${removed[0].name} sistemden silindi.` : `${removed.length} yarışmacı sistemden silindi.`;
   addActivity(msg);
-  showUndoDeleteToast(removed);
+  // (OPLab hayalet veri temizliği + GERÇEK Firebase hesap silme) BİLEREK
+  // burada değil, showUndoDeleteToast()'un 10 saniyelik "GERİ AL" penceresi
+  // dolduğunda tetikleniyor (bkz. finalizeApplicationDeletion) — Firebase
+  // hesap silme GERİ ALINAMAZ bir işlem, "GERİ AL"a basılırsa hiçbiri hiç
+  // gerçekleşmemiş olmalı.
+  showUndoDeleteToast(removed, ids);
 }
 
 /* ============ SİLME İÇİN "GERİ AL" (UNDO) ============ */
@@ -2250,7 +2306,7 @@ function deleteApplications(ids){
 // çağrılıyor — ama kısa bir süre boyunca tek tıkla geri eklenebiliyor.
 // Süre dolunca (10sn) bildirim kaybolur ve silme kalıcı hale gelir.
 let undoDeleteTimer = null;
-function showUndoDeleteToast(removedApps){
+function showUndoDeleteToast(removedApps, ids){
   const container = document.getElementById('toastContainer');
   const existing = document.getElementById('undoDeleteToast');
   if(existing) existing.remove();
@@ -2273,7 +2329,15 @@ function showUndoDeleteToast(removedApps){
   undoDeleteTimer = setTimeout(()=>{
     el.style.opacity = '0'; el.style.transition = 'opacity .3s';
     setTimeout(()=>el.remove(), 300);
+    finalizeApplicationDeletion(removedApps, ids);
   }, 10000);
+}
+// (Kalıcı/geri alınamaz temizlik) "GERİ AL" penceresi dolduktan SONRA
+// çalışır: OPLab'daki hayalet canlı portföy/aktivasyon verisini VE — backend
+// kurulmuşsa — kişinin GERÇEK Firebase Authentication hesabını siler.
+function finalizeApplicationDeletion(removedApps, ids){
+  cleanupOplabDataForIds(ids);
+  deleteFirebaseAuthAccounts((removedApps || []).map(a => a.email));
 }
 function restoreDeletedApplications(removedApps){
   // Geri eklenenler listenin başına konuyor — id'ler zaten benzersiz

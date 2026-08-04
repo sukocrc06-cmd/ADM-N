@@ -1,0 +1,9 @@
+{
+  "name": "finteclub-admin-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FinTeClub admin paneli için ücretsiz Vercel sunucu fonksiyonu (Firebase hesap silme) bağımlılıkları.",
+  "dependencies": {
+    "firebase-admin": "^12.6.0"
+  }
+}
