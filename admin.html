@@ -766,6 +766,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
       <li><button class="nav-item" data-page="page-menu">Menü</button></li>
       <li><button class="nav-item" data-page="page-yarisma">FinteLig Yarışması</button></li>
       <li><button class="nav-item" data-page="page-basvuru">Başvuru Onayları<span class="nav-badge" id="navBadgeBasvuru"></span></button></li>
+      <li><button class="nav-item" data-page="page-kullanicilar">Kullanıcı Veritabanı</button></li>
       <li><button class="nav-item" data-page="page-canli">Canlı İzleme</button></li>
       <li><button class="nav-item" data-page="page-portfoy">Kullanıcı Portföyleri</button></li>
       <li><button class="nav-item" data-page="page-sonuclar">Yarışma Sonuçları</button></li>
@@ -995,6 +996,42 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
               <button class="btn btn-red" style="flex:1;" disabled>REDDET</button>
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PAGE: KULLANICI VERİTABANI ============ -->
+    <!-- (Gerçek Firebase Authentication ile OPLab girişi) Bu tablo tüm
+         kayıtlı kullanıcıları (başvuranları) TEK YERDE listeler — ama
+         şifre hiçbir zaman burada (veya başka herhangi bir yerde) görünmez.
+         Bu, ihmal değil, kasıtlı bir güvenlik kararı: Firebase Authentication
+         şifreleri hash'ler ve düz metin olarak HİÇBİR YERDE saklamaz —
+         admin panelinden bile geri getirilemez. Bu, kullanıcıları (ve seni,
+         bir veri sızıntısı olursa doğabilecek sorumluluktan) korur. -->
+    <section id="page-kullanicilar" class="page">
+      <div class="grid-3">
+        <div class="stat-card"><div class="stat-label">TOPLAM KULLANICI</div><div class="stat-value" id="kvToplamCount">0</div><div class="stat-sub">Sisteme kayıtlı tüm başvuranlar</div></div>
+        <div class="stat-card"><div class="stat-label">ONAYLI HESAP</div><div class="stat-value green" id="kvOnayliCount">0</div><div class="stat-sub">OPLab'a giriş yapabilir</div></div>
+        <div class="stat-card"><div class="stat-label">ONAY BEKLEYEN</div><div class="stat-value yellow" id="kvBekleyenCount">0</div><div class="stat-sub">Hesabı var, erişimi yok</div></div>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">Kullanıcılar</h3>
+        <p class="section-desc">Kayıt olan her kullanıcının bilgileri (ad, e-posta, kurum, durum) burada listelenir.</p>
+        <div class="empty-state" style="padding:12px 16px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);margin-bottom:16px;text-align:left;display:block;">
+          <strong style="color:var(--text-dim);">Şifreler burada (ve hiçbir yerde) görünmez.</strong>
+          <span style="display:block;margin-top:4px;">OPLab girişi gerçek Firebase Authentication ile korunur — şifreler güvenli biçimde hash'lenir ve düz metin olarak hiçbir zaman saklanmaz, admin panelinden de geri getirilemez. Bu, kullanıcı hesaplarını (ve sizi olası bir veri sızıntısı sorumluluğundan) korur.</span>
+        </div>
+        <div class="search-row">
+          <input type="text" id="kullaniciSearch" placeholder="Kullanıcı ara: ad, e-posta, kurum...">
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr><th>AD SOYAD</th><th>E-POSTA</th><th>ÜNİVERSİTE / BÖLÜM</th><th>SEVİYE</th><th>DURUM</th><th>BAŞVURU TARİHİ</th><th>ONAY TARİHİ</th></tr></thead>
+            <tbody id="kullaniciTable">
+              <tr><td colspan="7"><div class="empty-state" style="padding:26px 0;"><div class="icon">—</div><span>Henüz kayıtlı kullanıcı yok.</span></div></td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </section>
@@ -1502,7 +1539,7 @@ function hydrateFromShared(){
 }
 function onSharedDataUpdated(){
   hydrateFromShared();
-  renderBasvuruList(); renderBasvuruDetail(); renderZirveList(); renderZirveDetail(); renderDashboardDynamic();
+  renderBasvuruList(); renderBasvuruDetail(); renderZirveList(); renderZirveDetail(); renderDashboardDynamic(); renderKullaniciVeritabani();
   syncGlobalStatus();
   syncZirveSettingsUI();
   syncOplabSettingsUI();
@@ -1716,6 +1753,7 @@ const PAGES = {
   'page-menu': {title:'YÖNETİM MENÜSÜ', sub:'FinteLig yarışması ve FinTeClub Zirve süreçlerini yönetin.'},
   'page-yarisma': {title:'FINTELIG YARIŞMA YÖNETİMİ', sub:'Yarışma tarih aralığını, erişim durumunu ve temel yarışma ayarlarını yönetin.'},
   'page-basvuru': {title:'YARIŞMACI BAŞVURU ONAYLARI', sub:'FinteLig yarışmasına katılmak isteyen kullanıcıları inceleyin, onaylayın veya reddedin.'},
+  'page-kullanicilar': {title:'KULLANICI VERİTABANI', sub:'Kayıtlı tüm kullanıcıları (ad, e-posta, kurum, durum) tek tabloda görüntüleyin.'},
   'page-canli': {title:'CANLI YARIŞMA İZLEME', sub:'Yarışmacı portföylerini, anlık sıralamayı ve işlem hareketlerini canlı olarak takip edin.'},
   'page-portfoy': {title:'KULLANICI PORTFÖY DETAYI', sub:'Seçili yarışmacının portföy değerini, varlık dağılımını ve işlem geçmişini inceleyin.'},
   'page-sonuclar': {title:'YARIŞMA SONUÇLARI', sub:'FinteLig yarışmasının final sıralamasını, kazananlarını ve sonuç yayın durumunu yönetin.'},
@@ -1737,6 +1775,7 @@ function navigateTo(pageId){
   window.scrollTo({top:0,behavior:'smooth'});
   closeMobileSidebar();
   updateNotifications();
+  if(pageId === 'page-kullanicilar') renderKullaniciVeritabani();
   if(pageId === 'page-zirve') syncZirveSettingsUI();
   if(pageId === 'page-oplab'){ syncOplabSettingsUI(); renderOplabVisitorList(); }
   if(pageId === 'page-canli') renderCanliIzleme();
@@ -1825,6 +1864,25 @@ if(EMAILJS_ENABLED){
 function sendNotificationEmail(templateId, params){
   if(!EMAILJS_ENABLED) return;
   try{ emailjs.send(EMAILJS_SERVICE_ID, templateId, params).catch(e=>console.warn('E-posta gönderilemedi:', e)); }catch(e){ console.warn('E-posta gönderilemedi:', e); }
+}
+// Admin bir başvuruyu onayladığında/reddettiğinde başvurana otomatik bilgi
+// e-postası gider — başvuru durumunu takip etmek için siteye geri dönmesine
+// gerek kalmaz.
+function sendApplicationDecisionEmail(app, decision){
+  if(!app || !app.email) return;
+  if(decision === 'onayli'){
+    sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
+      to_email: app.email, to_name: app.name,
+      subject_line: 'FinteLig Başvurun Onaylandı',
+      message_body: `Merhaba ${app.name}, FinteLig yarışması başvurun ONAYLANDI! Kayıt olurken belirlediğin e-posta ve şifreyle OPLab (alım-satım platformu) üzerinde giriş yapabilir, "FinteLig Yarışmacısı" olarak yarışmaya katılabilirsin.`
+    });
+  } else if(decision === 'reddedildi'){
+    sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
+      to_email: app.email, to_name: app.name,
+      subject_line: 'FinteLig Başvuru Sonucun',
+      message_body: `Merhaba ${app.name}, FinteLig yarışması başvurunu değerlendirdik; bu dönem için başvurun UYGUN BULUNMADI. İlgini gösterdiğin için teşekkür ederiz, bir sonraki dönemde tekrar başvurabilirsin.`
+    });
+  }
 }
 
 function syncOplabSettingsUI(){
@@ -1941,6 +1999,52 @@ const basvuruEmptyMsgs = {
 };
 
 function initials(name){ return name.split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+
+const kvStatusMap = {bekliyor:{label:'ONAY BEKLİYOR', cls:'yellow'}, onayli:{label:'ONAYLI', cls:'green'}, reddedildi:{label:'REDDEDİLDİ', cls:'red'}};
+
+/* ============ KULLANICI VERİTABANI ============ */
+// (Gerçek Firebase Authentication) Şifre BİLEREK bu tabloda yok — Firebase
+// Auth şifreleri hash'ler ve düz metin olarak hiçbir yerde saklamaz, admin
+// panelinden de geri getirilemez. Burada gösterilen her şey (ad, e-posta,
+// kurum, durum, tarihler) state.applications'ta zaten var; bu sadece hepsini
+// tek bir arama yapılabilir tabloda toplayan bir görünüm.
+function renderKullaniciVeritabani(){
+  const total = state.applications.length;
+  const onayli = state.applications.filter(a=>a.status==='onayli').length;
+  const bekleyen = state.applications.filter(a=>a.status==='bekliyor').length;
+  document.getElementById('kvToplamCount').textContent = total;
+  document.getElementById('kvOnayliCount').textContent = onayli;
+  document.getElementById('kvBekleyenCount').textContent = bekleyen;
+
+  const q = (document.getElementById('kullaniciSearch').value || '').toLowerCase().trim();
+  let rows = state.applications.slice().sort((a,b)=> (b.id||0) - (a.id||0));
+  if(q){
+    rows = rows.filter(a =>
+      (a.name||'').toLowerCase().includes(q) ||
+      (a.email||'').toLowerCase().includes(q) ||
+      (a.org||'').toLowerCase().includes(q)
+    );
+  }
+
+  const tbody = document.getElementById('kullaniciTable');
+  if(rows.length === 0){
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state" style="padding:26px 0;"><div class="icon">—</div><span>${q ? 'Aramanızla eşleşen kullanıcı bulunamadı.' : 'Henüz kayıtlı kullanıcı yok.'}</span></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(a => {
+    const s = kvStatusMap[a.status] || {label:a.status, cls:''};
+    return `<tr>
+      <td>${a.name}</td>
+      <td>${a.email}</td>
+      <td>${a.org || '—'}</td>
+      <td>${a.level || '—'}</td>
+      <td><span class="status-pill ${s.cls}">${s.label}</span></td>
+      <td>${a.date || '—'}</td>
+      <td>${a.approvedDate || '—'}</td>
+    </tr>`;
+  }).join('');
+}
+document.getElementById('kullaniciSearch').addEventListener('input', renderKullaniciVeritabani);
 
 function renderBasvuruList(){
   const bekleyen = state.applications.filter(a=>a.status==='bekliyor');
@@ -2147,12 +2251,15 @@ function renderBasvuruDetail(){
     <button class="btn" style="width:100%;margin-top:10px;background:transparent;border:1px solid #fca5a5;color:#fca5a5;" id="deleteAppBtn">SİSTEMDEN SİL</button>`;
   document.getElementById('approveAppBtn')?.addEventListener('click', ()=>{
     app.status='onayli'; app.approvedDate = new Date().toLocaleDateString('tr-TR');
-    showToast(app.name+' başvurusu onaylandı. OPLab girişinde kendi e-posta/şifresini kullanabilir.','success');
-    renderBasvuruList(); renderBasvuruDetail(); renderDashboardDynamic(); saveShared();
+    sendApplicationDecisionEmail(app, 'onayli');
+    showToast(app.name+' başvurusu onaylandı, bilgilendirme e-postası gönderildi.','success');
+    renderBasvuruList(); renderBasvuruDetail(); renderDashboardDynamic(); renderKullaniciVeritabani(); saveShared();
   });
   document.getElementById('rejectAppBtn')?.addEventListener('click', ()=>{
-    app.status='reddedildi'; showToast(app.name+' başvurusu reddedildi.','error');
-    renderBasvuruList(); renderBasvuruDetail(); renderDashboardDynamic(); saveShared();
+    app.status='reddedildi';
+    sendApplicationDecisionEmail(app, 'reddedildi');
+    showToast(app.name+' başvurusu reddedildi, bilgilendirme e-postası gönderildi.','error');
+    renderBasvuruList(); renderBasvuruDetail(); renderDashboardDynamic(); renderKullaniciVeritabani(); saveShared();
   });
   document.getElementById('deleteAppBtn')?.addEventListener('click', ()=>{
     const ok = confirm(`${app.name} adlı yarışmacıyı kalıcı olarak silmek istediğine emin misin?\n\nBu işlem GERİ ALINAMAZ — ne bekleyen, ne onaylı, ne reddedilen listesinde görünecek; sistemden tamamen kaldırılacak.`);
@@ -2321,8 +2428,9 @@ function renderDashboardDynamic(){
       if(app){
         app.status='onayli';
         app.approvedDate = new Date().toLocaleDateString('tr-TR');
-        showToast(app.name+' onaylandı. OPLab girişinde kendi e-posta/şifresini kullanabilir.','success');
-        renderDashboardDynamic(); renderBasvuruList(); renderBasvuruDetail(); saveShared();
+        sendApplicationDecisionEmail(app, 'onayli');
+        showToast(app.name+' onaylandı, bilgilendirme e-postası gönderildi.','success');
+        renderDashboardDynamic(); renderBasvuruList(); renderBasvuruDetail(); renderKullaniciVeritabani(); saveShared();
       }
     });
   });
