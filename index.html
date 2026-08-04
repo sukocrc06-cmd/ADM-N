@@ -672,61 +672,8 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
   table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
 }
 
-/* ============ TANITIM SİHİRBAZI (SITE TOUR) ============ */
-.tour-fab{
-  position:fixed;bottom:26px;right:26px;z-index:200;
-  display:flex;align-items:center;gap:9px;padding:15px 24px;border-radius:30px;
-  background:linear-gradient(180deg,#2a4ecb,#1c357f);border:1px solid #3a5bd8;color:#fff;
-  font-family:'Oswald',sans-serif;font-weight:700;font-size:13px;letter-spacing:0.03em;
-  box-shadow:0 10px 26px -8px rgba(42,78,203,0.55);
-  transition:transform .18s ease,box-shadow .18s ease;
-}
-.tour-fab:hover{transform:translateY(-3px) scale(1.05);box-shadow:0 14px 30px -8px rgba(42,78,203,0.7);}
-.tour-fab.hidden{display:none;}
-.tour-overlay{position:fixed;inset:0;z-index:300;pointer-events:none;}
-.tour-overlay.hidden{display:none;}
-.tour-overlay::before{content:'';position:fixed;inset:0;background:transparent;pointer-events:auto;transition:background .25s ease;}
-.tour-overlay.no-spot::before{background:rgba(4,6,14,0.4);}
-.tour-spot{
-  position:fixed;pointer-events:none;border-radius:14px;opacity:0;
-  box-shadow:0 0 0 5px rgba(61,111,238,0.55),0 0 0 9999px rgba(4,6,14,0.72),0 0 36px 4px rgba(61,111,238,0.5);
-  transition:top .4s cubic-bezier(.4,0,.2,1),left .4s cubic-bezier(.4,0,.2,1),width .4s cubic-bezier(.4,0,.2,1),height .4s cubic-bezier(.4,0,.2,1),opacity .3s ease;
-}
-.tour-spot.active{opacity:1;animation:tourSpotPulse 1.9s ease-in-out infinite;}
-@keyframes tourSpotPulse{
-  0%,100%{box-shadow:0 0 0 5px rgba(61,111,238,0.55),0 0 0 9999px rgba(4,6,14,0.72),0 0 36px 4px rgba(61,111,238,0.5);}
-  50%{box-shadow:0 0 0 8px rgba(61,111,238,0.8),0 0 0 9999px rgba(4,6,14,0.72),0 0 52px 10px rgba(61,111,238,0.75);}
-}
-.tour-card{
-  position:fixed;left:50%;bottom:28px;transform:translateX(-50%);
-  width:min(560px,calc(100vw - 40px));
-  background:var(--card-bg);border:1px solid var(--border-strong);border-radius:22px;
-  padding:26px 28px;box-shadow:0 20px 50px -12px rgba(0,0,0,0.65);
-  pointer-events:auto;
-}
-.tour-close{position:absolute;top:14px;right:16px;background:none;border:none;color:var(--text-dim);font-size:22px;line-height:1;padding:6px;transition:color .15s,transform .15s ease;}
-.tour-close:hover{color:var(--text);transform:scale(1.15);}
-.tour-progress{display:flex;gap:6px;margin-bottom:16px;}
-.tour-progress span{height:4px;flex:1;border-radius:2px;background:var(--border-strong);transition:background .2s;}
-.tour-progress span.done{background:var(--blue);}
-.tour-stepmap{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;}
-.tour-stepmap button{font-family:'Inter',sans-serif;font-size:11px;font-weight:600;padding:5px 11px;border-radius:20px;border:1px solid var(--border-strong);background:var(--card-bg-2);color:var(--text-dim);cursor:pointer;transition:all .15s;white-space:nowrap;}
-.tour-stepmap button:hover{border-color:var(--blue);color:var(--text);transform:translateY(-1px);}
-.tour-stepmap button.current{background:rgba(61,111,238,0.2);border-color:var(--blue);color:#8fb0ff;}
-.tour-stepmap button.done{color:var(--blue);}
-.tour-step-label{color:var(--blue);font-size:11.5px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;}
-.tour-card h3{font-size:21px;margin-bottom:10px;}
-.tour-card p{color:var(--text-dim);font-size:14px;line-height:1.65;margin-bottom:22px;text-transform:none;letter-spacing:0;font-weight:400;font-family:'Inter',sans-serif;}
-.tour-actions{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
-.tour-actions .btn{padding:10px 18px;font-size:12.5px;}
-.tour-celebrate{position:fixed;inset:0;z-index:310;display:flex;align-items:center;justify-content:center;pointer-events:none;}
-.tour-celebrate.hidden{display:none;}
-.tour-celebrate-badge{background:linear-gradient(180deg,#2a4ecb,#1c357f);border:1px solid #3a5bd8;color:#fff;padding:24px 36px;border-radius:20px;font-family:'Oswald',sans-serif;font-weight:700;font-size:19px;letter-spacing:0.03em;box-shadow:0 20px 50px -10px rgba(42,78,203,0.8);text-align:center;animation:tourBadgePop .45s cubic-bezier(.34,1.56,.64,1);}
-.tour-celebrate-badge span{display:block;font-family:'Inter',sans-serif;font-weight:400;font-size:12.5px;color:rgba(255,255,255,0.75);margin-top:6px;letter-spacing:0;text-transform:none;}
-@keyframes tourBadgePop{0%{transform:scale(0.5);opacity:0;}60%{transform:scale(1.08);opacity:1;}100%{transform:scale(1);opacity:1;}}
-.confetti-piece{position:fixed;top:-20px;width:8px;height:14px;opacity:0.9;pointer-events:none;z-index:309;}
-@keyframes confettiFall{to{transform:translateY(105vh) rotate(540deg);opacity:0.2;}}
-@media (max-width:560px){.tour-fab span{display:none;}.tour-fab{padding:15px;}}
+/* (4 Ağustos 2026) Tanıtım Sihirbazı (sağ alttaki "Tanıtım Turu" düğmesi ve
+   ilgili tur CSS'i) kullanıcı isteğiyle kaldırıldı. */
 </style>
 </head>
 <body>
@@ -1136,32 +1083,6 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
       </div>
     </div>
   </section>
-</div>
-
-<!-- ============ TANITIM SİHİRBAZI (SITE TOUR) ============ -->
-<button id="tourFab" class="tour-fab" title="Siteyi adım adım tanıt">🧭 <span>Tanıtım Turu</span></button>
-
-<div id="tourOverlay" class="tour-overlay hidden">
-  <div class="tour-spot" id="tourSpot"></div>
-  <div class="tour-card">
-    <button class="tour-close" id="tourCloseBtn">×</button>
-    <div class="tour-progress" id="tourProgress"></div>
-    <div class="tour-stepmap" id="tourStepMap"></div>
-    <div class="tour-step-label" id="tourStepLabel">ADIM 1/6</div>
-    <h3 id="tourTitle"></h3>
-    <p id="tourDesc"></p>
-    <div class="tour-actions">
-      <button class="btn" id="tourSkipBtn">Turu Kapat</button>
-      <div style="display:flex;gap:10px;">
-        <button class="btn" id="tourPrevBtn">‹ Geri</button>
-        <button class="btn btn-blue" id="tourNextBtn">İleri ›</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="tour-celebrate hidden" id="tourCelebrate">
-  <div class="tour-celebrate-badge">🎉 Turu Tamamladın!<span>Siteyi keşfetmeye devam edebilirsin.</span></div>
 </div>
 
 <div class="toast-container" id="toastContainer"></div>
@@ -1816,120 +1737,8 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
   // zaman gösterilmiyor/tıklanılabilir olmuyor, bkz. yukarıdaki yorum.)
 });
 
-/* ============ TANITIM SİHİRBAZI (SITE TOUR) ============ */
-const tourSteps = [
-  { page:'pub-ekosistem', title:'FinTeClub Ekosistemi', desc:'Buradasın: FinTeClub’ın ana merkezi. Buradan FinteLig yarışmasına veya FinTeClub Zirve etkinliğine ulaşabilirsin.', spotlight:'#pub-ekosistem .eco-grid' },
-  { page:'pub-home', title:'FinteLig Yarışması', desc:'Bu, FinteLig borsa simülasyon yarışmasının tanıtım sayfası. Yarışmanın nasıl çalıştığını burada öğrenip "Yarışmaya Katıl" ile başvurabilirsin.', spotlight:'#pub-home .pub-hero-actions' },
-  { page:'pub-sonuclar', title:'Yarışma Sonuçları', desc:'Yarışma başladıktan sonra genel sıralamayı, ilk üç yarışmacıyı ve kendi sonucunu bu sayfadan takip edeceksin.', spotlight:'#pub-sonuclar .grid-3' },
-  { page:'pub-basvuru', title:'Başvuru Formu', desc:'Yarışmaya katılmak için gerekli bilgileri bu formdan gönderirsin. Başvurun admin onayına düşer.', spotlight:'#pubBasvuruForm' },
-  { page:'pub-zirve', title:'FinTeClub Zirve', desc:'FinTeClub Zirve etkinliğinin tanıtım sayfası. Etkinlikte finans, teknoloji ve ekosistem başlıklarında neler olduğunu burada görebilirsin.', spotlight:'#pub-zirve .grid-3-even' },
-  { page:'pub-zirve-form', title:'Zirve Kayıt Formu', desc:'Zirve’ye kulüp olarak katılmak için kulüp ve 5 öğrenci katılımcı bilgisini bu formdan gönderirsin.', spotlight:'#pubZirveForm' }
-];
-let tourIndex = 0;
-let tourSpotResizeTimer = null;
-
-function renderTourProgress(){
-  const wrap = document.getElementById('tourProgress');
-  wrap.innerHTML = tourSteps.map((_,i)=>`<span class="${i<=tourIndex?'done':''}"></span>`).join('');
-}
-
-function renderTourStepMap(){
-  const wrap = document.getElementById('tourStepMap');
-  wrap.innerHTML = tourSteps.map((s,i)=>`<button type="button" class="${i===tourIndex?'current':(i<tourIndex?'done':'')}" data-jump="${i}">${i+1}. ${s.title}</button>`).join('');
-  wrap.querySelectorAll('button[data-jump]').forEach(b=>{
-    b.addEventListener('click', ()=>{ tourIndex = parseInt(b.dataset.jump,10); showTourStep(); });
-  });
-}
-
-function positionTourSpot(target){
-  const spot = document.getElementById('tourSpot');
-  const pad = 10;
-  const r = target.getBoundingClientRect();
-  spot.style.top = (r.top - pad) + 'px';
-  spot.style.left = (r.left - pad) + 'px';
-  spot.style.width = (r.width + pad*2) + 'px';
-  spot.style.height = (r.height + pad*2) + 'px';
-}
-
-function updateTourSpotlight(){
-  const step = tourSteps[tourIndex];
-  const spot = document.getElementById('tourSpot');
-  const overlay = document.getElementById('tourOverlay');
-  const target = step.spotlight ? document.querySelector(step.spotlight) : null;
-  clearTimeout(tourSpotResizeTimer);
-  if(target){
-    positionTourSpot(target);
-    spot.classList.add('active');
-    overlay.classList.remove('no-spot');
-    target.scrollIntoView({block:'center', behavior:'smooth'});
-    tourSpotResizeTimer = setTimeout(()=>{ positionTourSpot(target); }, 380);
-  } else {
-    spot.classList.remove('active');
-    overlay.classList.add('no-spot');
-  }
-}
-window.addEventListener('resize', ()=>{
-  if(!document.getElementById('tourOverlay').classList.contains('hidden')) updateTourSpotlight();
-});
-
-function showTourStep(){
-  const step = tourSteps[tourIndex];
-  navigatePublic(step.page);
-  document.getElementById('tourStepLabel').textContent = `ADIM ${tourIndex+1}/${tourSteps.length}`;
-  document.getElementById('tourTitle').textContent = step.title;
-  document.getElementById('tourDesc').textContent = step.desc;
-  document.getElementById('tourPrevBtn').disabled = tourIndex===0;
-  document.getElementById('tourNextBtn').textContent = tourIndex===tourSteps.length-1 ? 'Bitir ✓' : 'İleri ›';
-  renderTourProgress();
-  renderTourStepMap();
-  updateTourSpotlight();
-}
-
-function startTour(){
-  tourIndex = 0;
-  document.getElementById('tourOverlay').classList.remove('hidden');
-  document.getElementById('tourFab').classList.add('hidden');
-  showTourStep();
-}
-function endTour(){
-  document.getElementById('tourOverlay').classList.add('hidden');
-  document.getElementById('tourFab').classList.remove('hidden');
-  document.getElementById('tourSpot').classList.remove('active');
-}
-function launchConfetti(){
-  const colors = ['#3d6fee','#22c55e','#f5a623','#e8546b','#8fb0ff'];
-  for(let i=0;i<44;i++){
-    const p = document.createElement('div');
-    p.className = 'confetti-piece';
-    p.style.left = (Math.random()*100)+'vw';
-    p.style.background = colors[Math.floor(Math.random()*colors.length)];
-    p.style.borderRadius = Math.random()>0.5 ? '50%' : '2px';
-    const dur = (2.2 + Math.random()*1.3);
-    p.style.animation = `confettiFall ${dur}s linear forwards`;
-    p.style.animationDelay = (Math.random()*0.4)+'s';
-    document.body.appendChild(p);
-    setTimeout(()=>p.remove(), (dur+0.5)*1000);
-  }
-}
-function celebrateTourFinish(){
-  const cel = document.getElementById('tourCelebrate');
-  cel.classList.remove('hidden');
-  launchConfetti();
-  setTimeout(()=>{ cel.classList.add('hidden'); }, 2200);
-}
-document.getElementById('tourFab').addEventListener('click', startTour);
-document.getElementById('tourCloseBtn').addEventListener('click', endTour);
-document.getElementById('tourSkipBtn').addEventListener('click', endTour);
-document.getElementById('tourPrevBtn').addEventListener('click', ()=>{ if(tourIndex>0){ tourIndex--; showTourStep(); } });
-document.getElementById('tourNextBtn').addEventListener('click', ()=>{
-  if(tourIndex < tourSteps.length-1){ tourIndex++; showTourStep(); }
-  else {
-    endTour();
-    navigatePublic('pub-ekosistem');
-    celebrateTourFinish();
-    showToast('Tanıtım turu tamamlandı! Siteyi keşfetmeye devam edebilirsin.', 'success');
-  }
-});
+/* (4 Ağustos 2026) Tanıtım Sihirbazı (sağ alttaki "Tanıtım Turu" düğmesi ve
+   adım adım site turu) kullanıcı isteğiyle kaldırıldı. */
 
 /* ============ INIT ============ */
 hydrateFromShared();
