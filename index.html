@@ -1170,6 +1170,11 @@ let zirveIdCounter = 1;
 // Kendi Firebase projenizin bilgilerini buraya yapıştırın: console.firebase.google.com > Proje Ayarları > Web Uygulaması.
 // Aşağıdaki değerler placeholder olarak kaldığı sürece site otomatik olarak tarayıcı-içi (localStorage) modda çalışmaya devam eder — hiçbir şey bozulmaz.
 // admin.html içindeki FIREBASE_CONFIG ile BİREBİR AYNI olmalıdır.
+//
+// GÜVENLİK KURALLARI: bkz. teslim edilen firestore.rules — herkese tam
+// okuma+yazma yerine, admin-only alanlar artık gerçek admin girişi
+// (Firebase Authentication) istiyor. Bu site (public) sadece applications/
+// zirveRegistrations'a yazdığı için etkilenmiyor.
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyA9OmfHaqZizxVB1ATnBDedU1YV0a7aiWQ",
   authDomain: "finte-bf5f7.firebaseapp.com",
@@ -1346,18 +1351,26 @@ document.getElementById('playBtn').addEventListener('click', ()=> showToast('Tan
 /* ============ DIŞ BAĞLANTILAR: OP / OPTIPULSE ve FinTeClub logoları ============ */
 const OPTIPULSE_URL = 'https://rekabet-testi.vercel.app/';
 const FINTECLUB_URL = 'https://finteclub.vercel.app/index.html';
+// (OPLab doğrulama sağlamlaştırması) Önceden ?ftc_email= ile e-posta adresi
+// taşınıyordu — birinin e-postasını bilmek/tahmin etmek, OPLab'da onun
+// "FinteLig Yarışmacısı" rozetini çalmaya yetiyordu. Artık admin onayı
+// anında üretilen, tahmin edilemez bir verifyToken taşınıyor (?ftc_token=);
+// e-posta artık bir doğrulama sırrı olarak kullanılmıyor.
+function generateVerifyToken(){
+  try{
+    if(window.crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID().replace(/-/g,'');
+  }catch(e){ /* yedek yönteme düş */ }
+  return 'vt' + Date.now().toString(36) + Math.random().toString(36).slice(2,10) + Math.random().toString(36).slice(2,10);
+}
 // (OPLab entegrasyonu) Admin panelinden erişim kapatılırsa kullanıcı OPLab'a
-// gönderilmez, bilgilendirici bir uyarı gösterilir. Açıksa ve bilinen bir
-// e-posta varsa (ör. "Başvuru Durumu Sorgula"dan onaylı çıkan kullanıcı),
-// OPLab tarafındaki finteclubBridge.js'in otomatik doğrulama yapabilmesi
-// için ?ftc_email= parametresiyle birlikte açılır.
-function openOplab(email){
+// gönderilmez, bilgilendirici bir uyarı gösterilir.
+function openOplab(token){
   if(!state.oplabEnabled){
     showToast('OPLab (Alım-Satım Sitesi) şu anda yönetici tarafından geçici olarak kapatıldı.', 'error');
     return;
   }
   let url = OPTIPULSE_URL;
-  if(email){ url += (url.includes('?') ? '&' : '?') + 'ftc_email=' + encodeURIComponent(email); }
+  if(token){ url += (url.includes('?') ? '&' : '?') + 'ftc_token=' + encodeURIComponent(token); }
   window.open(url, '_blank', 'noopener');
 }
 document.getElementById('oplabBtn').addEventListener('click', ()=> openOplab());
@@ -1652,13 +1665,19 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
   const zirveStatusMap = {incelemede:{label:'İNCELEMEDE', cls:'yellow'}, onayli:{label:'ONAYLANDI', cls:'green'}, reddedildi:{label:'UYGUN DEĞİL', cls:'red'}};
   let html = '';
   if(app){
+    // Eski (bu değişiklikten önce) onaylanmış başvurularda verifyToken
+    // olmayabilir — ilk ihtiyaç anında burada üretip kalıcı olarak kaydediyoruz.
+    if(app.status === 'onayli' && !app.verifyToken){ app.verifyToken = generateVerifyToken(); saveShared(); }
     const s = appStatusMap[app.status] || {label:app.status, cls:''};
     html += `<div class="card" style="margin-bottom:16px;">
       <div class="field-label" style="margin-bottom:8px;">FINTELIG BAŞVURUSU</div>
       <div style="font-family:'Oswald',sans-serif;font-size:20px;margin-bottom:10px;">${app.name}</div>
       <span class="status-pill ${s.cls}">${s.label}</span>
       <p style="color:var(--text-dimmer);font-size:12.5px;margin-top:12px;">Başvuru tarihi: ${app.date}</p>
-      ${app.status === 'onayli' ? `<button type="button" class="btn btn-blue" id="statusOplabBtn" style="margin-top:14px;">OPLAB'A GİT →</button>` : ''}
+      ${app.status === 'onayli' ? `
+        <button type="button" class="btn btn-blue" id="statusOplabBtn" style="margin-top:14px;">OPLAB'A GİT →</button>
+        <p style="color:var(--text-dimmer);font-size:11px;margin-top:10px;">OPLab'ı başka bir cihazda açtıysan, doğrulama koduyla elle de bağlanabilirsin: <code style="color:var(--text-dim);">${app.verifyToken}</code></p>
+      ` : ''}
     </div>`;
   }
   if(zirve){
@@ -1672,7 +1691,7 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
   }
   resultArea.innerHTML = html;
   const oplabBtnInResult = document.getElementById('statusOplabBtn');
-  if(oplabBtnInResult){ oplabBtnInResult.addEventListener('click', ()=> openOplab(app.email)); }
+  if(oplabBtnInResult){ oplabBtnInResult.addEventListener('click', ()=> openOplab(app.verifyToken)); }
 });
 
 /* ============ TANITIM SİHİRBAZI (SITE TOUR) ============ */

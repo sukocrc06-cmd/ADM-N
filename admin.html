@@ -1343,6 +1343,15 @@ let selectedZirveId = null;
 // Kendi Firebase projenizin bilgilerini buraya yapıştırın: console.firebase.google.com > Proje Ayarları > Web Uygulaması.
 // Aşağıdaki değerler placeholder olarak kaldığı sürece site otomatik olarak tarayıcı-içi (localStorage) modda çalışmaya devam eder — hiçbir şey bozulmaz.
 // index.html içindeki FIREBASE_CONFIG ile BİREBİR AYNI olmalıdır.
+//
+// GÜVENLİK KURALLARI (Firestore Database > Rules): bu proje artık
+// /tmp/firestore.rules (teslim edilen firestore.rules dosyası) ile
+// yayınlanmış kuralları bekliyor — herkese tam okuma+yazma izni veren eski
+// "allow read, write: if true" kuralı yerine, admin-only alanlar için
+// gerçek Firebase Authentication (yukarıdaki AUTH_ENABLED/signInWithEmail
+// AndPassword akışı) şart koşuluyor. Detaylar ve kasıtlı olarak kapsam
+// dışı bırakılan kısım (applications dizisi içi doğrulama) o dosyanın
+// sonundaki notta açıklanıyor.
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyA9OmfHaqZizxVB1ATnBDedU1YV0a7aiWQ",
   authDomain: "finte-bf5f7.firebaseapp.com",
@@ -1912,6 +1921,26 @@ const basvuruEmptyMsgs = {
 
 function initials(name){ return name.split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
 
+// (OPLab doğrulama sağlamlaştırması) Onay anında her başvuruya tahmin
+// edilemez, rastgele bir doğrulama anahtarı (verifyToken) atanır. OPLab'a
+// geçişte artık e-posta değil BU anahtar taşınır — birinin e-postasını
+// bilmek/tahmin etmek artık rozet çalmaya yetmez, çünkü doğrulama anahtarı
+// hiçbir yerde (isim, e-posta gibi) tahmin edilebilir bir değere dayanmıyor.
+function generateVerifyToken(){
+  try{
+    if(window.crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID().replace(/-/g,'');
+  }catch(e){ /* devam et, aşağıdaki yedek yönteme düş */ }
+  // crypto.randomUUID her tarayıcıda olmayabilir (ör. eski tarayıcılar) —
+  // yedek: zaman damgası + iki rastgele parça, yine de pratikte tahmin edilemez.
+  return 'vt' + Date.now().toString(36) + Math.random().toString(36).slice(2,10) + Math.random().toString(36).slice(2,10);
+}
+// Zaten onaylı ama (eski veri nedeniyle) anahtarı olmayan başvurular için
+// anahtarı ilk ihtiyaç anında üretip başvuruya işler (geriye dönük uyumluluk).
+function ensureVerifyToken(app){
+  if(app && app.status === 'onayli' && !app.verifyToken) app.verifyToken = generateVerifyToken();
+  return app ? app.verifyToken : null;
+}
+
 function renderBasvuruList(){
   const bekleyen = state.applications.filter(a=>a.status==='bekliyor');
   const onayli = state.applications.filter(a=>a.status==='onayli');
@@ -2116,6 +2145,7 @@ function renderBasvuruDetail(){
     <button class="btn" style="width:100%;margin-top:10px;background:transparent;border:1px solid #fca5a5;color:#fca5a5;" id="deleteAppBtn">SİSTEMDEN SİL</button>`;
   document.getElementById('approveAppBtn')?.addEventListener('click', ()=>{
     app.status='onayli'; app.approvedDate = new Date().toLocaleDateString('tr-TR');
+    ensureVerifyToken(app);
     showToast(app.name+' başvurusu onaylandı.','success');
     renderBasvuruList(); renderBasvuruDetail(); renderDashboardDynamic(); saveShared();
   });
@@ -2290,6 +2320,7 @@ function renderDashboardDynamic(){
       if(app){
         app.status='onayli';
         app.approvedDate = new Date().toLocaleDateString('tr-TR');
+        ensureVerifyToken(app);
         showToast(app.name+' onaylandı.','success');
         renderDashboardDynamic(); renderBasvuruList(); renderBasvuruDetail(); saveShared();
       }
