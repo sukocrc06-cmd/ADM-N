@@ -1153,6 +1153,7 @@ const state = {
   competitionActive: false,
   applicationsOpen: false,
   zirveOpen: true,
+  oplabEnabled: true,
   broadcastLive: false,
   compName: '',
   startDate: '',
@@ -1236,6 +1237,7 @@ function saveShared(){
   const payload = {
     applicationsOpen: state.applicationsOpen,
     zirveOpen: state.zirveOpen,
+    oplabEnabled: state.oplabEnabled,
     competitionActive: state.competitionActive,
     broadcastLive: state.broadcastLive,
     compName: state.compName,
@@ -1254,6 +1256,7 @@ function hydrateFromShared(){
   if(!shared) return;
   state.applicationsOpen = shared.applicationsOpen ?? state.applicationsOpen;
   state.zirveOpen = shared.zirveOpen ?? state.zirveOpen;
+  state.oplabEnabled = shared.oplabEnabled ?? state.oplabEnabled;
   state.competitionActive = shared.competitionActive ?? state.competitionActive;
   state.broadcastLive = shared.broadcastLive ?? state.broadcastLive;
   state.compName = shared.compName ?? state.compName;
@@ -1335,7 +1338,21 @@ document.getElementById('playBtn').addEventListener('click', ()=> showToast('Tan
 /* ============ DIŞ BAĞLANTILAR: OP / OPTIPULSE ve FinTeClub logoları ============ */
 const OPTIPULSE_URL = 'https://rekabet-testi.vercel.app/';
 const FINTECLUB_URL = 'https://finteclub.vercel.app/index.html';
-document.getElementById('oplabBtn').addEventListener('click', ()=> window.open(OPTIPULSE_URL, '_blank', 'noopener'));
+// (OPLab entegrasyonu) Admin panelinden erişim kapatılırsa kullanıcı OPLab'a
+// gönderilmez, bilgilendirici bir uyarı gösterilir. Açıksa ve bilinen bir
+// e-posta varsa (ör. "Başvuru Durumu Sorgula"dan onaylı çıkan kullanıcı),
+// OPLab tarafındaki finteclubBridge.js'in otomatik doğrulama yapabilmesi
+// için ?ftc_email= parametresiyle birlikte açılır.
+function openOplab(email){
+  if(!state.oplabEnabled){
+    showToast('OPLab (Alım-Satım Sitesi) şu anda yönetici tarafından geçici olarak kapatıldı.', 'error');
+    return;
+  }
+  let url = OPTIPULSE_URL;
+  if(email){ url += (url.includes('?') ? '&' : '?') + 'ftc_email=' + encodeURIComponent(email); }
+  window.open(url, '_blank', 'noopener');
+}
+document.getElementById('oplabBtn').addEventListener('click', ()=> openOplab());
 document.getElementById('ftcLogoLink').addEventListener('click', ()=> window.open(FINTECLUB_URL, '_blank', 'noopener'));
 
 /* ============ FINTECLUB EKOSİSTEM: navigation ============ */
@@ -1359,7 +1376,7 @@ document.querySelectorAll('[data-hubnav]').forEach(btn=>{
       setTimeout(()=>document.getElementById('ecoFooter').scrollIntoView({behavior:'smooth'}), 60);
       return;
     }
-    if(target === 'oplab'){ showToast('OptiPulseLab entegrasyonu yakında aktif olacak.', 'warn'); return; }
+    if(target === 'oplab'){ openOplab(); return; }
   });
 });
 
@@ -1622,6 +1639,7 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
       <div style="font-family:'Oswald',sans-serif;font-size:20px;margin-bottom:10px;">${app.name}</div>
       <span class="status-pill ${s.cls}">${s.label}</span>
       <p style="color:var(--text-dimmer);font-size:12.5px;margin-top:12px;">Başvuru tarihi: ${app.date}</p>
+      ${app.status === 'onayli' ? `<button type="button" class="btn btn-blue" id="statusOplabBtn" style="margin-top:14px;">OPLAB'A GİT →</button>` : ''}
     </div>`;
   }
   if(zirve){
@@ -1634,6 +1652,8 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
     </div>`;
   }
   resultArea.innerHTML = html;
+  const oplabBtnInResult = document.getElementById('statusOplabBtn');
+  if(oplabBtnInResult){ oplabBtnInResult.addEventListener('click', ()=> openOplab(app.email)); }
 });
 
 /* ============ TANITIM SİHİRBAZI (SITE TOUR) ============ */

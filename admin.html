@@ -918,6 +918,26 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
       </div>
 
       <div class="card">
+        <h3 class="section-title">OPLab (Alım-Satım Sitesi) Kontrolü</h3>
+        <p class="section-desc">Onaylı FinteLig yarışmacılarının OptiPulseLab alım-satım platformuna erişimini buradan yönetin. Kapattığınızda, siteye ne yeni ne de daha önce doğrulanmış hiçbir kullanıcı giremez — tam ekran bir bilgilendirme ekranı gösterilir.</p>
+        <div class="field-row">
+          <div class="field">
+            <label>Erişim Durumu</label>
+            <div class="toggle-group" id="toggleOplabErisim">
+              <button type="button" class="toggle-opt on-green" data-value="acik">Açık</button>
+              <button type="button" class="toggle-opt off" data-value="kapali">Kapalı</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Aktivasyon / Ziyaret Sayısı</label>
+            <div class="stat-value blue" id="oplabActivityCount" style="font-size:22px;">0</div>
+          </div>
+        </div>
+        <p class="section-desc" style="margin-top:4px;font-size:12px;">Ziyaret sayısı, OPLab'da FinTeClub e-postasıyla kendini doğrulamış (rozet kazanmış) benzersiz yarışmacı sayısını gösterir.</p>
+        <button class="btn btn-blue" id="saveOplabSettingsBtn" style="margin-top:6px;">AYARLARI KAYDET</button>
+      </div>
+
+      <div class="card">
         <h3 class="section-title">Son Yönetim Aktiviteleri</h3>
         <ul id="activityLog" style="list-style:none;">
           <li class="empty-state" style="padding:20px 0;"><span>Henüz aktivite kaydı yok.</span></li>
@@ -1221,6 +1241,7 @@ const state = {
   competitionActive: false,
   applicationsOpen: false,
   zirveOpen: true,
+  oplabEnabled: true,
   broadcastLive: false,
   compName: '',
   startDate: '',
@@ -1252,10 +1273,15 @@ const FIREBASE_CONFIG = {
 };
 const FIREBASE_ENABLED = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY' && typeof firebase !== 'undefined';
 let fsSharedDoc = null;
+let fsActivityDoc = null;
 if(FIREBASE_ENABLED){
   try{
     firebase.initializeApp(FIREBASE_CONFIG);
     fsSharedDoc = firebase.firestore().collection('finteclub').doc('shared_state');
+    // (OPLab entegrasyonu) OptiPulseLab'ın finteclubBridge.js'i, doğrulanan her
+    // yarışmacı ziyaretinde bu belgeye yazıyor — burada sadece OKUYORUZ, admin
+    // panelinden bu belgeye yazma yapılmıyor.
+    fsActivityDoc = firebase.firestore().collection('finteclub').doc('oplab_activity');
   }catch(e){ console.warn('Firebase başlatılamadı, tarayıcı-içi modda devam ediliyor.', e); }
 }
 
@@ -1300,6 +1326,7 @@ function saveShared(){
   const payload = {
     applicationsOpen: state.applicationsOpen,
     zirveOpen: state.zirveOpen,
+    oplabEnabled: state.oplabEnabled,
     competitionActive: state.competitionActive,
     broadcastLive: state.broadcastLive,
     compName: state.compName,
@@ -1318,6 +1345,7 @@ function hydrateFromShared(){
   if(!shared) return;
   state.applicationsOpen = shared.applicationsOpen ?? state.applicationsOpen;
   state.zirveOpen = shared.zirveOpen ?? state.zirveOpen;
+  state.oplabEnabled = shared.oplabEnabled ?? state.oplabEnabled;
   state.competitionActive = shared.competitionActive ?? state.competitionActive;
   state.broadcastLive = shared.broadcastLive ?? state.broadcastLive;
   state.compName = shared.compName ?? state.compName;
@@ -1332,6 +1360,7 @@ function onSharedDataUpdated(){
   hydrateFromShared();
   renderBasvuruList(); renderBasvuruDetail(); renderZirveList(); renderZirveDetail(); renderDashboardDynamic();
   syncZirveSettingsUI();
+  syncOplabSettingsUI();
 }
 window.addEventListener('storage', (e)=>{
   if(e.key === SHARED_KEY) onSharedDataUpdated();
@@ -1343,6 +1372,16 @@ if(fsSharedDoc){
       onSharedDataUpdated();
     }
   }, (err)=>console.warn('Firestore dinleme hatası:', err));
+}
+// (OPLab entegrasyonu) "Aktivasyon/ziyaret sayısı" kartını canlı besler.
+let oplabActivityCount = 0;
+if(fsActivityDoc){
+  fsActivityDoc.onSnapshot((doc)=>{
+    const data = doc.exists ? (doc.data() || {}) : {};
+    const visitors = data.visitors || {};
+    oplabActivityCount = Object.keys(visitors).length;
+    syncOplabSettingsUI();
+  }, (err)=>console.warn('OPLab aktivasyon verisi dinlenemedi:', err));
 }
 
 /* ============ MOBİL YAN MENÜ (off-canvas sidebar) ============ */
@@ -1576,6 +1615,22 @@ document.getElementById('saveZirveSettingsBtn').addEventListener('click', functi
   saveShared();
   addActivity('Zirve kayıt durumu güncellendi (' + (state.zirveOpen ? 'Açık' : 'Kapalı') + ').');
   showToast('Zirve kayıt ayarları kaydedildi.', 'success');
+});
+
+/* ============ OPLAB (ALIM-SATIM SİTESİ) KONTROLÜ ============ */
+function syncOplabSettingsUI(){
+  const group = document.getElementById('toggleOplabErisim');
+  if(group){ group.querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value === (state.oplabEnabled ? 'acik' : 'kapali'))); }
+  const countEl = document.getElementById('oplabActivityCount');
+  if(countEl){ countEl.textContent = oplabActivityCount; }
+}
+
+document.getElementById('saveOplabSettingsBtn').addEventListener('click', function(){
+  const oplabErisim = document.querySelector('#toggleOplabErisim .toggle-opt.active').dataset.value;
+  state.oplabEnabled = oplabErisim === 'acik';
+  saveShared();
+  addActivity('OPLab erişim durumu güncellendi (' + (state.oplabEnabled ? 'Açık' : 'Kapalı') + ').');
+  showToast('OPLab ayarları kaydedildi.', 'success');
 });
 
 function addActivity(text){
@@ -1961,6 +2016,7 @@ renderZirveDetail();
 renderDashboardDynamic();
 syncGlobalStatus();
 syncZirveSettingsUI();
+syncOplabSettingsUI();
 showScreen('login');
 </script>
 
