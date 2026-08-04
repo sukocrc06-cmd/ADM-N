@@ -761,6 +761,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
       <li><button class="nav-item" data-page="page-portfoy">Kullanıcı Portföyleri</button></li>
       <li><button class="nav-item" data-page="page-sonuclar">Yarışma Sonuçları</button></li>
       <li><button class="nav-item" data-page="page-zirve">Zirve Kayıtları<span class="nav-badge" id="navBadgeZirve"></span></button></li>
+      <li><button class="nav-item" data-page="page-oplab">OPLab Kontrolü</button></li>
       <li><button class="nav-item" data-page="page-yayin">Yayın Yönetim</button></li>
     </ul>
     <button class="sidebar-logout" id="logoutBtn">Çıkış Yap</button>
@@ -915,26 +916,6 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
             <button class="btn btn-block" data-nav="page-sonuclar">SONUÇLARI GÖR</button>
           </div>
         </div>
-      </div>
-
-      <div class="card">
-        <h3 class="section-title">OPLab (Alım-Satım Sitesi) Kontrolü</h3>
-        <p class="section-desc">Onaylı FinteLig yarışmacılarının OptiPulseLab alım-satım platformuna erişimini buradan yönetin. Kapattığınızda, siteye ne yeni ne de daha önce doğrulanmış hiçbir kullanıcı giremez — tam ekran bir bilgilendirme ekranı gösterilir.</p>
-        <div class="field-row">
-          <div class="field">
-            <label>Erişim Durumu</label>
-            <div class="toggle-group" id="toggleOplabErisim">
-              <button type="button" class="toggle-opt on-green" data-value="acik">Açık</button>
-              <button type="button" class="toggle-opt off" data-value="kapali">Kapalı</button>
-            </div>
-          </div>
-          <div class="field">
-            <label>Aktivasyon / Ziyaret Sayısı</label>
-            <div class="stat-value blue" id="oplabActivityCount" style="font-size:22px;">0</div>
-          </div>
-        </div>
-        <p class="section-desc" style="margin-top:4px;font-size:12px;">Ziyaret sayısı, OPLab'da FinTeClub e-postasıyla kendini doğrulamış (rozet kazanmış) benzersiz yarışmacı sayısını gösterir.</p>
-        <button class="btn btn-blue" id="saveOplabSettingsBtn" style="margin-top:6px;">AYARLARI KAYDET</button>
       </div>
 
       <div class="card">
@@ -1229,6 +1210,64 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
       </div>
     </section>
 
+    <!-- ============ PAGE: OPLAB (ALIM-SATIM SİTESİ) KONTROLÜ ============ -->
+    <section id="page-oplab" class="page">
+      <div class="grid-3">
+        <div class="stat-card">
+          <div class="stat-label">ERİŞİM DURUMU</div>
+          <div class="stat-value green" id="oplabDurumuStat">AÇIK</div>
+          <div class="stat-sub">OptiPulseLab alım-satım platformu</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">TOPLAM AKTİVASYON</div>
+          <div class="stat-value blue" id="oplabActivityCount">0</div>
+          <div class="stat-sub">Doğrulanmış benzersiz yarışmacı</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">SON ZİYARET</div>
+          <div class="stat-value gray" id="oplabSonZiyaret" style="font-size:16px;">—</div>
+          <div class="stat-sub">En son doğrulama zamanı</div>
+        </div>
+      </div>
+
+      <div class="grid-2-even">
+        <div class="card">
+          <h3 class="section-title">Erişim Ayarları</h3>
+          <p class="section-desc">Onaylı FinteLig yarışmacılarının OptiPulseLab alım-satım platformuna erişimini buradan yönetin. Kapattığınızda, siteye ne yeni ne de daha önce doğrulanmış hiçbir kullanıcı giremez — tam ekran bir bilgilendirme ekranı gösterilir.</p>
+          <div class="field">
+            <label>Erişim Durumu</label>
+            <div class="toggle-group" id="toggleOplabErisim">
+              <button type="button" class="toggle-opt on-green" data-value="acik">Açık</button>
+              <button type="button" class="toggle-opt off" data-value="kapali">Kapalı</button>
+            </div>
+          </div>
+          <div class="btn-row" style="margin-top:6px;">
+            <button class="btn btn-blue" id="saveOplabSettingsBtn" style="flex:1;">AYARLARI KAYDET</button>
+            <button class="btn" id="openOplabSiteBtn" style="flex:1;">SİTEYİ GÖRÜNTÜLE ↗</button>
+          </div>
+          <p class="note-box" style="margin-top:14px;">Aktivasyon sayısı, OPLab'da FinTeClub e-postasıyla kendini doğrulamış (rozet kazanmış) benzersiz yarışmacı sayısını gösterir.</p>
+        </div>
+        <div class="card">
+          <h3 class="section-title">Nasıl Çalışır</h3>
+          <ul class="bullet-list" style="margin-bottom:0;">
+            <li><span class="dot"></span> Onaylı bir yarışmacı "Başvuru Durumu Sorgula" sayfasından "OPLAB'A GİT" ile giderse e-postası otomatik aktarılır ve doğrulama kendiliğinden tamamlanır.</li>
+            <li><span class="dot"></span> Doğrudan OPLab'a gidenler, profil panelindeki "FinteLig Doğrulama" alanına kendi e-postalarını yazarak doğrulanabilir.</li>
+            <li><span class="dot"></span> Doğrulama, admin onaylı (status: onaylı) FinteLig başvurularına karşı gerçek zamanlı yapılır — sahte/uydurma bir e-postayla rozet kazanılamaz.</li>
+            <li><span class="dot"></span> Doğrulanan kullanıcı OPLab profilinde "✓ FinteLig Yarışmacısı" rozetiyle görünür ve aşağıdaki listeye eklenir.</li>
+            <li><span class="dot"></span> Erişimi "Kapalı" yaparsanız hem yeni hem daha önce doğrulanmış kullanıcılar tam ekran bir uyarı ekranıyla karşılaşır.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">Doğrulanmış Ziyaretçiler</h3>
+        <p class="section-desc">OPLab'da FinTeClub e-postasıyla kendini doğrulamış yarışmacılar, en son ziyarete göre sıralı.</p>
+        <div id="oplabVisitorList">
+          <div class="empty-state"><div class="icon">—</div><strong>Henüz doğrulanmış ziyaretçi yok</strong><span>Bir yarışmacı OPLab'da e-postasıyla doğrulandığında burada listelenecek.</span></div>
+        </div>
+      </div>
+    </section>
+
   </main>
 </div>
 
@@ -1373,14 +1412,18 @@ if(fsSharedDoc){
     }
   }, (err)=>console.warn('Firestore dinleme hatası:', err));
 }
-// (OPLab entegrasyonu) "Aktivasyon/ziyaret sayısı" kartını canlı besler.
+// (OPLab entegrasyonu) "Aktivasyon/ziyaret sayısı" kartını ve doğrulanmış
+// ziyaretçi listesini canlı besler.
 let oplabActivityCount = 0;
+let oplabActivityVisitors = [];
 if(fsActivityDoc){
   fsActivityDoc.onSnapshot((doc)=>{
     const data = doc.exists ? (doc.data() || {}) : {};
     const visitors = data.visitors || {};
-    oplabActivityCount = Object.keys(visitors).length;
+    oplabActivityVisitors = Object.keys(visitors).map(id => Object.assign({id: id}, visitors[id]));
+    oplabActivityCount = oplabActivityVisitors.length;
     syncOplabSettingsUI();
+    renderOplabVisitorList();
   }, (err)=>console.warn('OPLab aktivasyon verisi dinlenemedi:', err));
 }
 
@@ -1536,6 +1579,7 @@ const PAGES = {
   'page-portfoy': {title:'KULLANICI PORTFÖY DETAYI', sub:'Seçili yarışmacının portföy değerini, varlık dağılımını ve işlem geçmişini inceleyin.'},
   'page-sonuclar': {title:'YARIŞMA SONUÇLARI', sub:'FinteLig yarışmasının final sıralamasını, kazananlarını ve sonuç yayın durumunu yönetin.'},
   'page-zirve': {title:'ZİRVE KAYIT YÖNETİMİ', sub:'FinTeClub Zirve kayıt başvurularını, uygunluk durumlarını ve katılımcı listesini yönetin.'},
+  'page-oplab': {title:'OPLAB (ALIM-SATIM SİTESİ) KONTROLÜ', sub:'OptiPulseLab erişimini yönetin, doğrulanmış yarışmacıları ve aktivasyon istatistiklerini görüntüleyin.'},
   'page-yayin': {title:'YAYIN YÖNETİMİ', sub:'Yarışma ekranını canlı yayına hazırlayın, başlatın, durdurun ve görüntü modunu yönetin.'}
 };
 
@@ -1553,6 +1597,7 @@ function navigateTo(pageId){
   closeMobileSidebar();
   updateNotifications();
   if(pageId === 'page-zirve') syncZirveSettingsUI();
+  if(pageId === 'page-oplab'){ syncOplabSettingsUI(); renderOplabVisitorList(); }
 }
 
 document.querySelectorAll('.nav-item').forEach(btn=>{
@@ -1618,20 +1663,60 @@ document.getElementById('saveZirveSettingsBtn').addEventListener('click', functi
 });
 
 /* ============ OPLAB (ALIM-SATIM SİTESİ) KONTROLÜ ============ */
+// index.html içindeki OPTIPULSE_URL ile BİREBİR AYNI olmalıdır.
+const OPTIPULSE_URL = 'https://rekabet-testi.vercel.app/';
+
 function syncOplabSettingsUI(){
   const group = document.getElementById('toggleOplabErisim');
   if(group){ group.querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value === (state.oplabEnabled ? 'acik' : 'kapali'))); }
+  const durumEl = document.getElementById('oplabDurumuStat');
+  if(durumEl){
+    durumEl.textContent = state.oplabEnabled ? 'AÇIK' : 'KAPALI';
+    durumEl.className = 'stat-value' + (state.oplabEnabled ? ' green' : '');
+    durumEl.style.color = state.oplabEnabled ? '' : '#fca5a5';
+  }
   const countEl = document.getElementById('oplabActivityCount');
   if(countEl){ countEl.textContent = oplabActivityCount; }
+  const sonZiyaretEl = document.getElementById('oplabSonZiyaret');
+  if(sonZiyaretEl){
+    if(oplabActivityVisitors.length){
+      const latest = oplabActivityVisitors.reduce((a,b)=> (new Date(a.lastVisit||0) > new Date(b.lastVisit||0) ? a : b));
+      sonZiyaretEl.textContent = latest.lastVisit ? new Date(latest.lastVisit).toLocaleString('tr-TR') : '—';
+    } else {
+      sonZiyaretEl.textContent = '—';
+    }
+  }
+}
+
+function renderOplabVisitorList(){
+  const container = document.getElementById('oplabVisitorList');
+  if(!container) return;
+  if(!oplabActivityVisitors.length){
+    container.innerHTML = `<div class="empty-state"><div class="icon">—</div><strong>Henüz doğrulanmış ziyaretçi yok</strong><span>Bir yarışmacı OPLab'da e-postasıyla doğrulandığında burada listelenecek.</span></div>`;
+    return;
+  }
+  const sorted = oplabActivityVisitors.slice().sort((a,b)=> new Date(b.lastVisit||0) - new Date(a.lastVisit||0));
+  container.innerHTML = sorted.map(v => `
+    <div class="list-item" style="cursor:default;">
+      <div>
+        <div style="font-weight:600;font-size:14px;">${v.name || 'İsimsiz'}</div>
+        <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${v.email || '—'} • ${v.lastVisit ? new Date(v.lastVisit).toLocaleString('tr-TR') : '—'}</div>
+      </div>
+      <span class="status-pill green">${v.visitCount || 1} ziyaret</span>
+    </div>`).join('');
 }
 
 document.getElementById('saveOplabSettingsBtn').addEventListener('click', function(){
   const oplabErisim = document.querySelector('#toggleOplabErisim .toggle-opt.active').dataset.value;
   state.oplabEnabled = oplabErisim === 'acik';
   saveShared();
+  syncOplabSettingsUI();
   addActivity('OPLab erişim durumu güncellendi (' + (state.oplabEnabled ? 'Açık' : 'Kapalı') + ').');
   showToast('OPLab ayarları kaydedildi.', 'success');
 });
+
+const openOplabSiteBtnEl = document.getElementById('openOplabSiteBtn');
+if(openOplabSiteBtnEl){ openOplabSiteBtnEl.addEventListener('click', ()=> window.open(OPTIPULSE_URL, '_blank', 'noopener')); }
 
 function addActivity(text){
   const log = document.getElementById('activityLog');
@@ -2017,6 +2102,7 @@ renderDashboardDynamic();
 syncGlobalStatus();
 syncZirveSettingsUI();
 syncOplabSettingsUI();
+renderOplabVisitorList();
 showScreen('login');
 </script>
 
