@@ -9,6 +9,7 @@
 <!-- Firebase (opsiyonel gerçek zamanlı veritabanı — FIREBASE_CONFIG doldurulmadan hiçbir şeyi etkilemez) -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <!-- EmailJS (opsiyonel e-posta bildirimi — EMAILJS_PUBLIC_KEY doldurulmadan hiçbir şeyi etkilemez) -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <!-- reCAPTCHA (opsiyonel spam/bot koruması — RECAPTCHA_SITE_KEY doldurulmadan hiçbir şeyi etkilemez) -->
@@ -951,12 +952,16 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           <form id="pubBasvuruForm">
             <div class="field-row">
               <div class="field"><label>Ad Soyad</label><input type="text" id="pbName" placeholder="Adınızı ve soyadınızı yazın"></div>
-              <div class="field"><label>E-posta</label><input type="email" id="pbEmail" placeholder="mail@ornek.com"></div>
+              <div class="field"><label>E-posta</label><input type="email" id="pbEmail" placeholder="mail@ornek.com" autocomplete="username"></div>
             </div>
             <div class="field-row">
+              <div class="field"><label>Şifre Belirle</label><input type="password" id="pbPassword" placeholder="En az 6 karakter" autocomplete="new-password"></div>
               <div class="field"><label>Üniversite / Bölüm</label><input type="text" id="pbOrg" placeholder="Üniversite ve bölüm bilgisi"></div>
+            </div>
+            <div class="field-row">
               <div class="field"><label>Deneyim Seviyesi</label><input type="text" id="pbLevel" placeholder="Başlangıç / Orta / İleri"></div>
             </div>
+            <p style="color:var(--text-dimmer);font-size:11.5px;margin:-4px 0 14px;line-height:1.6;">Bu şifreyle, başvurun onaylandıktan sonra OPLab (alım-satım platformu) üzerinde FinteLig Yarışmacısı olarak giriş yapacaksın.</p>
             <div class="field"><label>Kısa Motivasyon</label><textarea id="pbMotivation" rows="3" placeholder="Fintelig yarışmasına neden katılmak istediğinizi kısaca yazın."></textarea></div>
             <div class="g-recaptcha-slot" data-form-id="basvuru" style="margin:14px 0;"></div>
             <button type="submit" class="btn btn-blue" id="pbSubmitBtn">KAYIT OL</button>
@@ -1185,11 +1190,29 @@ const FIREBASE_CONFIG = {
 };
 const FIREBASE_ENABLED = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY' && typeof firebase !== 'undefined';
 let fsSharedDoc = null;
+let fbAuth = null;
 if(FIREBASE_ENABLED){
   try{
     firebase.initializeApp(FIREBASE_CONFIG);
     fsSharedDoc = firebase.firestore().collection('finteclub').doc('shared_state');
   }catch(e){ console.warn('Firebase başlatılamadı, tarayıcı-içi modda devam ediliyor.', e); }
+}
+// (Gerçek Firebase Authentication ile OPLab girişi) Başvuru formunda
+// belirlenen şifre, burada gerçek bir Firebase Auth hesabına dönüştürülür.
+// OPLab tarafı (finteclubBridge.js) aynı Firebase projesine bağlanıp
+// signInWithEmailAndPassword ile giriş kontrolü yapar — şifre hiçbir zaman
+// Firestore'da düz metin olarak saklanmaz, tamamen Firebase Auth yönetir.
+const AUTH_ENABLED = FIREBASE_ENABLED && typeof firebase.auth === 'function';
+if(AUTH_ENABLED){
+  try{ fbAuth = firebase.auth(); }catch(e){ console.warn('Firebase Auth başlatılamadı.', e); }
+}
+function publicAuthErrorMessage(err){
+  const code = err && err.code;
+  if(code === 'auth/email-already-in-use') return 'Bu e-posta adresiyle zaten bir hesap var. Daha önce başvurduysan "Zaten başvurdum" bağlantısını kullan.';
+  if(code === 'auth/weak-password') return 'Şifre çok kısa. En az 6 karakter olmalı.';
+  if(code === 'auth/invalid-email') return 'E-posta adresi geçersiz görünüyor.';
+  if(code === 'auth/network-request-failed') return 'Bağlantı hatası. İnternetini kontrol edip tekrar dene.';
+  return 'Hesap oluşturulamadı. Lütfen tekrar dene.';
 }
 
 /* ============ EMAILJS (OPSİYONEL E-POSTA BİLDİRİMİ) ============ */
@@ -1208,21 +1231,6 @@ function sendNotificationEmail(templateId, params){
   if(!EMAILJS_ENABLED) return;
   try{ emailjs.send(EMAILJS_SERVICE_ID, templateId, params).catch(e=>console.warn('E-posta gönderilemedi:', e)); }catch(e){ console.warn('E-posta gönderilemedi:', e); }
 }
-// (Doğrulama sağlamlaştırması, 2. tur) admin.html'deki sendOplabAccessEmail
-// ile birebir aynı mantık — sadece burada, admin onayından SONRA hâlâ
-// verifyToken'ı olmayan eski (bu değişiklikten önce onaylanmış) başvurular
-// için "yakalama" e-postası göndermek amacıyla kullanılıyor (bkz.
-// statusQueryBtn handler'ındaki backfill). Kod hiçbir zaman ekrana yazılmaz.
-function sendOplabAccessEmail(app){
-  if(!app || !app.email || !app.verifyToken) return;
-  const link = OPTIPULSE_URL + '?ftc_token=' + encodeURIComponent(app.verifyToken);
-  sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
-    to_email: app.email, to_name: app.name,
-    subject_line: 'FinteLig Başvurun Onaylandı — OPLab Giriş Linkin',
-    message_body: `Merhaba ${app.name}, FinteLig başvurun onaylandı! OPLab (alım-satım platformu) üzerinde "FinteLig Yarışmacısı" olarak doğrulanmak için aşağıdaki linke tıkla:\n\n${link}\n\nLink çalışmazsa OPLab'ı aç, profil panelindeki "FinteLig Doğrulama — Kod" alanına şu kodu yapıştır:\n${app.verifyToken}\n\nBu kod ve link SADECE sana özeldir, kimseyle paylaşma.`
-  });
-}
-
 /* ============ RECAPTCHA (OPSİYONEL SPAM/BOT KORUMASI) ============ */
 // google.com/recaptcha/admin üzerinden ücretsiz bir "reCAPTCHA v2 - Kutucuk" site anahtarı oluştur ve aşağıya yapıştır.
 const RECAPTCHA_SITE_KEY = "YOUR_RECAPTCHA_SITE_KEY";
@@ -1365,27 +1373,17 @@ document.getElementById('playBtn').addEventListener('click', ()=> showToast('Tan
 /* ============ DIŞ BAĞLANTILAR: OP / OPTIPULSE ve FinTeClub logoları ============ */
 const OPTIPULSE_URL = 'https://rekabet-testi.vercel.app/';
 const FINTECLUB_URL = 'https://finteclub.vercel.app/index.html';
-// (OPLab doğrulama sağlamlaştırması) Önceden ?ftc_email= ile e-posta adresi
-// taşınıyordu — birinin e-postasını bilmek/tahmin etmek, OPLab'da onun
-// "FinteLig Yarışmacısı" rozetini çalmaya yetiyordu. Artık admin onayı
-// anında üretilen, tahmin edilemez bir verifyToken taşınıyor (?ftc_token=);
-// e-posta artık bir doğrulama sırrı olarak kullanılmıyor.
-function generateVerifyToken(){
-  try{
-    if(window.crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID().replace(/-/g,'');
-  }catch(e){ /* yedek yönteme düş */ }
-  return 'vt' + Date.now().toString(36) + Math.random().toString(36).slice(2,10) + Math.random().toString(36).slice(2,10);
-}
-// (OPLab entegrasyonu) Admin panelinden erişim kapatılırsa kullanıcı OPLab'a
-// gönderilmez, bilgilendirici bir uyarı gösterilir.
-function openOplab(token){
+// (Gerçek Firebase Authentication ile OPLab girişi) OPLab artık kendi giriş
+// ekranında e-posta+şifre soruyor ve doğrudan Firebase Auth'a bağlanıyor —
+// bu yüzden buradan URL üzerinden herhangi bir token/e-posta taşımaya
+// gerek kalmadı (önceki ?ftc_email= / ?ftc_token= yaklaşımları artık
+// kullanılmıyor).
+function openOplab(){
   if(!state.oplabEnabled){
     showToast('OPLab (Alım-Satım Sitesi) şu anda yönetici tarafından geçici olarak kapatıldı.', 'error');
     return;
   }
-  let url = OPTIPULSE_URL;
-  if(token){ url += (url.includes('?') ? '&' : '?') + 'ftc_token=' + encodeURIComponent(token); }
-  window.open(url, '_blank', 'noopener');
+  window.open(OPTIPULSE_URL, '_blank', 'noopener');
 }
 document.getElementById('oplabBtn').addEventListener('click', ()=> openOplab());
 document.getElementById('ftcLogoLink').addEventListener('click', ()=> window.open(FINTECLUB_URL, '_blank', 'noopener'));
@@ -1564,34 +1562,58 @@ function updatePublicZirveAvailability(){
 document.getElementById('pubBasvuruForm').addEventListener('submit', function(e){
   e.preventDefault();
   if(!state.applicationsOpen){ showToast('Başvurular şu anda kapalı.', 'error'); return; }
+  const form = this;
   const name = document.getElementById('pbName').value.trim();
   const email = document.getElementById('pbEmail').value.trim();
+  const password = document.getElementById('pbPassword').value;
   const org = document.getElementById('pbOrg').value.trim();
   const level = document.getElementById('pbLevel').value.trim();
   const motivation = document.getElementById('pbMotivation').value.trim();
   if(!name || !email || !org){ showToast('Lütfen zorunlu alanları (ad soyad, e-posta, kurum) doldurun.', 'error'); return; }
+  if(!password || password.length < 6){ showToast('Lütfen en az 6 karakterli bir şifre belirle. Bu şifreyle OPLab\'a giriş yapacaksın.', 'error'); return; }
   if(state.applications.some(a => (a.email||'').toLowerCase() === email.toLowerCase())){
     showToast('Bu e-posta adresiyle daha önce başvuru yapılmış. Bir e-posta ile yalnızca bir kez başvurulabilir.', 'error');
     return;
   }
   if(!isRecaptchaVerified('basvuru')){ showToast('Lütfen "Ben robot değilim" doğrulamasını tamamlayın.', 'error'); return; }
-  state.applications.push({id: appIdCounter++, name, email, org, level: level || 'Belirtilmedi', motivation, status:'bekliyor', date: new Date().toLocaleDateString('tr-TR')});
-  this.reset();
-  resetRecaptcha('basvuru');
-  document.getElementById('pubBasvuruDurum').textContent = 'ONAY BEKLİYOR';
-  document.getElementById('pubBasvuruDurum').style.color = 'var(--yellow)';
-  showToast(`Başvurunuz alındı, ${name}! Admin onayını bekleyin.`, 'success');
-  saveShared();
-  sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
-    to_email: email, to_name: name,
-    subject_line: 'FinteLig Başvurun Alındı',
-    message_body: `Merhaba ${name}, FinteLig yarışması başvurun alındı. Admin onayından sonra yarışma paneline erişim kazanacaksın.`
-  });
-  sendNotificationEmail(EMAILJS_TEMPLATE_ADMIN, {
-    to_email: ADMIN_NOTIFY_EMAIL, to_name: 'Admin',
-    subject_line: 'Yeni FinteLig Başvurusu',
-    message_body: `${name} (${email}) FinteLig yarışmasına başvurdu. Admin panelinden inceleyebilirsin.`
-  });
+
+  function finishApplication(){
+    state.applications.push({id: appIdCounter++, name, email, org, level: level || 'Belirtilmedi', motivation, status:'bekliyor', date: new Date().toLocaleDateString('tr-TR')});
+    form.reset();
+    resetRecaptcha('basvuru');
+    document.getElementById('pubBasvuruDurum').textContent = 'ONAY BEKLİYOR';
+    document.getElementById('pubBasvuruDurum').style.color = 'var(--yellow)';
+    showToast(`Başvurunuz alındı, ${name}! Admin onayını bekleyin.`, 'success');
+    saveShared();
+    sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
+      to_email: email, to_name: name,
+      subject_line: 'FinteLig Başvurun Alındı',
+      message_body: `Merhaba ${name}, FinteLig yarışması başvurun alındı. Admin onayından sonra, belirlediğin e-posta ve şifreyle OPLab (alım-satım platformu) üzerinde FinteLig Yarışmacısı olarak giriş yapabileceksin.`
+    });
+    sendNotificationEmail(EMAILJS_TEMPLATE_ADMIN, {
+      to_email: ADMIN_NOTIFY_EMAIL, to_name: 'Admin',
+      subject_line: 'Yeni FinteLig Başvurusu',
+      message_body: `${name} (${email}) FinteLig yarışmasına başvurdu. Admin panelinden inceleyebilirsin.`
+    });
+  }
+
+  const submitBtn = document.getElementById('pbSubmitBtn');
+  if(AUTH_ENABLED && fbAuth){
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'GÖNDERİLİYOR...';
+    fbAuth.createUserWithEmailAndPassword(email, password).then(function(){
+      finishApplication();
+    }).catch(function(err){
+      showToast(publicAuthErrorMessage(err), 'error');
+    }).finally(function(){
+      submitBtn.disabled = !state.applicationsOpen;
+      submitBtn.textContent = 'KAYIT OL';
+    });
+  } else {
+    // Firebase Auth yapılandırılmamışsa (tarayıcı-içi mod) hesap oluşturma
+    // atlanır, başvuru eskisi gibi kaydedilir — "hiçbir şey bozulmaz".
+    finishApplication();
+  }
 });
 
 /* ============ PUBLIC: ZİRVE KAYIT FORMU ============ */
@@ -1679,21 +1701,10 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
   const zirveStatusMap = {incelemede:{label:'İNCELEMEDE', cls:'yellow'}, onayli:{label:'ONAYLANDI', cls:'green'}, reddedildi:{label:'UYGUN DEĞİL', cls:'red'}};
   let html = '';
   if(app){
-    // (Doğrulama sağlamlaştırması, 2. tur) Önceden OPLab giriş kodu burada
-    // EKRANDA gösteriliyordu — bu, e-postayı bilen/tahmin eden HERKESİN
-    // (bu sorgu hiçbir sahiplik kanıtı istemiyor) kodu görüp başka birinin
-    // rozetini çalabilmesi anlamına geliyordu. Kod artık asla burada
-    // gösterilmiyor — admin onayı anında SADECE başvurandaki gerçek
-    // e-postaya gönderiliyor (bkz. admin.html sendOplabAccessEmail).
-    // Eski (bu değişiklikten önce) onaylanmış başvurularda verifyToken
-    // olmayabilir — ilk ihtiyaç anında burada üretip kaydediyoruz ve
-    // (varsa) bir kerelik "yakalama" e-postası göndeririz; hiçbir zaman
-    // ekrana yazdırmıyoruz.
-    if(app.status === 'onayli' && !app.verifyToken){
-      app.verifyToken = generateVerifyToken();
-      saveShared();
-      sendOplabAccessEmail(app);
-    }
+    // (Gerçek Firebase Authentication ile OPLab girişi) OPLab giriş bilgisi
+    // artık başvuru anında belirlenen e-posta+şifre — bu ekranda gösterilecek
+    // veya e-posta ile "teslim edilecek" ayrı bir kod/token kalmadı. Kullanıcı
+    // zaten kendi şifresini biliyor; sadece OPLab'a gidip giriş yapması yeterli.
     const s = appStatusMap[app.status] || {label:app.status, cls:''};
     html += `<div class="card" style="margin-bottom:16px;">
       <div class="field-label" style="margin-bottom:8px;">FINTELIG BAŞVURUSU</div>
@@ -1701,7 +1712,7 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
       <span class="status-pill ${s.cls}">${s.label}</span>
       <p style="color:var(--text-dimmer);font-size:12.5px;margin-top:12px;">Başvuru tarihi: ${app.date}</p>
       ${app.status === 'onayli' ? `
-        <p style="color:var(--text-dim);font-size:12.5px;margin-top:14px;">✓ OPLab (alım-satım platformu) giriş linkin, kayıtlı e-posta adresine gönderildi. Gelen kutunu (ve spam klasörünü) kontrol et.</p>
+        <p style="color:var(--text-dim);font-size:12.5px;margin-top:14px;">✓ Başvurun onaylandı! OPLab'a git, kayıt olurken belirlediğin e-posta ve şifreyle giriş yap — doğrudan alım-satım ekranına yönlendirileceksin.</p>
       ` : ''}
     </div>`;
   }
