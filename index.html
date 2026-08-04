@@ -667,6 +667,8 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
   .pub-hero h1,.pub-page-inner h1,.zirve-hero h1{font-size:30px !important;line-height:1.22 !important;}
   .eco-features h2,.how-it-works h2{font-size:26px !important;}
   .field input,.field select,.field textarea{font-size:16px;}
+  .grid-3,.grid-3-even{grid-template-columns:1fr;}
+  table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
 }
 
 /* ============ TANITIM SİHİRBAZI (SITE TOUR) ============ */
@@ -1248,8 +1250,14 @@ function saveShared(){
     appIdCounter: appIdCounter,
     zirveIdCounter: zirveIdCounter
   };
-  try{ localStorage.setItem(SHARED_KEY, JSON.stringify(payload)); }catch(e){}
-  if(fsSharedDoc){ fsSharedDoc.set(payload).catch(e=>console.warn('Firestore yazma hatası:', e)); }
+  // (Düzeltme) admin.html'de olup burada olmayan alanları (balance, viewMode,
+  // resultsPublished vb.) yanlışlıkla silmemek için mevcut veriyle merge
+  // ediyoruz — bkz. admin.html'deki aynı düzeltmenin yorumu.
+  try{
+    const existing = loadShared() || {};
+    localStorage.setItem(SHARED_KEY, JSON.stringify(Object.assign({}, existing, payload)));
+  }catch(e){}
+  if(fsSharedDoc){ fsSharedDoc.set(payload, {merge:true}).catch(e=>console.warn('Firestore yazma hatası:', e)); }
 }
 function hydrateFromShared(){
   const shared = loadShared();
@@ -1380,13 +1388,24 @@ document.querySelectorAll('[data-hubnav]').forEach(btn=>{
   });
 });
 
+// (Düzeltme) Tema seçimi önceden hiç kaydedilmiyordu — sayfa her
+// yenilendiğinde koyu temaya dönüyordu, kullanıcının açık tema tercihi
+// kalıcı olmuyordu. Artık localStorage'a yazılıp sayfa açılışında geri
+// yükleniyor.
+const THEME_KEY = 'finteclub_theme_v1';
 function setTheme(light){
   document.body.classList.toggle('theme-light', light);
   document.getElementById('themeToggleDark').classList.toggle('active', !light);
   document.getElementById('themeToggleLight').classList.toggle('active', light);
+  try{ localStorage.setItem(THEME_KEY, light ? 'light' : 'dark'); }catch(e){}
 }
 document.getElementById('themeToggleDark').addEventListener('click', ()=> setTheme(false));
 document.getElementById('themeToggleLight').addEventListener('click', ()=> setTheme(true));
+(function initTheme(){
+  let saved = null;
+  try{ saved = localStorage.getItem(THEME_KEY); }catch(e){}
+  if(saved === 'light') setTheme(true);
+})();
 document.querySelectorAll('.lang-toggle button').forEach(b=>{
   b.addEventListener('click', function(){
     document.querySelectorAll('.lang-toggle button').forEach(x=>x.classList.remove('active'));

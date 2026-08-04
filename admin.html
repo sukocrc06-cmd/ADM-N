@@ -458,6 +458,11 @@ tbody tr:last-child td{border-bottom:none;}
 }
 @media(max-width:560px){
   .field input,.field select,.field textarea{font-size:16px;}
+  .topbar{flex-wrap:wrap;gap:14px;}
+  .topbar > div:first-child{width:100%;}
+  .topbar > div:last-child{width:100%;justify-content:space-between;}
+  .grid-3,.grid-3-even{grid-template-columns:1fr;}
+  table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
 }
 
 /* ============ THEME: LIGHT MODE ============ */
@@ -773,13 +778,24 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
         <h1 id="pageTitle">YÖNETİM MENÜSÜ</h1>
         <p id="pageSubtitle">FinteLig yarışması ve FinTeClub Zirve süreçlerini yönetin.</p>
       </div>
-      <div class="admin-badge">
-        <div class="avatar-circle">A</div>
-        <div>
-          <div class="name">ADMİN</div>
-          <div class="role">Yetkili hesap</div>
+      <div style="display:flex;align-items:center;gap:18px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <button type="button" class="icon-toggle active" id="themeToggleDark" title="Koyu tema">🌙</button>
+          <button type="button" class="icon-toggle" id="themeToggleLight" title="Açık tema">☀</button>
+        </div>
+        <div class="admin-badge">
+          <div class="avatar-circle">A</div>
+          <div>
+            <div class="name">ADMİN</div>
+            <div class="role">Yetkili hesap</div>
+          </div>
         </div>
       </div>
+    </div>
+
+    <div id="connectionErrorBanner" class="hidden" style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:20px;font-size:13px;color:#fca5a5;">
+      <span id="connectionErrorText">⚠ Firestore bağlantı sorunu — değişiklikler bu cihazda saklanıyor ama diğer cihazlarla senkronize olmayabilir.</span>
+      <button type="button" id="dismissConnErrorBtn" style="background:transparent;border:none;color:#fca5a5;font-size:16px;cursor:pointer;line-height:1;padding:0 4px;">✕</button>
     </div>
 
     <!-- ============ PAGE: MENÜ ============ -->
@@ -827,6 +843,12 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           </div>
           <button class="btn btn-blue btn-block" data-nav="page-canli">CANLI İZLE</button>
         </div>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">Haftalık Başvuru Trendi</h3>
+        <p class="section-desc">Son 7 gündeki yeni başvuru sayısı.</p>
+        <div id="dashTrendChart"><div class="empty-state" style="padding:30px 0;"><div class="icon">📈</div><span>Son 7 günde başvuru alınmadı.</span></div></div>
       </div>
 
       <div class="card">
@@ -981,9 +1003,9 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           <div class="stat-value gray" id="canliDurum">PASİF</div>
           <div class="stat-sub">Yarışma başlamadı</div>
         </div>
-        <div class="stat-card"><div class="stat-label">KATILIMCI</div><div class="stat-value">0</div><div class="stat-sub">Aktif yarışmacı</div></div>
-        <div class="stat-card"><div class="stat-label">TOPLAM İŞLEM</div><div class="stat-value">0</div><div class="stat-sub">Demo al-sat işlemi</div></div>
-        <div class="stat-card"><div class="stat-label">LİDER GETİRİ</div><div class="stat-value gray">--</div><div class="stat-sub">Anlık sıralama lideri</div></div>
+        <div class="stat-card"><div class="stat-label">KATILIMCI</div><div class="stat-value" id="canliKatilimciCount">0</div><div class="stat-sub">OPLab'da doğrulanmış yarışmacı</div></div>
+        <div class="stat-card"><div class="stat-label">AÇIK POZİSYON</div><div class="stat-value" id="canliAcikPozisyonCount">0</div><div class="stat-sub">Tüm yarışmacılar toplamı</div></div>
+        <div class="stat-card"><div class="stat-label">LİDER GETİRİ</div><div class="stat-value gray" id="canliLiderGetiri">--</div><div class="stat-sub" id="canliLiderAd">Anlık sıralama lideri</div></div>
       </div>
 
       <div class="grid-2">
@@ -1002,20 +1024,21 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
         </div>
         <div class="card">
           <h3 class="section-title">Liderlik Tablosu</h3>
-          <p class="section-desc">Portföy getirisine göre sıralama.</p>
-          <div class="empty-state"><div class="icon">🏆</div><span>Henüz sıralama oluşmadı.</span></div>
+          <p class="section-desc">Portföy getirisine göre sıralama — OPLab'dan her ~20 saniyede bir güncellenir.</p>
+          <div id="canliLiderlikTablosu"><div class="empty-state"><div class="icon">🏆</div><span>Henüz sıralama oluşmadı.</span></div></div>
         </div>
       </div>
 
       <div class="grid-2">
         <div class="card">
-          <h3 class="section-title">Canlı İşlem Akışı</h3>
-          <div class="empty-state"><div class="icon">⇄</div><span>Henüz işlem hareketi yok.</span></div>
+          <h3 class="section-title">Son Güncellenenler</h3>
+          <p class="section-desc">OPLab'dan en son veri gönderen yarışmacılar.</p>
+          <div id="canliSonGuncellenenler"><div class="empty-state"><div class="icon">⇄</div><span>Henüz işlem hareketi yok.</span></div></div>
         </div>
         <div class="card">
           <h3 class="section-title">Seçili Portföy</h3>
-          <div class="empty-state"><div class="icon">◔</div><span>Bir yarışmacı seçilmedi.</span></div>
-          <button class="btn btn-blue btn-block" disabled>PORTFÖYÜ AÇ</button>
+          <div id="canliSeciliPortfoy"><div class="empty-state"><div class="icon">◔</div><span>Bir yarışmacı seçilmedi.</span></div></div>
+          <button class="btn btn-blue btn-block" id="canliPortfoyuAcBtn" disabled style="margin-top:10px;">PORTFÖYÜ AÇ</button>
         </div>
       </div>
     </section>
@@ -1031,15 +1054,15 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
         </div>
         <div style="text-align:right;">
           <div class="field-label" style="margin-bottom:6px;">ANLIK SIRA</div>
-          <div style="font-family:'Oswald',sans-serif;font-size:26px;color:var(--text-dim);">--</div>
+          <div style="font-family:'Oswald',sans-serif;font-size:26px;color:var(--text-dim);" id="portfoyAnlikSira">--</div>
         </div>
       </div>
 
       <div class="grid-4">
-        <div class="stat-card"><div class="stat-label">PORTFÖY DEĞERİ</div><div class="stat-value gray">-- TL</div><div class="stat-sub">Başlangıç: -- TL</div></div>
-        <div class="stat-card"><div class="stat-label">GETİRİ</div><div class="stat-value gray">--%</div><div class="stat-sub">-- TL</div></div>
-        <div class="stat-card"><div class="stat-label">NAKİT</div><div class="stat-value gray">-- TL</div><div class="stat-sub">Kullanılabilir bakiye</div></div>
-        <div class="stat-card"><div class="stat-label">TOPLAM İŞLEM</div><div class="stat-value">0</div><div class="stat-sub">Demo al-sat</div></div>
+        <div class="stat-card"><div class="stat-label">ÖZKAYNAK (PORTFÖY)</div><div class="stat-value gray" id="portfoyDegerValue">-- TL</div><div class="stat-sub" id="portfoyDegerSub">Başlangıç: -- TL</div></div>
+        <div class="stat-card"><div class="stat-label">GETİRİ</div><div class="stat-value gray" id="portfoyGetiriValue">--%</div><div class="stat-sub" id="portfoyGetiriSub">-- TL</div></div>
+        <div class="stat-card"><div class="stat-label">NAKİT</div><div class="stat-value gray" id="portfoyNakitValue">-- TL</div><div class="stat-sub">Kullanılabilir bakiye</div></div>
+        <div class="stat-card"><div class="stat-label">AÇIK POZİSYON</div><div class="stat-value" id="portfoyAcikPozisyonValue">0</div><div class="stat-sub" id="portfoySonGuncelleme">Veri yok</div></div>
       </div>
 
       <div class="grid-2">
@@ -1063,12 +1086,13 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           <h3 class="section-title">Mevcut Pozisyonlar</h3>
           <table>
             <thead><tr><th>HİSSE</th><th>ADET</th><th>MALİYET</th><th>K/Z</th></tr></thead>
-            <tbody><tr><td colspan="4"><div class="empty-state" style="padding:20px 0;">Pozisyon bulunmuyor.</div></td></tr></tbody>
+            <tbody id="portfoyPositionsBody"><tr><td colspan="4"><div class="empty-state" style="padding:20px 0;">Pozisyon bulunmuyor.</div></td></tr></tbody>
           </table>
         </div>
         <div class="card">
-          <h3 class="section-title">İşlem Geçmişi</h3>
-          <div class="empty-state" style="padding:20px 0;">Henüz işlem yok.</div>
+          <h3 class="section-title">Detay</h3>
+          <div id="portfoyDetayNot" class="empty-state" style="padding:20px 0;">Henüz veri yok.</div>
+          <p class="note-box" style="margin-top:14px;">Tam işlem geçmişi ve grafikler için yarışmacının kendi OPLab hesabına bakılabilir; buradaki özet her ~20 saniyede bir güncellenir.</p>
         </div>
       </div>
     </section>
@@ -1077,8 +1101,8 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
     <section id="page-sonuclar" class="page">
       <div class="grid-4">
         <div class="stat-card"><div class="stat-label">YARIŞMA DURUMU</div><div class="stat-value gray" id="sonucYarismaDurumu">DEVAM ETMİYOR</div><div class="stat-sub">Sonuçlar hazır değil</div></div>
-        <div class="stat-card"><div class="stat-label">KATILIMCI</div><div class="stat-value">0</div><div class="stat-sub">Final sıralamada</div></div>
-        <div class="stat-card"><div class="stat-label">EN YÜKSEK GETİRİ</div><div class="stat-value gray">--</div><div class="stat-sub">Henüz belirlenmedi</div></div>
+        <div class="stat-card"><div class="stat-label">KATILIMCI</div><div class="stat-value" id="sonucKatilimciCount">0</div><div class="stat-sub">Final sıralamada</div></div>
+        <div class="stat-card"><div class="stat-label">EN YÜKSEK GETİRİ</div><div class="stat-value gray" id="sonucEnYuksekGetiri">--</div><div class="stat-sub" id="sonucEnYuksekAd">Henüz belirlenmedi</div></div>
         <div class="stat-card"><div class="stat-label">YAYIN DURUMU</div><div class="stat-value gray" id="sonucYayinDurumu">HAZIR DEĞİL</div><div class="stat-sub">Kullanıcı ekranına aktarılamaz</div></div>
       </div>
 
@@ -1086,9 +1110,9 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
         <h3 class="section-title">İlk 3 Yarışmacı</h3>
         <p class="section-desc">FinteLig yarışmasının en yüksek getirili kullanıcıları.</p>
         <div class="grid-3" style="margin-bottom:0;">
-          <div class="rank-card"><div class="rank-num">02</div><div class="rank-name">Henüz belirlenmedi</div><div class="rank-pct">--%</div></div>
-          <div class="rank-card" style="border-color:var(--blue);"><div class="rank-num" style="color:#7ea3ff;">01</div><div class="rank-name">Henüz belirlenmedi</div><div class="rank-pct">--%</div></div>
-          <div class="rank-card"><div class="rank-num">03</div><div class="rank-name">Henüz belirlenmedi</div><div class="rank-pct">--%</div></div>
+          <div class="rank-card"><div class="rank-num">02</div><div class="rank-name" id="sonucRank2Name">Henüz belirlenmedi</div><div class="rank-pct" id="sonucRank2Pct">--%</div></div>
+          <div class="rank-card" style="border-color:var(--blue);"><div class="rank-num" style="color:#7ea3ff;">01</div><div class="rank-name" id="sonucRank1Name">Henüz belirlenmedi</div><div class="rank-pct" id="sonucRank1Pct">--%</div></div>
+          <div class="rank-card"><div class="rank-num">03</div><div class="rank-name" id="sonucRank3Name">Henüz belirlenmedi</div><div class="rank-pct" id="sonucRank3Pct">--%</div></div>
         </div>
       </div>
 
@@ -1098,7 +1122,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           <p class="section-desc">Yarışmanın genel sıralama listesi.</p>
           <table>
             <thead><tr><th>SIRA</th><th>KULLANICI</th><th>PORTFÖY</th><th>GETİRİ</th></tr></thead>
-            <tbody><tr><td colspan="4"><div class="empty-state" style="padding:22px 0;">Henüz sonuç oluşmadı.</div></td></tr></tbody>
+            <tbody id="sonucFinalTableBody"><tr><td colspan="4"><div class="empty-state" style="padding:22px 0;">Henüz sonuç oluşmadı.</div></td></tr></tbody>
           </table>
         </div>
         <div class="card">
@@ -1271,6 +1295,21 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
   </main>
 </div>
 
+<!-- (Toplu silme için güçlendirilmiş onay) Native confirm() yerine, ne
+     silineceğini açıkça yazan ve "SİL" yazılmadan buton aktif olmayan bir
+     modal — yanlışlıkla art arda tıklamayla tetiklenemez. -->
+<div id="bulkDeleteModalBackdrop" class="hidden" style="position:fixed;inset:0;background:rgba(4,6,14,0.7);z-index:900;display:flex;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--card-bg);border:1px solid var(--border-strong);border-radius:var(--radius);padding:28px;max-width:440px;width:100%;box-shadow:var(--shadow-card);">
+    <h3 style="font-family:'Oswald',sans-serif;font-size:19px;margin-bottom:12px;color:#fca5a5;">Kalıcı Silme Onayı</h3>
+    <p id="bulkDeleteModalText" style="font-size:13.5px;color:var(--text-dim);line-height:1.7;margin-bottom:16px;"></p>
+    <p style="font-size:13px;margin-bottom:8px;">Onaylamak için aşağıya <strong style="color:#fca5a5;">SİL</strong> yazın:</p>
+    <input type="text" id="bulkDeleteConfirmInput" style="width:100%;background:var(--card-bg-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:12px 14px;color:var(--text);font-size:14px;margin-bottom:18px;" placeholder="SİL" autocomplete="off">
+    <div class="btn-row">
+      <button type="button" class="btn" id="bulkDeleteCancelBtn" style="flex:1;">VAZGEÇ</button>
+      <button type="button" class="btn btn-red" id="bulkDeleteConfirmBtn" style="flex:1;" disabled>KALICI OLARAK SİL</button>
+    </div>
+  </div>
+</div>
 
 <div class="toast-container" id="toastContainer"></div>
 
@@ -1281,6 +1320,8 @@ const state = {
   applicationsOpen: false,
   zirveOpen: true,
   oplabEnabled: true,
+  resultsPublished: false,
+  activityLog: [],
   broadcastLive: false,
   compName: '',
   startDate: '',
@@ -1313,6 +1354,7 @@ const FIREBASE_CONFIG = {
 const FIREBASE_ENABLED = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY' && typeof firebase !== 'undefined';
 let fsSharedDoc = null;
 let fsActivityDoc = null;
+let fsPortfolioDoc = null;
 if(FIREBASE_ENABLED){
   try{
     firebase.initializeApp(FIREBASE_CONFIG);
@@ -1321,6 +1363,10 @@ if(FIREBASE_ENABLED){
     // yarışmacı ziyaretinde bu belgeye yazıyor — burada sadece OKUYORUZ, admin
     // panelinden bu belgeye yazma yapılmıyor.
     fsActivityDoc = firebase.firestore().collection('finteclub').doc('oplab_activity');
+    // (Canlı İzleme / Kullanıcı Portföyleri) OptiPulseLab, doğrulanmış her
+    // yarışmacının anlık bakiye/özkaynak/pozisyon özetini ~20 saniyede bir bu
+    // belgeye yazıyor — burada da sadece OKUYORUZ.
+    fsPortfolioDoc = firebase.firestore().collection('finteclub').doc('oplab_live_portfolio');
   }catch(e){ console.warn('Firebase başlatılamadı, tarayıcı-içi modda devam ediliyor.', e); }
 }
 
@@ -1356,6 +1402,28 @@ function authErrorMessage(err){
   }
 }
 
+/* ============ BAĞLANTI HATASI GÖRÜNÜRLÜĞÜ ============ */
+// Önceden Firestore yazma/dinleme hataları sadece tarayıcı konsoluna
+// (kullanıcının hiç görmediği bir yere) yazılıyordu — bağlantı sorunu
+// sessizce oluyor, admin fark etmiyordu. Artık ekranda görünür bir banner
+// gösteriliyor; bağlantı düzelip bir sonraki yazma/dinleme başarılı olunca
+// otomatik kayboluyor.
+let connErrorDismissed = false;
+function showConnectionError(){
+  if(connErrorDismissed) return;
+  const banner = document.getElementById('connectionErrorBanner');
+  if(banner) banner.classList.remove('hidden');
+}
+function hideConnectionError(){
+  connErrorDismissed = false;
+  const banner = document.getElementById('connectionErrorBanner');
+  if(banner) banner.classList.add('hidden');
+}
+document.getElementById('dismissConnErrorBtn')?.addEventListener('click', ()=>{
+  connErrorDismissed = true;
+  document.getElementById('connectionErrorBanner').classList.add('hidden');
+});
+
 /* ============ PAYLAŞIMLI VERİ KÖPRÜSÜ (index.html ile senkron — Firebase varsa her cihazdan, yoksa aynı tarayıcıda localStorage ile) ============ */
 const SHARED_KEY = 'finteclub_shared_v1';
 function loadShared(){
@@ -1366,8 +1434,12 @@ function saveShared(){
     applicationsOpen: state.applicationsOpen,
     zirveOpen: state.zirveOpen,
     oplabEnabled: state.oplabEnabled,
+    resultsPublished: state.resultsPublished,
+    activityLog: state.activityLog,
     competitionActive: state.competitionActive,
     broadcastLive: state.broadcastLive,
+    viewMode: state.viewMode,
+    balance: state.balance,
     compName: state.compName,
     startDate: state.startDate,
     endDate: state.endDate,
@@ -1376,8 +1448,24 @@ function saveShared(){
     appIdCounter: appIdCounter,
     zirveIdCounter: zirveIdCounter
   };
-  try{ localStorage.setItem(SHARED_KEY, JSON.stringify(payload)); }catch(e){}
-  if(fsSharedDoc){ fsSharedDoc.set(payload).catch(e=>console.warn('Firestore yazma hatası:', e)); }
+  // (Düzeltme) index.html ve admin.html'in `state` şemaları birebir aynı
+  // değil — ör. `balance`/`viewMode`/`resultsPublished` yalnızca admin.html'de
+  // var. Önceden burada localStorage/Firestore'a DÜZ ÜZERİNE YAZ (tam
+  // overwrite) yapılıyordu; bu yüzden index.html tarafında bir ziyaretçi
+  // form gönderip kendi saveShared()'ını tetiklediğinde, o dosyanın
+  // bilmediği alanlar (balance vb.) belgeden TAMAMEN SİLİNİYORDU. Şimdi
+  // localStorage'da mevcut veriyle merge ediyoruz, Firestore'da da
+  // {merge:true} kullanıyoruz — her dosya yalnızca kendi bildiği alanları
+  // günceller, diğerine dokunmaz.
+  try{
+    const existing = loadShared() || {};
+    localStorage.setItem(SHARED_KEY, JSON.stringify(Object.assign({}, existing, payload)));
+  }catch(e){}
+  if(fsSharedDoc){
+    fsSharedDoc.set(payload, {merge:true})
+      .then(hideConnectionError)
+      .catch(e=>{ console.warn('Firestore yazma hatası:', e); showConnectionError(); });
+  }
 }
 function hydrateFromShared(){
   const shared = loadShared();
@@ -1385,8 +1473,12 @@ function hydrateFromShared(){
   state.applicationsOpen = shared.applicationsOpen ?? state.applicationsOpen;
   state.zirveOpen = shared.zirveOpen ?? state.zirveOpen;
   state.oplabEnabled = shared.oplabEnabled ?? state.oplabEnabled;
+  state.resultsPublished = shared.resultsPublished ?? state.resultsPublished;
+  state.activityLog = shared.activityLog ?? state.activityLog;
   state.competitionActive = shared.competitionActive ?? state.competitionActive;
   state.broadcastLive = shared.broadcastLive ?? state.broadcastLive;
+  state.viewMode = shared.viewMode ?? state.viewMode;
+  state.balance = shared.balance ?? state.balance;
   state.compName = shared.compName ?? state.compName;
   state.startDate = shared.startDate ?? state.startDate;
   state.endDate = shared.endDate ?? state.endDate;
@@ -1398,19 +1490,23 @@ function hydrateFromShared(){
 function onSharedDataUpdated(){
   hydrateFromShared();
   renderBasvuruList(); renderBasvuruDetail(); renderZirveList(); renderZirveDetail(); renderDashboardDynamic();
+  syncGlobalStatus();
   syncZirveSettingsUI();
   syncOplabSettingsUI();
+  syncYayinUI();
+  renderActivityLog();
 }
 window.addEventListener('storage', (e)=>{
   if(e.key === SHARED_KEY) onSharedDataUpdated();
 });
 if(fsSharedDoc){
   fsSharedDoc.onSnapshot((doc)=>{
+    hideConnectionError();
     if(doc.exists){
       try{ localStorage.setItem(SHARED_KEY, JSON.stringify(doc.data())); }catch(e){}
       onSharedDataUpdated();
     }
-  }, (err)=>console.warn('Firestore dinleme hatası:', err));
+  }, (err)=>{ console.warn('Firestore dinleme hatası:', err); showConnectionError(); });
 }
 // (OPLab entegrasyonu) "Aktivasyon/ziyaret sayısı" kartını ve doğrulanmış
 // ziyaretçi listesini canlı besler.
@@ -1424,7 +1520,21 @@ if(fsActivityDoc){
     oplabActivityCount = oplabActivityVisitors.length;
     syncOplabSettingsUI();
     renderOplabVisitorList();
-  }, (err)=>console.warn('OPLab aktivasyon verisi dinlenemedi:', err));
+  }, (err)=>{ console.warn('OPLab aktivasyon verisi dinlenemedi:', err); showConnectionError(); });
+}
+// (Canlı İzleme / Kullanıcı Portföyleri / Yarışma Sonuçları) OptiPulseLab'dan
+// gelen canlı bakiye/özkaynak/pozisyon özetini besler — üç sayfa da AYNI
+// veriyi farklı şekillerde gösteriyor.
+let oplabPortfolioData = [];
+if(fsPortfolioDoc){
+  fsPortfolioDoc.onSnapshot((doc)=>{
+    const data = doc.exists ? (doc.data() || {}) : {};
+    const competitors = data.competitors || {};
+    oplabPortfolioData = Object.keys(competitors).map(id => Object.assign({id: id}, competitors[id]));
+    renderCanliIzleme();
+    renderKullaniciPortfoyleri();
+    renderSonuclar();
+  }, (err)=>{ console.warn('Canlı portföy verisi dinlenemedi:', err); showConnectionError(); });
 }
 
 /* ============ MOBİL YAN MENÜ (off-canvas sidebar) ============ */
@@ -1439,6 +1549,24 @@ if(adminNavToggle){
   });
 }
 if(sidebarBackdrop){ sidebarBackdrop.addEventListener('click', closeMobileSidebar); }
+
+/* ============ TEMA (AÇIK/KOYU) ============ */
+// (body.theme-light CSS zaten mevcuttu ama hiçbir yerden tetiklenmiyordu —
+// index.html'deki AYNI görsel desen + kalıcı tercih burada da uygulanıyor.)
+const ADMIN_THEME_KEY = 'finteclub_admin_theme_v1';
+function setAdminTheme(light){
+  document.body.classList.toggle('theme-light', light);
+  document.getElementById('themeToggleDark').classList.toggle('active', !light);
+  document.getElementById('themeToggleLight').classList.toggle('active', light);
+  try{ localStorage.setItem(ADMIN_THEME_KEY, light ? 'light' : 'dark'); }catch(e){}
+}
+document.getElementById('themeToggleDark').addEventListener('click', ()=> setAdminTheme(false));
+document.getElementById('themeToggleLight').addEventListener('click', ()=> setAdminTheme(true));
+(function initAdminTheme(){
+  let saved = null;
+  try{ saved = localStorage.getItem(ADMIN_THEME_KEY); }catch(e){}
+  if(saved === 'light') setAdminTheme(true);
+})();
 
 /* ============ ADMİN ANLIK BİLDİRİM SİSTEMİ ============ */
 const NOTIF_SEEN_KEY = 'finteclub_admin_seen_v1';
@@ -1598,6 +1726,9 @@ function navigateTo(pageId){
   updateNotifications();
   if(pageId === 'page-zirve') syncZirveSettingsUI();
   if(pageId === 'page-oplab'){ syncOplabSettingsUI(); renderOplabVisitorList(); }
+  if(pageId === 'page-canli') renderCanliIzleme();
+  if(pageId === 'page-portfoy') renderKullaniciPortfoyleri();
+  if(pageId === 'page-sonuclar') renderSonuclar();
 }
 
 document.querySelectorAll('.nav-item').forEach(btn=>{
@@ -1718,15 +1849,31 @@ document.getElementById('saveOplabSettingsBtn').addEventListener('click', functi
 const openOplabSiteBtnEl = document.getElementById('openOplabSiteBtn');
 if(openOplabSiteBtnEl){ openOplabSiteBtnEl.addEventListener('click', ()=> window.open(OPTIPULSE_URL, '_blank', 'noopener')); }
 
+// (Kalıcı aktivite geçmişi) Önceden bu liste sadece DOM'a ekleniyordu —
+// sayfa yenilenince veya çıkış yapılınca "Henüz aktivite kaydı yok."a
+// dönüyordu. Artık state.activityLog dizisinde tutulup saveShared() ile
+// diğer her şey gibi localStorage/Firestore'a kalıcı olarak yazılıyor; en
+// eski kayıtlar 50'yi geçince atılıyor ki belge büyümesin.
+const ACTIVITY_LOG_MAX = 50;
 function addActivity(text){
+  state.activityLog = state.activityLog || [];
+  state.activityLog.unshift({ text: text, at: new Date().toISOString() });
+  if(state.activityLog.length > ACTIVITY_LOG_MAX) state.activityLog.length = ACTIVITY_LOG_MAX;
+  renderActivityLog();
+  saveShared();
+}
+function renderActivityLog(){
   const log = document.getElementById('activityLog');
-  const empty = log.querySelector('.empty-state');
-  if(empty) empty.remove();
-  const li = document.createElement('li');
-  li.style.cssText = 'display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border);font-size:13.5px;';
-  const time = new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
-  li.innerHTML = `<span>${text}</span><span style="color:var(--text-dim);">${time}</span>`;
-  log.prepend(li);
+  if(!log) return;
+  const entries = state.activityLog || [];
+  if(!entries.length){
+    log.innerHTML = '<li class="empty-state" style="padding:20px 0;"><span>Henüz aktivite kaydı yok.</span></li>';
+    return;
+  }
+  log.innerHTML = entries.map(entry=>{
+    const time = entry.at ? new Date(entry.at).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+    return `<li style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border);font-size:13.5px;"><span>${entry.text}</span><span style="color:var(--text-dim);">${time}</span></li>`;
+  }).join('');
 }
 
 /* ============ GLOBAL STATUS SYNC (yalnızca admin görünüm) ============ */
@@ -1753,8 +1900,6 @@ function syncGlobalStatus(){
   document.getElementById('yayinYarismaDurumu').textContent = active ? 'AKTİF' : 'PASİF';
   document.getElementById('yayinYarismaDurumu').className = 'stat-value ' + (active ? 'green' : 'gray');
   document.getElementById('yayinYarismaSub').textContent = active ? 'Yarışma canlı olarak devam ediyor' : 'Yarışma başlatılmadı';
-
-  saveShared();
 }
 
 /* ============ BAŞVURU ONAYLARI (data-driven) ============ */
@@ -1845,7 +1990,52 @@ function deleteApplications(ids){
   renderBasvuruDetail();
   renderDashboardDynamic();
   saveShared();
-  const msg = removed.length === 1 ? `${removed[0].name} sistemden kalıcı olarak silindi.` : `${removed.length} yarışmacı sistemden kalıcı olarak silindi.`;
+  const msg = removed.length === 1 ? `${removed[0].name} sistemden silindi.` : `${removed.length} yarışmacı sistemden silindi.`;
+  addActivity(msg);
+  showUndoDeleteToast(removed);
+}
+
+/* ============ SİLME İÇİN "GERİ AL" (UNDO) ============ */
+// (OptiPulseLab'daki izleme listesi "geri al" bildirimiyle AYNI desen:
+// silme GERÇEKTEN oluyor — state'ten hemen çıkarılıyor ve saveShared()
+// çağrılıyor — ama kısa bir süre boyunca tek tıkla geri eklenebiliyor.
+// Süre dolunca (10sn) bildirim kaybolur ve silme kalıcı hale gelir.
+let undoDeleteTimer = null;
+function showUndoDeleteToast(removedApps){
+  const container = document.getElementById('toastContainer');
+  const existing = document.getElementById('undoDeleteToast');
+  if(existing) existing.remove();
+  clearTimeout(undoDeleteTimer);
+
+  const el = document.createElement('div');
+  el.id = 'undoDeleteToast';
+  el.className = 'toast success';
+  el.style.display = 'flex';
+  el.style.alignItems = 'center';
+  el.style.gap = '14px';
+  const msg = removedApps.length === 1 ? `${removedApps[0].name} silindi.` : `${removedApps.length} yarışmacı silindi.`;
+  el.innerHTML = `<span>${msg}</span><button type="button" id="undoDeleteBtn" style="background:transparent;border:1px solid var(--green);border-radius:6px;padding:4px 10px;color:var(--green);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">GERİ AL</button>`;
+  container.appendChild(el);
+  el.querySelector('#undoDeleteBtn').addEventListener('click', ()=>{
+    clearTimeout(undoDeleteTimer);
+    el.remove();
+    restoreDeletedApplications(removedApps);
+  });
+  undoDeleteTimer = setTimeout(()=>{
+    el.style.opacity = '0'; el.style.transition = 'opacity .3s';
+    setTimeout(()=>el.remove(), 300);
+  }, 10000);
+}
+function restoreDeletedApplications(removedApps){
+  // Geri eklenenler listenin başına konuyor — id'ler zaten benzersiz
+  // olduğundan çakışma riski yok, tam eski sıra garanti edilmiyor ama hiçbir
+  // veri kaybolmuyor.
+  state.applications = removedApps.concat(state.applications);
+  renderBasvuruList();
+  renderBasvuruDetail();
+  renderDashboardDynamic();
+  saveShared();
+  const msg = removedApps.length === 1 ? `${removedApps[0].name} başvurusu geri alındı.` : `${removedApps.length} yarışmacı geri alındı.`;
   addActivity(msg);
   showToast(msg, 'success');
 }
@@ -1860,12 +2050,47 @@ document.getElementById('bsSelectAll').addEventListener('change', function(){
   updateBulkDeleteUI();
 });
 
+/* ============ TOPLU SİLME — GÜÇLENDİRİLMİŞ ONAY MODALI ============ */
+// (Daha önce native confirm() kullanılıyordu — tek bir "Tamam" tıklamasıyla
+// geçilebiliyordu. Artık silinecek kayıt sayısı net yazılıyor VE admin
+// "SİL" yazmadan buton aktifleşmiyor, yanlışlıkla art arda tıklamayla tetiklenemez.)
+let pendingBulkDeleteIds = [];
+function isSilConfirmed(value){
+  const v = (value || '').trim();
+  return v.toLocaleLowerCase('tr-TR') === 'sil' || v.toLowerCase() === 'sil';
+}
+function openBulkDeleteModal(ids){
+  pendingBulkDeleteIds = ids;
+  document.getElementById('bulkDeleteModalText').textContent =
+    `${ids.length} yarışmacıyı kalıcı olarak silmek üzeresiniz. Bu işlem GERİ ALINAMAZ — silinenler ne bekleyen, ne onaylı, ne reddedilen listesinde görünmeyecek; sistemden tamamen kaldırılacak.`;
+  const input = document.getElementById('bulkDeleteConfirmInput');
+  input.value = '';
+  document.getElementById('bulkDeleteConfirmBtn').disabled = true;
+  document.getElementById('bulkDeleteModalBackdrop').classList.remove('hidden');
+  setTimeout(()=>input.focus(), 50);
+}
+function closeBulkDeleteModal(){
+  pendingBulkDeleteIds = [];
+  document.getElementById('bulkDeleteModalBackdrop').classList.add('hidden');
+}
+document.getElementById('bulkDeleteConfirmInput').addEventListener('input', function(){
+  document.getElementById('bulkDeleteConfirmBtn').disabled = !isSilConfirmed(this.value);
+});
+document.getElementById('bulkDeleteCancelBtn').addEventListener('click', closeBulkDeleteModal);
+document.getElementById('bulkDeleteModalBackdrop').addEventListener('click', function(e){
+  if(e.target === this) closeBulkDeleteModal();
+});
+document.getElementById('bulkDeleteConfirmBtn').addEventListener('click', function(){
+  if(this.disabled || !pendingBulkDeleteIds.length) return;
+  const ids = pendingBulkDeleteIds;
+  closeBulkDeleteModal();
+  deleteApplications(ids);
+});
+
 document.getElementById('bsDeleteSelectedBtn').addEventListener('click', function(){
   const ids = Array.from(bulkDeleteSelection);
   if(ids.length === 0) return;
-  const ok = confirm(`${ids.length} yarışmacıyı kalıcı olarak silmek istediğine emin misin?\n\nBu işlem GERİ ALINAMAZ — silinenler ne bekleyen, ne onaylı, ne reddedilen listesinde görünmeyecek; sistemden tamamen kaldırılacak.`);
-  if(!ok) return;
-  deleteApplications(ids);
+  openBulkDeleteModal(ids);
 });
 
 function renderBasvuruDetail(){
@@ -2004,6 +2229,40 @@ document.getElementById('zirveTabs').addEventListener('click', function(e){
 document.getElementById('zirveSearch').addEventListener('input', renderZirveList);
 
 /* ============ DASHBOARD (data-driven) ============ */
+// (Haftalık Başvuru Trendi) state.applications[].date "gg.aa.yyyy" formatında
+// (tr-TR toLocaleDateString) saklanıyor; son 7 günün aynı formatta anahtarını
+// üretip başvuru tarihiyle eşleştiriyoruz — ayrı bir zaman damgası eklemeye
+// gerek kalmadan gerçek veriden basit bir trend grafiği çıkarıyoruz.
+function getWeeklyApplicationTrend(){
+  const dayNames = ['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'];
+  const days = [];
+  for(let i=6;i>=0;i--){
+    const d = new Date();
+    d.setDate(d.getDate()-i);
+    const key = d.toLocaleDateString('tr-TR');
+    days.push({ key, label: dayNames[d.getDay()], count: state.applications.filter(a=>a.date===key).length });
+  }
+  return days;
+}
+function renderDashboardTrendChart(){
+  const el = document.getElementById('dashTrendChart');
+  if(!el) return;
+  const data = getWeeklyApplicationTrend();
+  const totalWeek = data.reduce((s,d)=>s+d.count,0);
+  if(totalWeek === 0){
+    el.innerHTML = `<div class="empty-state" style="padding:30px 0;"><div class="icon">📈</div><span>Son 7 günde başvuru alınmadı.</span></div>`;
+    return;
+  }
+  const max = Math.max(1, ...data.map(d=>d.count));
+  el.innerHTML = `<div style="display:flex;align-items:flex-end;gap:10px;height:140px;padding:10px 4px 0;">
+    ${data.map(d => `
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end;">
+        <div style="font-size:11px;color:var(--text-dim);min-height:14px;">${d.count>0?d.count:''}</div>
+        <div style="width:100%;max-width:28px;background:${d.count>0?'linear-gradient(180deg,#5b8def,#3563d4)':'var(--border-strong)'};border-radius:4px 4px 0 0;height:${Math.max(4,(d.count/max)*100)}%;transition:height .3s;"></div>
+        <div style="font-size:11px;color:var(--text-dimmer);">${d.label}</div>
+      </div>`).join('')}
+  </div>`;
+}
 function renderDashboardDynamic(){
   updateNotifications();
   const onayliCount = state.applications.filter(a=>a.status==='onayli').length;
@@ -2011,6 +2270,7 @@ function renderDashboardDynamic(){
   document.getElementById('dashAktifYarismaci').textContent = onayliCount;
   document.getElementById('dashBekleyenBasvuru').textContent = bekleyenCount;
   document.getElementById('dashZirveKayitlari').textContent = state.zirveRegistrations.length;
+  renderDashboardTrendChart();
 
   const tbody = document.getElementById('dashBekleyenTable');
   const pending = state.applications.filter(a=>a.status==='bekliyor').slice(0,5);
@@ -2039,22 +2299,51 @@ function renderDashboardDynamic(){
 
 /* ============ YARIŞMA SONUÇLARI: PUBLISH ============ */
 document.getElementById('publishBtn').addEventListener('click', function(){
-  showToast('Sonuç yayınlanamadı: henüz final sıralama oluşmadı.', 'warn');
+  if(!oplabPortfolioData.length){
+    showToast('Sonuç yayınlanamadı: henüz final sıralama oluşmadı.', 'warn');
+    return;
+  }
+  state.resultsPublished = true;
+  saveShared();
+  syncSonuclarPublishUI();
+  addActivity('Yarışma sonuçları yayınlandı.');
+  showToast('Sonuçlar yayınlandı olarak işaretlendi.', 'success');
 });
 
 /* ============ YAYIN YÖNETİMİ CONTROLS ============ */
+// (17 Ağustos 2026 düzeltmesi) syncYayinUI(), yayinDurumu/sonucYayinDurumu/
+// yayinGoruntuModu/viewModeShortcuts'ın TEK render kaynağı — hem buton
+// tıklamalarından hem de başka bir cihazdan gelen Firestore güncellemesinden
+// (onSharedDataUpdated) çağrılabiliyor, önceden sadece butonlar bu alanları
+// güncelliyordu, sayfa yenilenince veya başka cihazda state.broadcastLive
+// zaten AÇIK olsa bile kartlar "HAZIR DEĞİL" gösteriyordu.
+function syncYayinUI(){
+  const live = state.broadcastLive;
+  const el = document.getElementById('yayinDurumu');
+  if(el){
+    el.textContent = live ? 'YAYINDA' : 'HAZIR DEĞİL';
+    el.className = 'stat-value ' + (live ? 'green' : 'gray');
+  }
+  const previewEl = document.getElementById('yayinPreviewMsg');
+  if(previewEl){
+    previewEl.textContent = live
+      ? `Yayın canlı — görüntü modu: ${state.viewMode}. (Veri yok, yarışma başladığında dolacak.)`
+      : 'Yayın başlatıldığında önizleme burada görünecek.';
+  }
+  const sonucPill = document.getElementById('sonucYayinDurumu');
+  if(sonucPill){
+    sonucPill.textContent = live ? 'YAYINDA' : 'HAZIR DEĞİL';
+    sonucPill.className = 'stat-value ' + (live ? 'green' : 'gray');
+  }
+  const modeEl = document.getElementById('yayinGoruntuModu');
+  if(modeEl) modeEl.textContent = state.viewMode;
+  document.querySelectorAll('#viewModeShortcuts .shortcut-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.mode === state.viewMode);
+  });
+}
 function setBroadcast(live){
   state.broadcastLive = live;
-  const el = document.getElementById('yayinDurumu');
-  el.textContent = live ? 'YAYINDA' : 'HAZIR DEĞİL';
-  el.className = 'stat-value ' + (live ? 'green' : 'gray');
-  document.getElementById('yayinPreviewMsg').textContent = live
-    ? `Yayın canlı — görüntü modu: ${state.viewMode}. (Veri yok, yarışma başladığında dolacak.)`
-    : 'Yayın başlatıldığında önizleme burada görünecek.';
-
-  const sonucPill = document.getElementById('sonucYayinDurumu');
-  sonucPill.textContent = live ? 'YAYINDA' : 'HAZIR DEĞİL';
-  sonucPill.className = 'stat-value ' + (live ? 'green' : 'gray');
+  syncYayinUI();
   saveShared();
 }
 document.getElementById('startBroadcastBtn').addEventListener('click', ()=>{
@@ -2069,6 +2358,7 @@ document.getElementById('startCompBtn').addEventListener('click', ()=>{
   state.competitionActive = true;
   document.getElementById('toggleYarisma').querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value==='aktif'));
   syncGlobalStatus();
+  saveShared();
   addActivity('Yarışma yayın panelinden başlatıldı.');
   showToast('Yarışma başlatıldı.', 'success');
 });
@@ -2076,6 +2366,7 @@ document.getElementById('endCompBtn').addEventListener('click', ()=>{
   state.competitionActive = false;
   document.getElementById('toggleYarisma').querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value==='pasif'));
   syncGlobalStatus();
+  saveShared();
   addActivity('Yarışma yayın panelinden bitirildi.');
   showToast('Yarışma bitirildi.', 'error');
 });
@@ -2083,14 +2374,271 @@ document.getElementById('endCompBtn').addEventListener('click', ()=>{
 document.getElementById('viewModeShortcuts').addEventListener('click', function(e){
   const btn = e.target.closest('.shortcut-btn');
   if(!btn) return;
-  this.querySelectorAll('.shortcut-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
   state.viewMode = btn.dataset.mode;
-  document.getElementById('yayinGoruntuModu').textContent = btn.dataset.mode;
-  if(state.broadcastLive){
-    document.getElementById('yayinPreviewMsg').textContent = `Yayın canlı — görüntü modu: ${state.viewMode}. (Veri yok, yarışma başladığında dolacak.)`;
-  }
+  syncYayinUI();
+  saveShared();
 });
+
+/* ============ CANLI İZLEME / KULLANICI PORTFÖYLERİ / YARIŞMA SONUÇLARI
+   (OPLab'dan gelen oplabPortfolioData'yı üç farklı sayfada gösterir) ============ */
+function fmtTRY(n){ return (n||0).toLocaleString('tr-TR', {maximumFractionDigits:0}) + ' TL'; }
+function getBaslangicBakiyesi(){ return state.balance || 100000; }
+function pctReturn(equity){
+  const base = getBaslangicBakiyesi();
+  if(!base) return 0;
+  return ((equity - base) / base) * 100;
+}
+function timeAgoTr(iso){
+  if(!iso) return '—';
+  const diffSec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if(diffSec < 60) return 'az önce';
+  const diffMin = Math.floor(diffSec / 60);
+  if(diffMin < 60) return diffMin + ' dakika önce';
+  const diffHour = Math.floor(diffMin / 60);
+  if(diffHour < 24) return diffHour + ' saat önce';
+  return Math.floor(diffHour / 24) + ' gün önce';
+}
+
+let selectedCanliAppId = null;
+let selectedPortfoyAppId = null;
+
+function renderCanliIzleme(){
+  const katilimciEl = document.getElementById('canliKatilimciCount');
+  if(!katilimciEl) return;
+  const acikPosEl = document.getElementById('canliAcikPozisyonCount');
+  const liderGetiriEl = document.getElementById('canliLiderGetiri');
+  const liderAdEl = document.getElementById('canliLiderAd');
+  const tabloEl = document.getElementById('canliLiderlikTablosu');
+  const sonGuncellenenlerEl = document.getElementById('canliSonGuncellenenler');
+  const data = oplabPortfolioData;
+
+  katilimciEl.textContent = data.length;
+  acikPosEl.textContent = data.reduce((sum,c)=> sum + (c.positionsCount||0), 0);
+
+  if(!data.length){
+    liderGetiriEl.textContent = '--';
+    liderGetiriEl.className = 'stat-value gray';
+    liderAdEl.textContent = 'Anlık sıralama lideri';
+    tabloEl.innerHTML = `<div class="empty-state"><div class="icon">🏆</div><span>Henüz sıralama oluşmadı.</span></div>`;
+    sonGuncellenenlerEl.innerHTML = `<div class="empty-state"><div class="icon">⇄</div><span>Henüz işlem hareketi yok.</span></div>`;
+    updateCanliSeciliPortfoy();
+    return;
+  }
+
+  const sorted = data.slice().sort((a,b)=> (b.equity||0) - (a.equity||0));
+  const leader = sorted[0];
+  const leaderPct = pctReturn(leader.equity||0);
+  liderGetiriEl.textContent = (leaderPct>=0?'+':'') + leaderPct.toFixed(2) + '%';
+  liderGetiriEl.className = 'stat-value';
+  liderGetiriEl.style.color = leaderPct>=0 ? 'var(--green)' : '#fca5a5';
+  liderAdEl.textContent = leader.name || 'İsimsiz';
+
+  tabloEl.innerHTML = sorted.map((c,i)=>{
+    const pct = pctReturn(c.equity||0);
+    return `<div class="list-item" style="cursor:pointer;${selectedCanliAppId===c.id?'border-color:var(--blue);':''}" data-canli-id="${c.id}">
+      <div>
+        <div style="font-weight:600;font-size:14px;">${i+1}. ${c.name || 'İsimsiz'}</div>
+        <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">Özkaynak: ${fmtTRY(c.equity||0)} • ${c.positionsCount||0} açık pozisyon</div>
+      </div>
+      <span class="status-pill ${pct>=0?'green':'red'}">${pct>=0?'+':''}${pct.toFixed(2)}%</span>
+    </div>`;
+  }).join('');
+  tabloEl.querySelectorAll('[data-canli-id]').forEach(el=>{
+    el.addEventListener('click', ()=>{ selectedCanliAppId = el.dataset.canliId; renderCanliIzleme(); });
+  });
+
+  const sortedByUpdate = data.slice().sort((a,b)=> new Date(b.updatedAt||0) - new Date(a.updatedAt||0)).slice(0,8);
+  sonGuncellenenlerEl.innerHTML = sortedByUpdate.map(c=>`
+    <div class="list-item" style="cursor:default;">
+      <div>
+        <div style="font-weight:600;font-size:14px;">${c.name || 'İsimsiz'}</div>
+        <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${fmtTRY(c.equity||0)} özkaynak</div>
+      </div>
+      <span style="color:var(--text-dim);font-size:12px;">${timeAgoTr(c.updatedAt)}</span>
+    </div>`).join('');
+
+  updateCanliSeciliPortfoy();
+}
+
+function updateCanliSeciliPortfoy(){
+  const el = document.getElementById('canliSeciliPortfoy');
+  const btn = document.getElementById('canliPortfoyuAcBtn');
+  if(!el || !btn) return;
+  const c = oplabPortfolioData.find(x=>x.id===selectedCanliAppId);
+  if(!c){
+    el.innerHTML = `<div class="empty-state"><div class="icon">◔</div><span>Bir yarışmacı seçilmedi.</span></div>`;
+    btn.disabled = true;
+    return;
+  }
+  const pct = pctReturn(c.equity||0);
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">
+      <div class="avatar-circle" style="width:40px;height:40px;font-size:14px;">${initials(c.name||'?')}</div>
+      <div><div style="font-weight:600;font-size:14.5px;">${c.name||'İsimsiz'}</div><div style="color:var(--text-dim);font-size:12px;">${fmtTRY(c.equity||0)} özkaynak</div></div>
+    </div>
+    <div style="color:${pct>=0?'var(--green)':'#fca5a5'};font-weight:700;font-size:14px;">${pct>=0?'+':''}${pct.toFixed(2)}%</div>`;
+  btn.disabled = false;
+}
+document.getElementById('canliPortfoyuAcBtn').addEventListener('click', ()=>{
+  if(!selectedCanliAppId) return;
+  selectedPortfoyAppId = selectedCanliAppId;
+  navigateTo('page-portfoy');
+});
+
+function populatePortfoySelect(){
+  const select = document.getElementById('portfoySelect');
+  if(!select) return;
+  const data = oplabPortfolioData;
+  if(!data.length){
+    select.innerHTML = '<option value="">Henüz veri gönderen yarışmacı yok</option>';
+    select.disabled = true;
+    selectedPortfoyAppId = null;
+    return;
+  }
+  select.disabled = false;
+  const sorted = data.slice().sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'tr'));
+  select.innerHTML = sorted.map(c=>`<option value="${c.id}">${c.name || 'İsimsiz'}</option>`).join('');
+  if(!selectedPortfoyAppId || !sorted.some(c=>c.id===selectedPortfoyAppId)){
+    selectedPortfoyAppId = sorted[0].id;
+  }
+  select.value = selectedPortfoyAppId;
+}
+
+function renderKullaniciPortfoyleri(){
+  const siraEl = document.getElementById('portfoyAnlikSira');
+  if(!siraEl) return;
+  populatePortfoySelect();
+
+  const data = oplabPortfolioData;
+  const degerVal = document.getElementById('portfoyDegerValue');
+  const degerSub = document.getElementById('portfoyDegerSub');
+  const getiriVal = document.getElementById('portfoyGetiriValue');
+  const getiriSub = document.getElementById('portfoyGetiriSub');
+  const nakitVal = document.getElementById('portfoyNakitValue');
+  const acikPosVal = document.getElementById('portfoyAcikPozisyonValue');
+  const sonGuncelleme = document.getElementById('portfoySonGuncelleme');
+  const positionsBody = document.getElementById('portfoyPositionsBody');
+  const detayNot = document.getElementById('portfoyDetayNot');
+
+  if(!data.length || !selectedPortfoyAppId){
+    siraEl.textContent = '--';
+    degerVal.textContent = '-- TL'; degerVal.className = 'stat-value gray';
+    degerSub.textContent = `Başlangıç: ${fmtTRY(getBaslangicBakiyesi())}`;
+    getiriVal.textContent = '--%'; getiriVal.className = 'stat-value gray'; getiriVal.style.color = '';
+    getiriSub.textContent = '-- TL';
+    nakitVal.textContent = '-- TL'; nakitVal.className = 'stat-value gray';
+    acikPosVal.textContent = '0';
+    sonGuncelleme.textContent = 'Veri yok';
+    positionsBody.innerHTML = `<tr><td colspan="4"><div class="empty-state" style="padding:20px 0;">Pozisyon bulunmuyor.</div></td></tr>`;
+    detayNot.textContent = 'Henüz veri yok.';
+    return;
+  }
+
+  const sorted = data.slice().sort((a,b)=> (b.equity||0) - (a.equity||0));
+  const c = data.find(x=>x.id===selectedPortfoyAppId) || sorted[0];
+  const rank = sorted.findIndex(x=>x.id===c.id) + 1;
+  const pct = pctReturn(c.equity||0);
+  const pctTRY = (c.equity||0) - getBaslangicBakiyesi();
+
+  siraEl.textContent = '#' + rank;
+  degerVal.textContent = fmtTRY(c.equity||0);
+  degerVal.className = 'stat-value';
+  degerSub.textContent = `Başlangıç: ${fmtTRY(getBaslangicBakiyesi())}`;
+  getiriVal.textContent = (pct>=0?'+':'') + pct.toFixed(2) + '%';
+  getiriVal.className = 'stat-value';
+  getiriVal.style.color = pct>=0 ? 'var(--green)' : '#fca5a5';
+  getiriSub.textContent = (pctTRY>=0?'+':'') + fmtTRY(pctTRY);
+  nakitVal.textContent = fmtTRY(c.balance||0);
+  nakitVal.className = 'stat-value blue';
+  acikPosVal.textContent = c.positionsCount || 0;
+  sonGuncelleme.textContent = 'Son güncelleme: ' + timeAgoTr(c.updatedAt);
+
+  const positions = c.positions || [];
+  if(!positions.length){
+    positionsBody.innerHTML = `<tr><td colspan="4"><div class="empty-state" style="padding:20px 0;">Pozisyon bulunmuyor.</div></td></tr>`;
+  } else {
+    positionsBody.innerHTML = positions.map(p=>`
+      <tr>
+        <td>${p.symbol}${p.market==='VIOP' ? ' <span style="color:var(--text-dim);font-size:11px;">(VİOP)</span>' : ''}</td>
+        <td>${p.side==='LONG'?'LONG':'SHORT'} ${p.qty}</td>
+        <td>${fmtTRY(p.avgPrice||0)}</td>
+        <td style="color:${(p.pnl||0)>=0?'var(--green)':'#fca5a5'};">${(p.pnl||0)>=0?'+':''}${fmtTRY(p.pnl||0)}</td>
+      </tr>`).join('');
+  }
+  detayNot.textContent = `${c.email || ''} — ${positions.length} açık pozisyon.`;
+}
+document.getElementById('portfoySelect').addEventListener('change', function(){
+  selectedPortfoyAppId = this.value;
+  renderKullaniciPortfoyleri();
+});
+
+function syncSonuclarPublishUI(){
+  const pill = document.getElementById('sonucDurumPill');
+  if(!pill) return;
+  if(state.resultsPublished){
+    pill.textContent = 'YAYINLANDI';
+    pill.className = 'status-pill green';
+  } else {
+    pill.textContent = 'TASLAK';
+    pill.className = 'status-pill yellow';
+  }
+}
+
+function renderSonuclar(){
+  const katilimciEl = document.getElementById('sonucKatilimciCount');
+  if(!katilimciEl) return;
+  const enYuksekVal = document.getElementById('sonucEnYuksekGetiri');
+  const enYuksekAd = document.getElementById('sonucEnYuksekAd');
+  const tbody = document.getElementById('sonucFinalTableBody');
+  const rankSlots = [
+    { name: document.getElementById('sonucRank1Name'), pct: document.getElementById('sonucRank1Pct') },
+    { name: document.getElementById('sonucRank2Name'), pct: document.getElementById('sonucRank2Pct') },
+    { name: document.getElementById('sonucRank3Name'), pct: document.getElementById('sonucRank3Pct') }
+  ];
+  const data = oplabPortfolioData;
+  katilimciEl.textContent = data.length;
+
+  if(!data.length){
+    enYuksekVal.textContent = '--'; enYuksekVal.className = 'stat-value gray';
+    enYuksekAd.textContent = 'Henüz belirlenmedi';
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state" style="padding:22px 0;">Henüz sonuç oluşmadı.</div></td></tr>`;
+    rankSlots.forEach(s=>{ s.name.textContent = 'Henüz belirlenmedi'; s.pct.textContent = '--%'; });
+    syncSonuclarPublishUI();
+    return;
+  }
+
+  const sorted = data.slice().sort((a,b)=> (b.equity||0) - (a.equity||0));
+  const top = sorted[0];
+  const topPct = pctReturn(top.equity||0);
+  enYuksekVal.textContent = (topPct>=0?'+':'') + topPct.toFixed(2) + '%';
+  enYuksekVal.className = 'stat-value';
+  enYuksekVal.style.color = topPct>=0 ? 'var(--green)' : '#fca5a5';
+  enYuksekAd.textContent = top.name || 'İsimsiz';
+
+  rankSlots.forEach((slot, i)=>{
+    const c = sorted[i];
+    if(c){
+      slot.name.textContent = c.name || 'İsimsiz';
+      const p = pctReturn(c.equity||0);
+      slot.pct.textContent = (p>=0?'+':'') + p.toFixed(2) + '%';
+    } else {
+      slot.name.textContent = 'Henüz belirlenmedi';
+      slot.pct.textContent = '--%';
+    }
+  });
+
+  tbody.innerHTML = sorted.map((c,i)=>{
+    const p = pctReturn(c.equity||0);
+    return `<tr>
+      <td>${i+1}</td>
+      <td>${c.name || 'İsimsiz'}</td>
+      <td>${fmtTRY(c.equity||0)}</td>
+      <td style="color:${p>=0?'var(--green)':'#fca5a5'};">${p>=0?'+':''}${p.toFixed(2)}%</td>
+    </tr>`;
+  }).join('');
+
+  syncSonuclarPublishUI();
+}
 
 /* ============ INIT ============ */
 hydrateFromShared();
@@ -2103,6 +2651,11 @@ syncGlobalStatus();
 syncZirveSettingsUI();
 syncOplabSettingsUI();
 renderOplabVisitorList();
+syncYayinUI();
+renderCanliIzleme();
+renderKullaniciPortfoyleri();
+renderSonuclar();
+renderActivityLog();
 showScreen('login');
 </script>
 
