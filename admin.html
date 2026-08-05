@@ -825,7 +825,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
         <div class="stat-card">
           <div class="stat-label"><span class="stat-dot" id="dashDot"></span> YARIŞMA DURUMU</div>
           <div class="stat-value gray" id="dashCompStatus">BAŞLAMADI</div>
-          <div class="stat-sub" id="dashCompStatusSub">Zirve Lig henüz başlamadı</div>
+          <div class="stat-sub" id="dashCompStatusSub">FinteLig henüz başlamadı</div>
         </div>
       </div>
 
@@ -863,7 +863,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
         <table>
           <thead><tr><th>AD SOYAD</th><th>E-POSTA</th><th>DENEYİM</th><th>DURUM</th><th>AKSİYON</th></tr></thead>
           <tbody id="dashBekleyenTable">
-            <tr><td colspan="5"><div class="empty-state" style="padding:26px 0;"><div class="icon">—</div><span>Henüz başvuru bulunmuyor. Zirve Lig başvuruları açıldığında burada listelenecek.</span></div></td></tr>
+            <tr><td colspan="5"><div class="empty-state" style="padding:26px 0;"><div class="icon">—</div><span>Henüz başvuru bulunmuyor. FinteLig başvuruları açıldığında burada listelenecek.</span></div></td></tr>
           </tbody>
         </table>
       </div>
@@ -875,12 +875,12 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
         <div class="stat-card">
           <div class="stat-label">YARIŞMA DURUMU</div>
           <div class="stat-value gray" id="ylYarismaDurumu">PASİF</div>
-          <div class="stat-sub">Yarışma henüz başlatılmadı</div>
+          <div class="stat-sub" id="ylYarismaDurumuSub">Yarışma henüz başlatılmadı</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">TARİH ARALIĞI</div>
           <div class="stat-value gray" id="ylTarihAraligi">Belirlenmedi</div>
-          <div class="stat-sub">Tarih ayarlanmadı</div>
+          <div class="stat-sub" id="ylTarihAraligiSub">Tarih ayarlanmadı</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">BAŞLANGIÇ BAKİYESİ</div>
@@ -895,7 +895,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           <p class="section-desc">FinteLig yarışmasının temel parametrelerini buradan yönetin.</p>
           <div class="field">
             <label>Yarışma Adı</label>
-            <input type="text" id="inpName" placeholder="Örn: Zirve Lig 2026">
+            <input type="text" id="inpName" placeholder="Örn: FinteLig 2026">
           </div>
           <div class="field-row">
             <div class="field">
@@ -982,7 +982,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
             <button class="btn btn-red" id="bsDeleteSelectedBtn" style="padding:8px 16px;font-size:12px;display:none;">SEÇİLENLERİ SİL</button>
           </div>
           <div id="basvuruList">
-            <div class="empty-state"><div class="icon">—</div><strong>Bekleyen başvuru yok</strong><span>Zirve Lig başvuruları açıldığında yeni kayıtlar burada görünecek.</span></div>
+            <div class="empty-state"><div class="icon">—</div><strong>Bekleyen başvuru yok</strong><span>FinteLig başvuruları açıldığında yeni kayıtlar burada görünecek.</span></div>
           </div>
         </div>
         <div class="card" id="basvuruDetay">
@@ -1043,7 +1043,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
         <div class="stat-card">
           <div class="stat-label"><span class="stat-dot" id="canliDot"></span> CANLI DURUM</div>
           <div class="stat-value gray" id="canliDurum">PASİF</div>
-          <div class="stat-sub">Yarışma başlamadı</div>
+          <div class="stat-sub" id="canliDurumSub">Yarışma başlamadı</div>
         </div>
         <div class="stat-card"><div class="stat-label">KATILIMCI</div><div class="stat-value" id="canliKatilimciCount">0</div><div class="stat-sub">OPLab'da doğrulanmış yarışmacı</div></div>
         <div class="stat-card"><div class="stat-label">AÇIK POZİSYON</div><div class="stat-value" id="canliAcikPozisyonCount">0</div><div class="stat-sub">Tüm yarışmacılar toplamı</div></div>
@@ -1985,11 +1985,13 @@ function syncYarismaSettingsUI(){
 
   document.getElementById('ylYarismaDurumu').textContent = state.competitionActive ? 'AKTİF' : 'PASİF';
   document.getElementById('ylYarismaDurumu').className = 'stat-value ' + (state.competitionActive ? 'green' : 'gray');
+  document.getElementById('ylYarismaDurumuSub').textContent = state.competitionActive ? 'Yarışma canlı yayında' : 'Yarışma henüz başlatılmadı';
 
   const hasDateRange = !!(state.startDate && state.endDate);
   const dateRange = hasDateRange ? `${fmtDate(state.startDate)} – ${fmtDate(state.endDate)}` : 'Belirlenmedi';
   document.getElementById('ylTarihAraligi').textContent = dateRange;
   document.getElementById('ylTarihAraligi').className = 'stat-value ' + (hasDateRange ? 'blue' : 'gray');
+  document.getElementById('ylTarihAraligiSub').textContent = hasDateRange ? formatDurationHuman(getConfiguredCompetitionDurationMs()) + ' sürecek' : 'Tarih ayarlanmadı';
   document.getElementById('ylBaslangicBakiyesi').textContent = (state.balance || 0).toLocaleString('tr-TR') + ' TL';
 }
 
@@ -2001,7 +2003,21 @@ document.getElementById('saveSettingsBtn').addEventListener('click', function(){
   const katilim = document.querySelector('#toggleKatilim .toggle-opt.active').dataset.value;
   const yarisma = document.querySelector('#toggleYarisma .toggle-opt.active').dataset.value;
   state.applicationsOpen = katilim === 'acik';
-  state.competitionActive = yarisma === 'aktif';
+  const wasActive = state.competitionActive;
+  const wantsActive = yarisma === 'aktif';
+
+  // (5 Ağustos 2026 düzeltmesi) Bu sayfadan Pasif→Aktif ya da Aktif→Pasif
+  // geçişi TAM yarışma başlatma/bitirme akışını da tetikler (OPLab erişimi,
+  // süre, arşivleme) — aksi halde burada sadece etiket değişir, OPLab hâlâ
+  // kilitli/açık kalırdı ve iki kontrol paneli birbiriyle tutarsız olurdu.
+  if(!wasActive && wantsActive){
+    startCompetitionNow('Yarışma Adayları sayfasından');
+    return; // startCompetitionNow zaten syncYarismaSettingsUI() + saveShared() çağırıyor
+  }
+  if(wasActive && !wantsActive){
+    finishCompetition('admin Yarışma Adayları sayfasından durdurdu');
+    return; // finishCompetition zaten syncYarismaSettingsUI() + saveShared() çağırıyor
+  }
 
   syncYarismaSettingsUI();
   syncGlobalStatus();
@@ -2237,7 +2253,7 @@ function syncGlobalStatus(){
 
   document.getElementById('dashCompStatus').textContent = active ? 'AKTİF' : 'BAŞLAMADI';
   document.getElementById('dashCompStatus').className = 'stat-value ' + (active ? 'green' : 'gray');
-  document.getElementById('dashCompStatusSub').textContent = active ? 'Zirve Lig canlı yayında' : 'Zirve Lig henüz başlamadı';
+  document.getElementById('dashCompStatusSub').textContent = active ? 'FinteLig canlı yayında' : 'FinteLig henüz başlamadı';
   document.getElementById('dashDot').classList.toggle('on', active);
   const dateRange = (state.startDate && state.endDate) ? `${fmtDate(state.startDate)} – ${fmtDate(state.endDate)}` : 'Belirlenmedi';
   document.getElementById('dashDateRange').textContent = dateRange;
@@ -2247,6 +2263,7 @@ function syncGlobalStatus(){
 
   document.getElementById('canliDurum').textContent = active ? 'AKTİF' : 'PASİF';
   document.getElementById('canliDurum').className = 'stat-value ' + (active ? 'green' : 'gray');
+  document.getElementById('canliDurumSub').textContent = active ? 'Yarışma canlı' : 'Yarışma başlamadı';
   document.getElementById('canliDot').classList.toggle('on', active);
 
   document.getElementById('sonucYarismaDurumu').textContent = active ? 'DEVAM EDİYOR' : 'DEVAM ETMİYOR';
@@ -2782,12 +2799,19 @@ document.getElementById('stopBroadcastBtn').addEventListener('click', ()=>{
 // 2 saatlik güvenli varsayılana düşülür. OPLab erişimi otomatik olarak AÇILIR.
 // Süre checkCompetitionTimer() tarafından her ~5 saniyede kontrol edilir;
 // dolduğunda finishCompetition() otomatik çağrılır (bkz. yukarısı).
-document.getElementById('startCompBtn').addEventListener('click', ()=>{
+// (5 Ağustos 2026 düzeltmesi — "iki farklı başlat kontrolü, biri gerçekte
+// çalışmıyordu") ÖNCEDEN yalnızca Yayın Yönetim'deki bu buton gerçekten
+// OPLab erişimini açıp süreyi başlatıyordu; Yarışma Adayları sayfasındaki
+// "Yarışma Durumu: Aktif" seçip AYARLARI KAYDET'e basmak SADECE bir etiketi
+// "AKTİF" yapıyordu — OPLab hâlâ kilitli kalıyor, süre hiç başlamıyordu.
+// Artık ikisi de AYNI bu fonksiyonu çağırıyor, hangisinden başlatılırsa
+// başlatılsın sonuç birebir aynı.
+function startCompetitionNow(source){
   const durationMs = getConfiguredCompetitionDurationMs();
   state.competitionActive = true;
   state.competitionEndsAt = Date.now() + durationMs;
   state.oplabEnabled = true;
-  document.getElementById('toggleYarisma').querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value==='aktif'));
+  document.getElementById('toggleYarisma')?.querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value==='aktif'));
   document.getElementById('toggleOplabErisim')?.querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value==='acik'));
   syncGlobalStatus();
   syncYarismaSettingsUI();
@@ -2795,9 +2819,10 @@ document.getElementById('startCompBtn').addEventListener('click', ()=>{
   syncYayinUI();
   saveShared();
   const durationLabel = formatDurationHuman(durationMs);
-  addActivity('Yarışma yayın panelinden başlatıldı — ' + durationLabel + ' süre başladı, OPLab erişimi açıldı.');
+  addActivity('Yarışma başlatıldı (' + source + ') — ' + durationLabel + ' süre başladı, OPLab erişimi açıldı.');
   showToast('Yarışma başlatıldı. ' + durationLabel + ' sonra otomatik olarak bitecek.', 'success');
-});
+}
+document.getElementById('startCompBtn').addEventListener('click', ()=> startCompetitionNow('Yayın Yönetim panelinden'));
 // Admin süre dolmadan erken bitirirse de AYNI arşivleme/kapatma akışından
 // (finishCompetition) geçer — iki yoldan da (otomatik/manuel) sonuç aynı:
 // Yarışma Geçmişi'ne kayıt + OPLab erişiminin tam kapanması.
@@ -3136,6 +3161,7 @@ function finishCompetition(reason){
   document.getElementById('toggleYarisma')?.querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value==='pasif'));
   document.getElementById('toggleOplabErisim')?.querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value==='kapali'));
   syncGlobalStatus();
+  syncYarismaSettingsUI();
   syncOplabSettingsUI();
   syncYayinUI();
   renderYarismaGecmisi();
