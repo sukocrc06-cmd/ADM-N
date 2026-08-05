@@ -400,20 +400,44 @@ tbody tr:last-child td{border-bottom:none;}
 }
 .center-msg{color:var(--text-dimmer);font-size:12.5px;text-align:center;max-width:70%;background:var(--card-bg);padding:10px 18px;border-radius:20px;border:1px solid var(--border-strong);}
 
+/* (5 Ağustos 2026 — gerçek canlı grafik) Canlı İzleme/Kullanıcı
+   Portföyleri'ndeki "Portföy Performansı" kutuları artık sahte kesik
+   çizgi yerine gerçek SVG trend çizgisi çiziyor (bkz. buildTrendSvg). */
+.trend-chart-box{
+  height:230px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);
+  background:var(--card-bg-2);padding:12px 14px;box-sizing:border-box;position:relative;
+}
+.trend-chart-box svg circle{cursor:pointer;}
+.asset-bar-row{margin-bottom:12px;}
+.asset-bar-row:last-child{margin-bottom:0;}
+.asset-bar-track{height:8px;border-radius:5px;background:var(--card-bg-2);overflow:hidden;}
+.asset-bar-fill{height:100%;border-radius:5px;transition:width .4s ease-out;}
+
 /* (5 Ağustos 2026 — Yayın Önizlemesi görsel yenilemesi) Bu kutu önceden
    .mini-chart-placeholder'ı paylaşıyordu — o sınıfın arka planındaki 3
    sahte "boş grafik" kesik çizgisi, SADECE veri gelmeden önceki bekleme
    mesajı için tasarlanmıştı. Yayın canlıyken üstüne gerçek liderlik/işlem
    verisi render edilince o çizgiler amaçsızca arkada kalıp kirli
-   görünüyordu (kullanıcı geri bildirimi). Artık kendi ayrı, temiz kutusu
-   var — .mini-chart-placeholder'a dokunulmadı, o sınıf hâlâ Canlı
-   İzleme/Kullanıcı Portföyleri'ndeki GERÇEKTEN her zaman boş kalan iki
-   grafik yer tutucusunda olduğu gibi kullanılıyor.*/
+   görünüyordu (kullanıcı geri bildirimi). Artık kendi ayrı, temiz kutusu var.
+   NOT: Canlı İzleme/Kullanıcı Portföyleri'ndeki iki grafik kutusu da
+   ARTIK gerçek canlı veriyle çiziliyor (bkz. renderCanliTrendChart /
+   renderPortfoyTrendChart) — .mini-chart-placeholder yalnızca veri henüz
+   yokken (yarışma başlamadan / yarışmacı seçilmeden) gösterilen "bekleniyor"
+   durumunda kalıyor, artık kalıcı sahte bir görsel değil.*/
 .yayin-preview-box{
-  border:1px solid var(--border-strong);border-radius:var(--radius-sm);
+  border:1px solid var(--border-strong);border-top:3px solid var(--yp-accent, var(--border-strong));border-radius:var(--radius-sm);
   display:flex;flex-direction:column;position:relative;overflow-y:auto;
-  background:var(--card-bg-2);
+  background:var(--card-bg-2);transition:border-top-color .5s ease;
 }
+/* (5 Ağustos 2026 — "daha renkli" güncellemesi) Küçük önizleme kutusu da
+   sahneyle AYNI mod->renk eşlemesini kullanıyor (bkz. renderYayinPreview'ın
+   yayinPreviewBox.dataset.mode ataması) — admin panelinde de her görüntü
+   modunun kendi rengi görünür oluyor, sadece hep aynı gri kutu değil. */
+.yayin-preview-box[data-mode="LİDERLİK"]{--yp-accent:#3d6fee;}
+.yayin-preview-box[data-mode="İŞLEM AKIŞI"]{--yp-accent:#a855f7;}
+.yayin-preview-box[data-mode="İLK 3"]{--yp-accent:#eab308;}
+.yayin-preview-box[data-mode="SIRALAMA"]{--yp-accent:#06b6d4;}
+.yayin-preview-box[data-mode="DURUM"]{--yp-accent:#f97316;}
 /* (5 Ağustos 2026) Sabit yükseklikli kutuda içerik uzunluğu moda göre çok
    değişiyor (İlk 3 = 3 satır, Sıralama = 10 satır) — dikey ortalama yerine
    üstten hizalı + kaydırılabilir yapıldı, hem taşma hem de aşağıdaki
@@ -464,13 +488,41 @@ tbody tr:last-child td{border-bottom:none;}
 .yp-podium-card.yp-flash-up{animation:ypFlashUp 900ms ease-out;}
 .yp-podium-card.yp-flash-down{animation:ypFlashDown 900ms ease-out;}
 
-/* ============ SAHNE MODU (tam ekran izleyici görünümü) ============ */
+/* ============ SAHNE MODU (tam ekran izleyici görünümü) ============
+   (5 Ağustos 2026 — "daha renkli, daha canlı" güncellemesi) Kullanıcı geri
+   bildirimi: sahne her modda aynı sade/gri görünüyordu. Artık her görüntü
+   modunun kendi renk teması var (--stage-accent / --stage-accent-glow,
+   overlay'in data-mode özniteliğine göre CSS'te seçiliyor — bkz.
+   renderStageMode), arka planda yavaşça hareket eden bir ışık/gradyan var,
+   ve mod değişimlerinde içerik yumuşak bir fade ile geçiyor (bkz.
+   .stage-content.switching). */
 .stage-overlay{
   position:fixed;inset:0;z-index:2000;background:#05070f;
   display:flex;flex-direction:column;color:var(--text);
-  font-family:'Inter',sans-serif;
+  font-family:'Inter',sans-serif;overflow:hidden;
+  --stage-accent:#3d6fee;--stage-accent-glow:rgba(61,111,238,0.35);
 }
 .stage-overlay.hidden{display:none;}
+.stage-overlay[data-mode="LİDERLİK"]{--stage-accent:#3d6fee;--stage-accent-glow:rgba(61,111,238,0.35);}
+.stage-overlay[data-mode="İŞLEM AKIŞI"]{--stage-accent:#a855f7;--stage-accent-glow:rgba(168,85,247,0.35);}
+.stage-overlay[data-mode="İLK 3"]{--stage-accent:#eab308;--stage-accent-glow:rgba(234,179,8,0.30);}
+.stage-overlay[data-mode="SIRALAMA"]{--stage-accent:#06b6d4;--stage-accent-glow:rgba(6,182,212,0.35);}
+.stage-overlay[data-mode="DURUM"]{--stage-accent:#f97316;--stage-accent-glow:rgba(249,115,22,0.32);}
+.stage-overlay::before{
+  content:'';position:absolute;inset:-20%;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(circle at 28% 30%, var(--stage-accent-glow), transparent 60%),
+    radial-gradient(circle at 74% 72%, var(--stage-accent-glow), transparent 55%);
+  opacity:.55;filter:blur(60px);
+  animation:stageAmbientDrift 16s ease-in-out infinite alternate;
+  transition:background-color 1s ease;
+}
+@keyframes stageAmbientDrift{
+  0%{transform:translate(0,0) scale(1);}
+  50%{transform:translate(3%,-3%) scale(1.08);}
+  100%{transform:translate(-3%,2%) scale(1.03);}
+}
+.stage-header,.stage-body,.stage-ticker,.stage-controls{position:relative;z-index:1;}
 .stage-header{
   display:flex;align-items:center;gap:24px;padding:22px 40px 10px;flex:none;
 }
@@ -482,16 +534,28 @@ tbody tr:last-child td{border-bottom:none;}
 .stage-pulse-dot{width:14px;height:14px;border-radius:50%;background:#ef4444;display:inline-block;animation:stagePulse 1.4s infinite ease-in-out;}
 .stage-comp-name{
   flex:1;text-align:center;font-family:'Oswald',sans-serif;font-size:28px;letter-spacing:.03em;color:var(--text);
+  position:relative;padding-bottom:12px;
+}
+.stage-comp-name::after{
+  content:'';position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+  width:70px;height:3px;border-radius:2px;background:var(--stage-accent);
+  transition:background-color .5s ease;
 }
 .stage-countdown{font-size:18px;color:var(--text-dim);font-weight:600;min-width:160px;text-align:right;}
 .stage-body{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:0 40px;}
 .stage-msg{color:var(--text-dimmer);font-size:22px;text-align:center;}
-.stage-content{width:100%;max-width:1100px;max-height:100%;overflow-y:auto;}
+.stage-content{
+  width:100%;max-width:1100px;max-height:100%;overflow-y:auto;border-radius:24px;padding:10px;
+  box-shadow:0 0 90px -18px var(--stage-accent-glow);transition:box-shadow .6s ease,opacity .28s ease,transform .28s ease;
+  opacity:1;transform:scale(1);
+}
+.stage-content.switching{opacity:0;transform:scale(.97);}
 /* Aynı .yp-row/.yp-avatar/.yp-pill/.yp-podium-card bileşenleri burada
    sahne için büyütülmüş halde yeniden kullanılıyor — mantık/animasyon
    birebir aynı, sadece boyutlar farklı (bkz. buildViewModeHtml). */
-.stage-content .yp-section-label{font-size:20px;margin-bottom:18px;text-align:center;}
+.stage-content .yp-section-label{font-size:20px;margin-bottom:18px;text-align:center;color:var(--stage-accent);transition:color .5s ease;}
 .stage-content .yp-row{gap:24px;padding:16px 20px;font-size:26px;}
+.stage-content .yp-row[data-rank="1"]{background:linear-gradient(90deg, rgba(234,179,8,0.14), transparent 70%);border-left:3px solid #eab308;}
 .stage-content .yp-rank{width:44px;flex:0 0 44px;font-size:26px;}
 .stage-content .yp-avatar{width:56px;height:56px;flex:0 0 56px;font-size:20px;}
 .stage-content .yp-pill{font-size:26px;padding:6px 20px;}
@@ -502,27 +566,55 @@ tbody tr:last-child td{border-bottom:none;}
 .stage-content .yp-podium-card .yp-rank{font-size:26px;}
 .stage-content .yp-podium-card .yp-pill{font-size:24px;}
 .stage-content .yp-sub{font-size:15px;}
+/* Madalya renkleri — İlk 3 podyumunda artık sadece lider (1.) değil, 2. ve
+   3. sıradaki de kendi rengiyle (gümüş/bronz) ayırt ediliyor. Küçük
+   önizleme kutusunda da aynı sınıflar kullanıldığından oradaki podyum da
+   otomatik olarak zenginleşiyor. */
+.yp-podium-card.silver{border-color:#c7d2e0;box-shadow:0 0 24px -4px rgba(199,210,224,0.35);}
+.yp-podium-card.bronze{border-color:#cd7f32;box-shadow:0 0 24px -4px rgba(205,127,50,0.35);}
+.yp-podium-card.first{box-shadow:0 0 28px -2px rgba(234,179,8,0.45);}
+.yp-status-badge{display:inline-flex;align-items:center;gap:10px;font-family:'Oswald',sans-serif;font-size:22px;padding:10px 24px;border-radius:30px;margin-top:8px;}
+.yp-status-badge.live{color:var(--green);background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.4);}
+.yp-status-badge.idle{color:var(--text-dimmer);background:rgba(255,255,255,0.03);border:1px solid var(--border-strong);}
+.yp-status-dot{width:10px;height:10px;border-radius:50%;background:currentColor;}
+.yp-status-badge.live .yp-status-dot{animation:stagePulse 1.4s infinite ease-in-out;}
+.stage-content .yp-status-badge{font-size:30px;padding:14px 32px;}
 .stage-ticker{
   flex:none;height:52px;background:var(--card-bg-2);border-top:1px solid var(--border-strong);
   overflow:hidden;position:relative;display:flex;align-items:center;
 }
+.stage-ticker::before{
+  content:'';position:absolute;inset:0;background:linear-gradient(90deg, var(--stage-accent-glow), transparent 8%, transparent 92%, var(--stage-accent-glow));
+  opacity:.5;pointer-events:none;transition:background 1s ease;
+}
 .stage-ticker-track{
-  display:flex;gap:60px;white-space:nowrap;position:absolute;left:0;padding-left:100%;
-  animation:stageTickerScroll 30s linear infinite;font-size:16px;color:var(--text-dim);
+  display:flex;gap:16px;white-space:nowrap;position:absolute;left:0;padding-left:100%;
+  animation:stageTickerScroll 30s linear infinite;font-size:16px;color:var(--text-dim);align-items:center;
 }
 .stage-ticker-track span{font-weight:600;}
 .stage-ticker-track .up{color:var(--green);}
 .stage-ticker-track .down{color:#fca5a5;}
+.stage-ticker-sep{color:var(--stage-accent);opacity:.7;font-weight:400;transition:color .5s ease;}
 @keyframes stageTickerScroll{0%{transform:translateX(0);}100%{transform:translateX(-100%);}}
 .stage-controls{
   flex:none;display:flex;gap:8px;padding:8px 16px;background:rgba(255,255,255,0.02);
 }
 .stage-ctrl-btn{
   background:var(--card-bg-2);border:1px solid var(--border-strong);color:var(--text-dimmer);
-  font-size:11.5px;padding:6px 12px;border-radius:20px;cursor:pointer;opacity:.55;transition:opacity .15s;
+  font-size:11.5px;padding:6px 12px;border-radius:20px;cursor:pointer;opacity:.6;
+  transition:opacity .15s,background-color .2s,color .2s,border-color .2s;font-weight:600;
 }
 .stage-ctrl-btn:hover{opacity:1;}
-.stage-ctrl-btn.active{color:var(--blue);border-color:var(--blue);opacity:1;}
+.stage-ctrl-btn[data-mode="LİDERLİK"]{color:#7ea3ff;border-color:rgba(61,111,238,0.4);}
+.stage-ctrl-btn[data-mode="İŞLEM AKIŞI"]{color:#d0aafb;border-color:rgba(168,85,247,0.4);}
+.stage-ctrl-btn[data-mode="İLK 3"]{color:#f6d675;border-color:rgba(234,179,8,0.4);}
+.stage-ctrl-btn[data-mode="SIRALAMA"]{color:#7fe3f0;border-color:rgba(6,182,212,0.4);}
+.stage-ctrl-btn[data-mode="DURUM"]{color:#ffb37a;border-color:rgba(249,115,22,0.4);}
+.stage-ctrl-btn[data-mode="LİDERLİK"].active{background:#3d6fee;color:#fff;border-color:#3d6fee;opacity:1;}
+.stage-ctrl-btn[data-mode="İŞLEM AKIŞI"].active{background:#a855f7;color:#fff;border-color:#a855f7;opacity:1;}
+.stage-ctrl-btn[data-mode="İLK 3"].active{background:#eab308;color:#241a02;border-color:#eab308;opacity:1;}
+.stage-ctrl-btn[data-mode="SIRALAMA"].active{background:#06b6d4;color:#04222a;border-color:#06b6d4;opacity:1;}
+.stage-ctrl-btn[data-mode="DURUM"].active{background:#f97316;color:#2b1000;border-color:#f97316;opacity:1;}
 .stage-exit-btn{margin-left:auto;color:#fca5a5;border-color:rgba(239,68,68,0.4);}
 
 .legend-row{display:flex;gap:22px;margin-top:14px;flex-wrap:wrap;}
@@ -1179,10 +1271,12 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
       <div class="grid-2">
         <div class="card">
           <h3 class="section-title">Canlı Portföy Performansı</h3>
-          <p class="section-desc">İlk 10 yarışmacının anlık portföy eğilimi.</p>
-          <div class="mini-chart-placeholder">
-            <div class="dash-line"></div>
-            <div class="center-msg">Yarışma başladığında veriler burada görünecek.</div>
+          <p class="section-desc">İlk 10 yarışmacının anlık portföy eğilimi — bu sekme açık kaldığı sürece canlı olarak izlenir.</p>
+          <div id="canliTrendChartBox">
+            <div class="mini-chart-placeholder">
+              <div class="dash-line"></div>
+              <div class="center-msg">Yarışma başladığında veriler burada görünecek.</div>
+            </div>
           </div>
           <div class="legend-row">
             <div class="legend-item"><span class="legend-dot green"></span> Lider</div>
@@ -1245,16 +1339,18 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
       <div class="grid-2">
         <div class="card">
           <h3 class="section-title">Portföy Performansı</h3>
-          <p class="section-desc">Yarışma süresince portföy değerinin değişimi.</p>
-          <div class="mini-chart-placeholder">
-            <div class="dash-line"></div>
-            <div class="center-msg">Görüntülemek için bir yarışmacı seçin.</div>
+          <p class="section-desc">Bu sekme açık kaldığı sürece portföy değerinin canlı değişimi.</p>
+          <div id="portfoyTrendChartBox">
+            <div class="mini-chart-placeholder">
+              <div class="dash-line"></div>
+              <div class="center-msg">Görüntülemek için bir yarışmacı seçin.</div>
+            </div>
           </div>
         </div>
         <div class="card">
           <h3 class="section-title">Varlık Dağılımı</h3>
           <p class="section-desc">Portföydeki mevcut ağırlıklar.</p>
-          <div class="empty-state" style="padding:30px 0;"><span>Veri yok.</span></div>
+          <div id="varlikDagilimiBox"><div class="empty-state" style="padding:30px 0;"><span>Veri yok.</span></div></div>
         </div>
       </div>
 
@@ -1396,7 +1492,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
       <div class="grid-2">
         <div class="card">
           <h3 class="section-title">Yayın Önizlemesi</h3>
-          <div class="yayin-preview-box" style="height:420px;">
+          <div class="yayin-preview-box" id="yayinPreviewBox" style="height:420px;">
             <div class="center-msg" id="yayinPreviewMsg">Yayın başlatıldığında önizleme burada görünecek.</div>
             <div id="yayinPreviewContent" class="yp-content" style="display:none;"></div>
             <div id="yayinPreviewSelected" class="hidden yp-floating-leaders"></div>
@@ -3008,6 +3104,177 @@ function pctReturn(equity){
   if(!base) return 0;
   return ((equity - base) / base) * 100;
 }
+
+/* ============ CANLI TREND GEÇMİŞİ (5 Ağustos 2026 — gerçek grafik) ============
+   Önceden "Canlı Portföy Performansı" ve "Portföy Performansı" kutuları hep
+   boş/sahte kesik-çizgi görünümündeydi çünkü elimizde zaman içinde bir seri
+   yoktu — OPLab sadece "şu anki" özkaynağı gönderiyor, geçmiş tutmuyor.
+   Sunucusuz/backend'siz bir mimari olduğundan (bkz. checkCompetitionTimer'ın
+   üstündeki not) tam yarışma geçmişini saklayamıyoruz; bunun yerine bu admin
+   sekmesi açık kaldığı sürece periyodik örnekleme yapıp GERÇEK (uydurma
+   olmayan) bir canlı-trend penceresi biriktiriyoruz. Açıklama metinleri de
+   buna göre "bu sekme açık kaldığı sürece" diyecek şekilde güncellendi —
+   "tüm yarışma geçmişi" gibi karşılayamayacağımız bir vaat verilmiyor.*/
+const TREND_SAMPLE_INTERVAL_MS = 20000; // OPLab'ın kendi ~20sn güncelleme aralığıyla eşleşiyor
+const TREND_HISTORY_MAX = 60; // ~20 dakikalık canlı pencere
+let canliHistory = []; // [{t, leaderPct, avgPct, worstPct}]
+let portfoyHistoryById = {}; // id -> [{t, equity}]
+
+function sampleEquityHistory(){
+  const data = oplabPortfolioData;
+  if(data.length){
+    const sorted = data.slice().sort((a,b)=> (b.equity||0) - (a.equity||0));
+    const top10 = sorted.slice(0,10);
+    const pcts = top10.map(c=>pctReturn(c.equity||0));
+    const leaderPct = pcts[0];
+    const worstPct = pcts[pcts.length-1];
+    const avgPct = pcts.reduce((s,p)=>s+p,0) / pcts.length;
+    const t = Date.now();
+    canliHistory.push({ t, leaderPct, avgPct, worstPct });
+    if(canliHistory.length > TREND_HISTORY_MAX) canliHistory.shift();
+
+    data.forEach(c=>{
+      if(!c.id) return;
+      const arr = portfoyHistoryById[c.id] || (portfoyHistoryById[c.id] = []);
+      arr.push({ t, equity: c.equity || 0 });
+      if(arr.length > TREND_HISTORY_MAX) arr.shift();
+    });
+  }
+  if(document.getElementById('page-canli')?.classList.contains('active')) renderCanliIzleme();
+  if(document.getElementById('page-portfoy')?.classList.contains('active')) renderKullaniciPortfoyleri();
+}
+setInterval(sampleEquityHistory, TREND_SAMPLE_INTERVAL_MS);
+
+// Basit, bağımlılıksız bir SVG çizgi grafiği üreticisi — birden fazla seri
+// alabilir (Lider/Ortalama/Düşüşte gibi), her serinin son noktasında bir
+// işaretçi + hover'da <title> ile gerçek değeri gösterir. index-bazlı x
+// eksen kullanılıyor (örnekleme aralığı sabit olduğundan bu yeterli).
+function buildTrendSvg(seriesList, opts){
+  opts = opts || {};
+  const width = 600, height = 190;
+  const padL = 8, padR = 8, padT = 16, padB = 16;
+  const allPoints = seriesList.flatMap(s=>s.points);
+  if(!allPoints.length) return null;
+
+  let minV = Math.min(...allPoints.map(p=>p.value));
+  let maxV = Math.max(...allPoints.map(p=>p.value));
+  if(opts.includeZero){ minV = Math.min(minV, 0); maxV = Math.max(maxV, 0); }
+  if(minV === maxV){ minV -= 1; maxV += 1; }
+  const rangePad = (maxV - minV) * 0.15;
+  minV -= rangePad; maxV += rangePad;
+
+  const n = Math.max.apply(null, seriesList.map(s=>s.points.length).concat([2]));
+  const xAt = i => padL + (width - padL - padR) * (n<=1 ? 0 : i/(n-1));
+  const yAt = v => padT + (height - padT - padB) * (1 - (v - minV)/(maxV - minV));
+  const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+
+  let svg = `<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" style="width:100%;height:100%;overflow:visible;">`;
+
+  if(opts.includeZero && minV < 0 && maxV > 0){
+    const y0 = yAt(0);
+    svg += `<line x1="${padL}" y1="${y0.toFixed(1)}" x2="${width-padR}" y2="${y0.toFixed(1)}" stroke="#575f75" stroke-width="1" stroke-dasharray="4 4"/>`;
+  }
+
+  seriesList.forEach(s=>{
+    if(!s.points.length) return;
+    if(s.points.length === 1){
+      const p = s.points[0];
+      svg += `<circle cx="${xAt(0).toFixed(1)}" cy="${yAt(p.value).toFixed(1)}" r="4" fill="${s.color}"><title>${esc(s.label)}: ${esc(opts.fmt ? opts.fmt(p.value) : p.value)}</title></circle>`;
+      return;
+    }
+    const d = s.points.map((p,i)=> `${i===0?'M':'L'} ${xAt(i).toFixed(1)} ${yAt(p.value).toFixed(1)}`).join(' ');
+    svg += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+    const lastIdx = s.points.length - 1;
+    const last = s.points[lastIdx];
+    svg += `<circle cx="${xAt(lastIdx).toFixed(1)}" cy="${yAt(last.value).toFixed(1)}" r="4" fill="${s.color}"><title>${esc(s.label)}: ${esc(opts.fmt ? opts.fmt(last.value) : last.value)}</title></circle>`;
+  });
+
+  svg += `</svg>`;
+  return svg;
+}
+
+// "Canlı Portföy Performansı" kutusu — ilk 10 yarışmacının Lider/Ortalama/
+// Düşüşte getirisinin (mevcut legend ile birebir eşleşen) trendini çizer.
+function renderCanliTrendChart(){
+  const box = document.getElementById('canliTrendChartBox');
+  if(!box) return;
+  if(!state.broadcastLive && !oplabPortfolioData.length){
+    box.innerHTML = `<div class="mini-chart-placeholder"><div class="dash-line"></div><div class="center-msg">Yarışma başladığında veriler burada görünecek.</div></div>`;
+    return;
+  }
+  if(!canliHistory.length){
+    box.innerHTML = `<div class="mini-chart-placeholder"><div class="dash-line"></div><div class="center-msg">Trend oluşuyor — birkaç saniye içinde grafik belirecek.</div></div>`;
+    return;
+  }
+  const series = [
+    { label:'Lider', color:'#22c55e', points: canliHistory.map(h=>({ value: h.leaderPct })) },
+    { label:'Ortalama', color:'#3d6fee', points: canliHistory.map(h=>({ value: h.avgPct })) },
+    { label:'Düşüşte', color:'#ef4444', points: canliHistory.map(h=>({ value: h.worstPct })) }
+  ];
+  const svg = buildTrendSvg(series, { includeZero:true, fmt:v=>(v>=0?'+':'')+v.toFixed(2)+'%' });
+  box.innerHTML = svg ? `<div class="trend-chart-box">${svg}</div>` : `<div class="mini-chart-placeholder"><div class="dash-line"></div><div class="center-msg">Trend oluşuyor — birkaç saniye içinde grafik belirecek.</div></div>`;
+}
+
+// "Portföy Performansı" kutusu — seçili tek bir yarışmacının özkaynak trendi.
+function renderPortfoyTrendChart(){
+  const box = document.getElementById('portfoyTrendChartBox');
+  if(!box) return;
+  const c = oplabPortfolioData.find(x=>x.id===selectedPortfoyAppId);
+  if(!c){
+    box.innerHTML = `<div class="mini-chart-placeholder"><div class="dash-line"></div><div class="center-msg">Görüntülemek için bir yarışmacı seçin.</div></div>`;
+    return;
+  }
+  const hist = portfoyHistoryById[c.id] || [];
+  if(!hist.length){
+    box.innerHTML = `<div class="mini-chart-placeholder"><div class="dash-line"></div><div class="center-msg">Trend oluşuyor — birkaç saniye içinde grafik belirecek.</div></div>`;
+    return;
+  }
+  const pct = pctReturn(c.equity||0);
+  const color = pct >= 0 ? '#22c55e' : '#ef4444';
+  const series = [{ label: c.name || 'Portföy', color, points: hist.map(h=>({ value: h.equity })) }];
+  const svg = buildTrendSvg(series, { fmt: v=>fmtTRY(v) });
+  box.innerHTML = svg ? `<div class="trend-chart-box">${svg}</div>` : `<div class="mini-chart-placeholder"><div class="dash-line"></div><div class="center-msg">Trend oluşuyor — birkaç saniye içinde grafik belirecek.</div></div>`;
+}
+
+// "Varlık Dağılımı" kutusu — seçili yarışmacının açık pozisyonları + nakdinin
+// portföy içindeki ağırlığı. Kimlik her zaman doğrudan metin etiketiyle
+// (sembol adı / "Nakit") veriliyor, renk sadece ikincil bir görsel ayrım —
+// "Nakit" her zaman sabit nötr gri, hisseler kendi rengiyle sırayla.
+function renderVarlikDagilimi(){
+  const box = document.getElementById('varlikDagilimiBox');
+  if(!box) return;
+  const c = oplabPortfolioData.find(x=>x.id===selectedPortfoyAppId);
+  if(!c){
+    box.innerHTML = `<div class="empty-state" style="padding:30px 0;"><span>Veri yok.</span></div>`;
+    return;
+  }
+  const positions = c.positions || [];
+  const cash = Math.max(0, c.balance || 0);
+  const posValues = positions.map(p => ({
+    label: p.symbol || '?',
+    value: Math.max(0, (p.avgPrice||0) * (p.qty||0) + (p.pnl||0))
+  }));
+  const total = cash + posValues.reduce((s,p)=>s+p.value, 0);
+  if(total <= 0){
+    box.innerHTML = `<div class="empty-state" style="padding:30px 0;"><span>Veri yok.</span></div>`;
+    return;
+  }
+  const palette = ['#3d6fee','#22c55e','#eab308','#a855f7','#06b6d4','#f97316'];
+  const items = posValues.concat(cash > 0 ? [{ label:'Nakit', value: cash, isCash:true }] : [])
+    .filter(it=>it.value > 0)
+    .sort((a,b)=> b.value - a.value);
+  box.innerHTML = items.map((it,i)=>{
+    const pct = (it.value / total) * 100;
+    const color = it.isCash ? '#575f75' : palette[i % palette.length];
+    return `<div class="asset-bar-row">
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px;">
+        <span style="color:var(--text-dim);">${it.label}</span>
+        <span style="font-weight:600;">${pct.toFixed(1)}%</span>
+      </div>
+      <div class="asset-bar-track"><div class="asset-bar-fill" style="width:${pct.toFixed(1)}%;background:${color};"></div></div>
+    </div>`;
+  }).join('');
+}
 function timeAgoTr(iso){
   if(!iso) return '—';
   const diffSec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -3034,6 +3301,7 @@ function renderCanliIzleme(){
 
   katilimciEl.textContent = data.length;
   acikPosEl.textContent = data.reduce((sum,c)=> sum + (c.positionsCount||0), 0);
+  renderCanliTrendChart();
 
   if(!data.length){
     liderGetiriEl.textContent = '--';
@@ -3165,6 +3433,8 @@ function renderKullaniciPortfoyleri(){
     sonGuncelleme.textContent = 'Veri yok';
     positionsBody.innerHTML = `<tr><td colspan="4"><div class="empty-state" style="padding:20px 0;">Pozisyon bulunmuyor.</div></td></tr>`;
     detayNot.textContent = 'Henüz veri yok.';
+    renderPortfoyTrendChart();
+    renderVarlikDagilimi();
     return;
   }
 
@@ -3200,6 +3470,8 @@ function renderKullaniciPortfoyleri(){
       </tr>`).join('');
   }
   detayNot.textContent = `${c.email || ''} — ${positions.length} açık pozisyon.`;
+  renderPortfoyTrendChart();
+  renderVarlikDagilimi();
 }
 document.getElementById('portfoySelect').addEventListener('change', function(){
   selectedPortfoyAppId = this.value;
@@ -3423,13 +3695,18 @@ function buildViewModeHtml(mode, data){
         </div>`;
       }).join('');
   } else if(mode === 'İLK 3'){
+    // Madalya renkleri: 1. altın, 2. gümüş, 3. bronz — sadece lider değil
+    // üçü de kendi rengiyle/madalyasıyla ayırt ediliyor (bkz. .yp-podium-card
+    // .silver/.bronze CSS'i).
+    const medalClass = ['first','silver','bronze'];
+    const medalEmoji = ['🥇','🥈','🥉'];
     html = `<div class="yp-section-label" style="text-align:center;">İLK 3 YARIŞMACI</div>
       <div class="yp-podium-row">` +
       sorted.slice(0,3).map((c,i)=>{
         const pct = pctReturn(c.equity||0);
         const compId = c.id || c.email || c.name || ('r'+i);
-        return `<div class="yp-podium-card${i===0?' first':''}" data-comp-id="${compId}" data-rank="${i+1}">
-          <div class="yp-rank" style="width:auto;font-size:15px;margin-bottom:6px;">0${i+1}</div>
+        return `<div class="yp-podium-card ${medalClass[i]}" data-comp-id="${compId}" data-rank="${i+1}">
+          <div class="yp-rank" style="width:auto;font-size:15px;margin-bottom:6px;">${medalEmoji[i]} 0${i+1}</div>
           <span class="yp-avatar" style="width:40px;height:40px;font-size:13px;margin:0 auto 8px;">${initials(c.name||'İ')}</span>
           <div class="yp-name" style="text-align:center;font-size:12.5px;">${c.name||'İsimsiz'}</div>
           <div style="margin-top:6px;">${pctPillHtml(pct, compId)}</div>
@@ -3444,10 +3721,14 @@ function buildViewModeHtml(mode, data){
         <span style="color:var(--text-dim);font-weight:600;">${fmtTRY(c.equity||0)}</span>
       </div>`).join('');
   } else {
+    const isActive = !!state.competitionActive;
     html = `<div style="text-align:center;">
       <div class="yp-section-label">YARIŞMA DURUMU</div>
-      <div style="font-family:'Oswald',sans-serif;font-size:24px;color:${state.competitionActive?'var(--green)':'var(--text-dimmer)'};">${state.competitionActive?'DEVAM EDİYOR':'BAŞLAMADI'}</div>
-      <div style="color:var(--text-dim);font-size:12.5px;margin-top:6px;">${data.length} katılımcı</div>
+      <div class="yp-status-badge ${isActive?'live':'idle'}">
+        <span class="yp-status-dot"></span>
+        ${isActive?'DEVAM EDİYOR':'BAŞLAMADI'}
+      </div>
+      <div style="color:var(--text-dim);font-size:12.5px;margin-top:10px;">${data.length} katılımcı</div>
     </div>`;
   }
   return html;
@@ -3531,7 +3812,9 @@ function renderYayinPreview(){
   const msgEl = document.getElementById('yayinPreviewMsg');
   const contentEl = document.getElementById('yayinPreviewContent');
   const selectedEl = document.getElementById('yayinPreviewSelected');
+  const boxEl = document.getElementById('yayinPreviewBox');
   if(!msgEl || !contentEl || !selectedEl) return;
+  if(boxEl) boxEl.dataset.mode = state.viewMode;
 
   if(!state.broadcastLive){
     msgEl.style.display = '';
@@ -3586,14 +3869,21 @@ function isStageModeOpen(){
   return !!overlay && !overlay.classList.contains('hidden');
 }
 
+// Mod değiştiğinde içerik sıçramadan önce kısa bir "fade" ile geçiyor —
+// (5 Ağustos 2026 "daha canlı" güncellemesi) eskiden buton değişince içerik
+// anında sıçrıyordu, bu da sahneyi statik/sade gösteriyordu.
+const STAGE_MODE_SWITCH_FADE_MS = 150;
+
 function renderStageMode(){
   if(!isStageModeOpen()) return; // sahne kapalıyken gereksiz render yapılmaz
+  const overlay = document.getElementById('stageModeOverlay');
   const msgEl = document.getElementById('stageMsg');
   const contentEl = document.getElementById('stageContent');
   const nameEl = document.getElementById('stageCompName');
   const countdownEl = document.getElementById('stageCountdown');
   if(!msgEl || !contentEl) return;
 
+  if(overlay) overlay.dataset.mode = state.viewMode; // renk temasını CSS'te seçtiriyor
   if(nameEl) nameEl.textContent = state.compName || 'FinteLig Yarışması';
   if(countdownEl){
     countdownEl.textContent = (state.competitionActive && state.competitionEndsAt)
@@ -3604,10 +3894,13 @@ function renderStageMode(){
     b.classList.toggle('active', b.dataset.mode === state.viewMode);
   });
 
+  const modeChanged = (lastStageMetrics.viewMode !== null && lastStageMetrics.viewMode !== state.viewMode);
+
   if(!state.broadcastLive){
     msgEl.style.display = '';
     msgEl.textContent = 'Yayın başlatıldığında önizleme burada görünecek.';
     contentEl.style.display = 'none';
+    contentEl.classList.remove('switching');
     lastStageMetrics.byId = {}; lastStageMetrics.viewMode = null;
     renderStageTicker();
     return;
@@ -3618,6 +3911,7 @@ function renderStageMode(){
     msgEl.style.display = '';
     msgEl.textContent = `Yayın canlı — görüntü modu: ${state.viewMode}. (Henüz veri gönderen yarışmacı yok.)`;
     contentEl.style.display = 'none';
+    contentEl.classList.remove('switching');
     lastStageMetrics.byId = {}; lastStageMetrics.viewMode = null;
     renderStageTicker();
     return;
@@ -3626,8 +3920,19 @@ function renderStageMode(){
   msgEl.style.display = 'none';
   contentEl.style.display = 'block';
   const sorted = data.slice().sort((a,b)=> (b.equity||0) - (a.equity||0));
-  contentEl.innerHTML = buildViewModeHtml(state.viewMode, data);
-  animateRankedRows(contentEl, state.viewMode, sorted, lastStageMetrics);
+
+  const applyStageContent = () => {
+    contentEl.innerHTML = buildViewModeHtml(state.viewMode, data);
+    animateRankedRows(contentEl, state.viewMode, sorted, lastStageMetrics);
+    contentEl.classList.remove('switching');
+  };
+
+  if(modeChanged){
+    contentEl.classList.add('switching');
+    setTimeout(applyStageContent, STAGE_MODE_SWITCH_FADE_MS);
+  } else {
+    applyStageContent();
+  }
   renderStageTicker();
 }
 
@@ -3657,7 +3962,7 @@ function renderStageTicker(){
     items.push(`⏱ ${formatCountdown(state.competitionEndsAt - Date.now())}`);
   }
   if(lastActivity) items.push(`🔔 ${lastActivity}`);
-  const itemsHtml = items.map(t=>`<span>${t}</span>`).join('');
+  const itemsHtml = items.map(t=>`<span>${t}</span>`).join('<span class="stage-ticker-sep">●</span>');
   track.innerHTML = itemsHtml;
 }
 
