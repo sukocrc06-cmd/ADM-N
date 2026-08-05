@@ -1264,7 +1264,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
         <div class="stat-card"><div class="stat-label">YAYIN DURUMU</div><div class="stat-value gray" id="yayinDurumu">HAZIR DEĞİL</div><div class="stat-sub">Yarışma başlamadı</div></div>
         <div class="stat-card"><div class="stat-label">YARIŞMA DURUMU</div><div class="stat-value gray" id="yayinYarismaDurumu">PASİF</div><div class="stat-sub" id="yayinYarismaSub">Yarışma başlatılmadı</div></div>
         <div class="stat-card"><div class="stat-label">GÖRÜNTÜ MODU</div><div class="stat-value yellow" id="yayinGoruntuModu" style="font-size:22px;">LİDERLİK</div><div class="stat-sub">Ekrana yansıtılacak görünüm</div></div>
-        <div class="stat-card"><div class="stat-label">EKRAN</div><div class="stat-value green">BAĞLI</div><div class="stat-sub">Sahne ekranı hazır</div></div>
+        <div class="stat-card"><div class="stat-label">CANLI SENKRONİZASYON</div><div class="stat-value gray" id="yayinSyncStat">—</div><div class="stat-sub" id="yayinSyncSub">Kontrol ediliyor...</div></div>
       </div>
 
       <div class="grid-2">
@@ -1399,7 +1399,9 @@ const state = {
   applications: [],
   zirveRegistrations: [],
   // (Yarışma süresi + otomatik bitiş + geçmiş arşivi) YARIŞMAYI BAŞLAT'a
-  // basıldığında competitionEndsAt = o an + 2 saat olarak ayarlanır. Bir
+  // basıldığında competitionEndsAt = o an + [Yarışma Adayları'nda girilen
+  // Başlangıç/Bitiş Tarihi farkı, girilmemişse 2 saat] olarak ayarlanır
+  // (bkz. getConfiguredCompetitionDurationMs). Bir
   // admin sekmesi açıkken periyodik olarak kontrol edilir (bkz.
   // checkCompetitionTimer()); süre dolduğunda yarışma otomatik bitirilir,
   // o anki sıralama competitionHistory'ye kaydedilir ve OPLab erişimi
@@ -1412,7 +1414,33 @@ const state = {
   competitionEndsAt: null,
   competitionHistory: []
 };
-const COMPETITION_DURATION_MS = 2 * 60 * 60 * 1000; // sabit 2 saat
+const COMPETITION_DURATION_MS = 2 * 60 * 60 * 1000; // varsayılan (Yarışma Adayları'nda tarih aralığı girilmemişse kullanılır)
+// (5 Ağustos 2026 düzeltmesi) Önceden "YARIŞMAYI BAŞLAT" HER ZAMAN sabit 2
+// saat kullanıyordu — Yarışma Adayları sayfasındaki Başlangıç/Bitiş Tarihi
+// alanları sadece BİLGİ amaçlıydı, süreyi hiç etkilemiyordu. Artık o iki
+// tarih GERÇEK süreyi belirliyor (ör. 06.08–10.08 = 5 gün); admin yine
+// elleriyle "YARIŞMAYI BAŞLAT"a basar, o andan itibaren bu kadar sürer.
+// İkisi de girilmemişse (ya da bitiş, başlangıçtan önce/aynıysa) eski
+// güvenli varsayılana (2 saat) düşülür.
+function getConfiguredCompetitionDurationMs(){
+  if(state.startDate && state.endDate){
+    const startMs = new Date(state.startDate + 'T00:00:00').getTime();
+    const endMs = new Date(state.endDate + 'T23:59:59').getTime();
+    if(!isNaN(startMs) && !isNaN(endMs) && endMs > startMs) return endMs - startMs;
+  }
+  return COMPETITION_DURATION_MS;
+}
+function formatDurationHuman(ms){
+  const totalMinutes = Math.round(ms / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  const parts = [];
+  if(days) parts.push(days + ' gün');
+  if(hours) parts.push(hours + ' saat');
+  if(!days && minutes) parts.push(minutes + ' dakika');
+  return parts.length ? parts.join(' ') : '2 saat';
+}
 let appIdCounter = 1;
 let zirveIdCounter = 1;
 let currentBasvuruFilter = 'bekleyen';
@@ -1504,16 +1532,47 @@ function showConnectionError(){
   if(connErrorDismissed) return;
   const banner = document.getElementById('connectionErrorBanner');
   if(banner) banner.classList.remove('hidden');
+  syncLiveSyncStat();
 }
 function hideConnectionError(){
   connErrorDismissed = false;
   const banner = document.getElementById('connectionErrorBanner');
   if(banner) banner.classList.add('hidden');
+  syncLiveSyncStat();
 }
 document.getElementById('dismissConnErrorBtn')?.addEventListener('click', ()=>{
   connErrorDismissed = true;
   document.getElementById('connectionErrorBanner').classList.add('hidden');
+  syncLiveSyncStat();
 });
+// (5 Ağustos 2026) "Yayın Yönetimi" sayfasındaki eski "EKRAN: BAĞLI" kartı
+// hiçbir gerçek duruma bağlı olmayan, her zaman sabit yeşil "BAĞLI" yazan
+// sahte bir göstergeydi (admin haklı olarak "buna bağlı olan bir ekran yok
+// ki" diye fark etti). Fiziksel bir "sahne ekranı" zaten bu sistemde yok —
+// yerine, GERÇEKTEN var olan ve önemli olan bir şeyi gösteriyoruz: bu
+// panelin diğer cihazlarla (ör. index.html / OPLab tarafı) Firestore
+// üzerinden canlı senkronize olup olmadığı.
+function syncLiveSyncStat(){
+  const valEl = document.getElementById('yayinSyncStat');
+  const subEl = document.getElementById('yayinSyncSub');
+  if(!valEl || !subEl) return;
+  if(!FIREBASE_ENABLED){
+    valEl.textContent = 'YEREL MOD';
+    valEl.className = 'stat-value gray';
+    subEl.textContent = 'Firebase yapılandırılmadı — sadece bu tarayıcıda çalışıyor';
+    return;
+  }
+  const bannerHidden = document.getElementById('connectionErrorBanner')?.classList.contains('hidden');
+  if(bannerHidden){
+    valEl.textContent = 'SENKRONİZE';
+    valEl.className = 'stat-value green';
+    subEl.textContent = 'Diğer cihazlarla canlı senkron aktif';
+  } else {
+    valEl.textContent = 'BAĞLANTI SORUNU';
+    valEl.className = 'stat-value red';
+    subEl.textContent = 'Firestore senkronizasyonunda sorun var';
+  }
+}
 
 /* ============ PAYLAŞIMLI VERİ KÖPRÜSÜ (index.html ile senkron — Firebase varsa her cihazdan, yoksa aynı tarayıcıda localStorage ile) ============ */
 const SHARED_KEY = 'finteclub_shared_v1';
@@ -1586,6 +1645,7 @@ function onSharedDataUpdated(){
   hydrateFromShared();
   renderBasvuruList(); renderBasvuruDetail(); renderZirveList(); renderZirveDetail(); renderDashboardDynamic(); renderKullaniciVeritabani();
   syncGlobalStatus();
+  syncYarismaSettingsUI();
   syncZirveSettingsUI();
   syncOplabSettingsUI();
   syncYayinUI();
@@ -1885,6 +1945,54 @@ function fmtDate(d){
   return `${day}.${m}.${y}`;
 }
 
+// (5 Ağustos 2026 düzeltmesi) "Ayarları kaydettim ama yarışma tarihi
+// gözükmüyor" — kök neden: bu 3 üst kart (YARIŞMA DURUMU / TARİH ARALIĞI /
+// BAŞLANGIÇ BAKİYESİ) VE formun kendisi (Yarışma Adı, tarihler, bakiye,
+// Katılım/Yarışma Durumu toggle'ları) SADECE "AYARLARI KAYDET"e o an
+// tıklandığında dolduruluyordu. Sayfa yeniden yüklendiğinde ya da başka bir
+// cihazdan/sekmeden Firestore senkronu geldiğinde (onSharedDataUpdated),
+// state.startDate/endDate/compName/balance DOĞRU şekilde geri yükleniyordu
+// ama hiçbir yerde bu ekrana YENİDEN YAZILMIYORDU — kaydetme aslında hep
+// çalışıyordu, sadece ekranı yenileyince (ya da Firestore'un kendi yazımını
+// yankılamasıyla) eski/varsayılan görünüme geri dönüyordu. Artık tek bir
+// merkezi fonksiyon var; hem kayıt sonrası hem sayfa açılışında/senkron
+// güncellemesinde çağrılıyor, ikisi asla birbirinden sapmasın diye.
+function syncYarismaSettingsUI(){
+  const nameEl = document.getElementById('inpName');
+  const startEl = document.getElementById('inpStart');
+  const endEl = document.getElementById('inpEnd');
+  const balanceEl = document.getElementById('inpBalance');
+  // document.activeElement kontrolü: admin tam o an bu alana yazarken bir
+  // senkron güncellemesi gelirse, elindeki yazıyı yarım kesip üzerine
+  // yazmasın diye.
+  if(nameEl && document.activeElement !== nameEl) nameEl.value = state.compName || '';
+  if(startEl && document.activeElement !== startEl) startEl.value = state.startDate || '';
+  if(endEl && document.activeElement !== endEl) endEl.value = state.endDate || '';
+  if(balanceEl && document.activeElement !== balanceEl) balanceEl.value = state.balance || 100000;
+
+  const katilimGroup = document.getElementById('toggleKatilim');
+  if(katilimGroup){
+    katilimGroup.querySelectorAll('.toggle-opt').forEach(o=>{
+      o.classList.toggle('active', o.dataset.value === (state.applicationsOpen ? 'acik' : 'kapali'));
+    });
+  }
+  const yarismaGroup = document.getElementById('toggleYarisma');
+  if(yarismaGroup){
+    yarismaGroup.querySelectorAll('.toggle-opt').forEach(o=>{
+      o.classList.toggle('active', o.dataset.value === (state.competitionActive ? 'aktif' : 'pasif'));
+    });
+  }
+
+  document.getElementById('ylYarismaDurumu').textContent = state.competitionActive ? 'AKTİF' : 'PASİF';
+  document.getElementById('ylYarismaDurumu').className = 'stat-value ' + (state.competitionActive ? 'green' : 'gray');
+
+  const hasDateRange = !!(state.startDate && state.endDate);
+  const dateRange = hasDateRange ? `${fmtDate(state.startDate)} – ${fmtDate(state.endDate)}` : 'Belirlenmedi';
+  document.getElementById('ylTarihAraligi').textContent = dateRange;
+  document.getElementById('ylTarihAraligi').className = 'stat-value ' + (hasDateRange ? 'blue' : 'gray');
+  document.getElementById('ylBaslangicBakiyesi').textContent = (state.balance || 0).toLocaleString('tr-TR') + ' TL';
+}
+
 document.getElementById('saveSettingsBtn').addEventListener('click', function(){
   state.compName = document.getElementById('inpName').value.trim();
   state.startDate = document.getElementById('inpStart').value;
@@ -1895,13 +2003,7 @@ document.getElementById('saveSettingsBtn').addEventListener('click', function(){
   state.applicationsOpen = katilim === 'acik';
   state.competitionActive = yarisma === 'aktif';
 
-  document.getElementById('ylYarismaDurumu').textContent = state.competitionActive ? 'AKTİF' : 'PASİF';
-  document.getElementById('ylYarismaDurumu').className = 'stat-value ' + (state.competitionActive ? 'green' : 'gray');
-
-  const dateRange = (state.startDate && state.endDate) ? `${fmtDate(state.startDate)} – ${fmtDate(state.endDate)}` : 'Belirlenmedi';
-  document.getElementById('ylTarihAraligi').textContent = dateRange;
-  document.getElementById('ylBaslangicBakiyesi').textContent = state.balance.toLocaleString('tr-TR') + ' TL';
-
+  syncYarismaSettingsUI();
   syncGlobalStatus();
   addActivity('Yarışma ayarları güncellendi' + (state.compName ? ` (${state.compName})` : '') + '.');
   showToast('Ayarlar kaydedildi.', 'success');
@@ -2649,6 +2751,7 @@ function syncYayinUI(){
     el.className = 'stat-value ' + (live ? 'green' : 'gray');
   }
   renderYayinPreview();
+  syncLiveSyncStat();
   const sonucPill = document.getElementById('sonucYayinDurumu');
   if(sonucPill){
     sonucPill.textContent = live ? 'YAYINDA' : 'HAZIR DEĞİL';
@@ -2673,22 +2776,27 @@ document.getElementById('stopBroadcastBtn').addEventListener('click', ()=>{
   setBroadcast(false);
   showToast('Yayın durduruldu.', 'error');
 });
-// Yarışma başlatıldığında sabit 2 saatlik süre başlar (state.competitionEndsAt)
-// ve OPLab erişimi otomatik olarak AÇILIR (kullanıcının seçimi: "Sabit 2 saat").
+// Yarışma başlatıldığında süre başlar (state.competitionEndsAt) — süre,
+// Yarışma Adayları sayfasında girilen Başlangıç/Bitiş Tarihi aralığından
+// hesaplanır (bkz. getConfiguredCompetitionDurationMs), tarih girilmemişse
+// 2 saatlik güvenli varsayılana düşülür. OPLab erişimi otomatik olarak AÇILIR.
 // Süre checkCompetitionTimer() tarafından her ~5 saniyede kontrol edilir;
 // dolduğunda finishCompetition() otomatik çağrılır (bkz. yukarısı).
 document.getElementById('startCompBtn').addEventListener('click', ()=>{
+  const durationMs = getConfiguredCompetitionDurationMs();
   state.competitionActive = true;
-  state.competitionEndsAt = Date.now() + COMPETITION_DURATION_MS;
+  state.competitionEndsAt = Date.now() + durationMs;
   state.oplabEnabled = true;
   document.getElementById('toggleYarisma').querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value==='aktif'));
   document.getElementById('toggleOplabErisim')?.querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value==='acik'));
   syncGlobalStatus();
+  syncYarismaSettingsUI();
   syncOplabSettingsUI();
   syncYayinUI();
   saveShared();
-  addActivity('Yarışma yayın panelinden başlatıldı — 2 saatlik süre başladı, OPLab erişimi açıldı.');
-  showToast('Yarışma başlatıldı. 2 saat sonra otomatik olarak bitecek.', 'success');
+  const durationLabel = formatDurationHuman(durationMs);
+  addActivity('Yarışma yayın panelinden başlatıldı — ' + durationLabel + ' süre başladı, OPLab erişimi açıldı.');
+  showToast('Yarışma başlatıldı. ' + durationLabel + ' sonra otomatik olarak bitecek.', 'success');
 });
 // Admin süre dolmadan erken bitirirse de AYNI arşivleme/kapatma akışından
 // (finishCompetition) geçer — iki yoldan da (otomatik/manuel) sonuç aynı:
@@ -2989,9 +3097,15 @@ function formatCountdown(ms){
   if(ms === null || ms === undefined) return '';
   if(ms <= 0) return 'Süre doldu';
   const totalSec = Math.floor(ms/1000);
-  const h = Math.floor(totalSec/3600);
+  const d = Math.floor(totalSec/86400);
+  const h = Math.floor((totalSec%86400)/3600);
   const m = Math.floor((totalSec%3600)/60);
   const s = totalSec%60;
+  // (5 Ağustos 2026 düzeltmesi) Yarışma süresi artık çoklu güne çıkabildiği
+  // için (bkz. getConfiguredCompetitionDurationMs) gün bileşeni de eklendi —
+  // aksi halde 5 günlük bir yarışma "119 sa 59 dk kaldı" gibi kafa karıştırıcı
+  // görünürdü.
+  if(d > 0) return `${d} gün ${h} sa kaldı`;
   if(h > 0) return `${h} sa ${m} dk kaldı`;
   if(m > 0) return `${m} dk ${s} sn kaldı`;
   return `${s} sn kaldı`;
@@ -3035,7 +3149,7 @@ function finishCompetition(reason){
 // bir site olduğu için bu kontrol SADECE panel açıkken çalışabilir.)
 function checkCompetitionTimer(){
   if(state.competitionActive && state.competitionEndsAt && Date.now() >= state.competitionEndsAt){
-    finishCompetition('süre doldu (2 saat)');
+    finishCompetition('süre doldu');
   }
   const sub = document.getElementById('yayinYarismaSub');
   if(sub && state.competitionActive && state.competitionEndsAt){
@@ -3169,6 +3283,7 @@ renderZirveList();
 renderZirveDetail();
 renderDashboardDynamic();
 syncGlobalStatus();
+syncYarismaSettingsUI();
 syncZirveSettingsUI();
 syncOplabSettingsUI();
 renderOplabVisitorList();
