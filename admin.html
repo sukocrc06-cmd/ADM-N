@@ -1336,6 +1336,24 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
         <div class="stat-card"><div class="stat-label">AÇIK POZİSYON</div><div class="stat-value" id="portfoyAcikPozisyonValue">0</div><div class="stat-sub" id="portfoySonGuncelleme">Veri yok</div></div>
       </div>
 
+      <!-- (8 Ağustos 2026 — "herkesin bakiyesini ayarlayabileyim") seçili
+           yarışmacının nakit bakiyesini buradan manuel değiştirebilirsiniz.
+           Yarışmacı o an sitedeyse birkaç saniye içinde, değilse bir sonraki
+           girişinde otomatik uygulanır (bkz. setCompetitorBalance()). -->
+      <div class="card" style="margin-bottom:24px;padding:16px 18px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:220px;">
+            <h3 class="section-title" style="margin-bottom:4px;">Bakiyeyi Manuel Ayarla</h3>
+            <p class="section-desc" style="margin:0;">Seçili yarışmacının nakit bakiyesini değiştirir. İşlem geçmişine ve açık pozisyonlara dokunmaz.</p>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input type="number" id="portfoyBalanceInput" placeholder="Yeni bakiye (TL)" disabled
+              style="width:180px;background:var(--card-bg-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:11px 12px;color:var(--text);font-size:14px;">
+            <button class="btn" id="portfoyBalanceSetBtn" disabled>UYGULA</button>
+          </div>
+        </div>
+      </div>
+
       <div class="grid-2">
         <div class="card">
           <h3 class="section-title">Portföy Performansı</h3>
@@ -1365,7 +1383,23 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
         <div class="card">
           <h3 class="section-title">Detay</h3>
           <div id="portfoyDetayNot" class="empty-state" style="padding:20px 0;">Henüz veri yok.</div>
-          <p class="note-box" style="margin-top:14px;">Tam işlem geçmişi ve grafikler için yarışmacının kendi OPLab hesabına bakılabilir; buradaki özet her ~20 saniyede bir güncellenir.</p>
+          <p class="note-box" style="margin-top:14px;">Bu özet, yarışmacının OPLab sekmesi açık olduğu sürece ~5 saniyede bir güncellenir.</p>
+        </div>
+      </div>
+
+      <!-- (8 Ağustos 2026 — "herşeyi orda görebilmem") açık pozisyonların
+           yanına, bekleyen (OCO) emirler ve en son işlemler de eklendi —
+           daha önce bu ikisi admin panelinde hiç görünmüyordu. -->
+      <div class="grid-2-even" style="margin-top:24px;">
+        <div class="card">
+          <h3 class="section-title">Bekleyen Emirler</h3>
+          <p class="section-desc">Henüz gerçekleşmemiş OCO (üst/alt tetikleme) emirleri.</p>
+          <div id="portfoyPendingOrdersBox"><div class="empty-state" style="padding:20px 0;"><span>Bekleyen emir yok.</span></div></div>
+        </div>
+        <div class="card">
+          <h3 class="section-title">Son İşlemler</h3>
+          <p class="section-desc">En son gerçekleşen alım/satım/kapama işlemleri.</p>
+          <div id="portfoyRecentTradesBox"><div class="empty-state" style="padding:20px 0;"><span>Henüz işlem yok.</span></div></div>
         </div>
       </div>
     </section>
@@ -1725,6 +1759,7 @@ const FIREBASE_ENABLED = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'Y
 let fsSharedDoc = null;
 let fsActivityDoc = null;
 let fsPortfolioDoc = null;
+let fsBalanceCommandsDoc = null;
 if(FIREBASE_ENABLED){
   try{
     firebase.initializeApp(FIREBASE_CONFIG);
@@ -1734,9 +1769,15 @@ if(FIREBASE_ENABLED){
     // panelinden bu belgeye yazma yapılmıyor.
     fsActivityDoc = firebase.firestore().collection('finteclub').doc('oplab_activity');
     // (Canlı İzleme / Kullanıcı Portföyleri) OptiPulseLab, doğrulanmış her
-    // yarışmacının anlık bakiye/özkaynak/pozisyon özetini ~20 saniyede bir bu
-    // belgeye yazıyor — burada da sadece OKUYORUZ.
+    // yarışmacının anlık bakiye/özkaynak/pozisyon/bekleyen emir/son işlem
+    // özetini ~5 saniyede bir bu belgeye yazıyor — burada da sadece OKUYORUZ.
     fsPortfolioDoc = firebase.firestore().collection('finteclub').doc('oplab_live_portfolio');
+    // (8 Ağustos 2026 — "herkesin bakiyesini ayarlayabileyim") Bu belgeye
+    // BURADAN yazıyoruz: bir yarışmacının bakiyesini manuel değiştirmek
+    // istediğimizde {commands:{<id>:{newBalance, requestedAt}}} yazarız,
+    // OptiPulseLab tarafı (finteclubBridge.js) bunu gerçek zamanlı dinleyip
+    // uygular ve appliedAt ile geri onaylar (bkz. setCompetitorBalance()).
+    fsBalanceCommandsDoc = firebase.firestore().collection('finteclub').doc('oplab_balance_commands');
   }catch(e){ console.warn('Firebase başlatılamadı, tarayıcı-içi modda devam ediliyor.', e); }
 }
 
@@ -1973,6 +2014,29 @@ function cleanupOplabDataForIds(ids){
       fsActivityDoc.set(payload2, {merge:true}).catch(e=>console.warn('Silinen kullanıcının aktivasyon verisi temizlenemedi:', e));
     }
   }catch(e){ console.warn('OPLab verisi temizleme hatası:', e); }
+}
+
+// (8 Ağustos 2026 — "herkesin bakiyesini ayarlayabileyim") Kullanıcı
+// Portföyleri sayfasından bir yarışmacının bakiyesini manuel değiştirir.
+// Doğrudan tradingEngine.js'e/localStorage'a ERİŞEMİYORUZ (o, yarışmacının
+// KENDİ tarayıcısında) — bu yüzden bir Firestore "komutu" yazıyoruz;
+// OptiPulseLab tarafı (finteclubBridge.js, listenForBalanceCommands) bunu
+// gerçek zamanlı dinleyip kendi localStorage'ına uygular. Yarışmacı o an
+// sitedeyse birkaç saniye içinde, değilse bir sonraki girişinde uygulanır.
+function setCompetitorBalance(appId, newBalance){
+  if(!fsBalanceCommandsDoc){
+    showToast('Bakiye güncellemesi için Firebase bağlantısı gerekli — şu an yerel modda çalışıyorsunuz.', 'error');
+    return;
+  }
+  const payload = { commands: {} };
+  payload.commands[String(appId)] = {
+    newBalance: newBalance,
+    requestedAt: new Date().toISOString(),
+    requestedByAdmin: true
+  };
+  fsBalanceCommandsDoc.set(payload, {merge:true})
+    .then(()=> showToast('Bakiye güncelleme isteği gönderildi — yarışmacı aktifse birkaç saniye içinde uygulanır.', 'success'))
+    .catch(e=>{ console.warn('Bakiye komutu yazılamadı:', e); showToast('Bakiye güncellemesi gönderilemedi — bağlantı sorunu olabilir.', 'error'); });
 }
 
 /* ============ MOBİL YAN MENÜ (off-canvas sidebar) ============ */
@@ -3275,6 +3339,51 @@ function renderVarlikDagilimi(){
     </div>`;
   }).join('');
 }
+// (8 Ağustos 2026 — "herşeyi orda görebilmem") "Bekleyen Emirler" ve "Son
+// İşlemler" kutuları — OptiPulseLab tarafının artık gönderdiği (bkz.
+// finteclubBridge.js computeLightPortfolioSnapshot) pendingOrders/
+// recentTrades alanlarını gösterir. Bu iki alan önceden hiç gönderilmiyordu,
+// admin panelinde açık pozisyonlar dışında hiçbir aktivite görünmüyordu.
+function renderPortfoyPendingOrders(c){
+  const box = document.getElementById('portfoyPendingOrdersBox');
+  if(!box) return;
+  const orders = (c && c.pendingOrders) || [];
+  if(!orders.length){
+    box.innerHTML = `<div class="empty-state" style="padding:20px 0;"><span>Bekleyen emir yok.</span></div>`;
+    return;
+  }
+  box.innerHTML = orders.map(o=>{
+    const upper = (o.upper!==null && o.upper!==undefined) ? fmtTRY(o.upper) : '--';
+    const lower = (o.lower!==null && o.lower!==undefined) ? fmtTRY(o.lower) : '--';
+    return `<div class="list-item" style="cursor:default;">
+      <div>
+        <div style="font-weight:600;font-size:14px;">${o.symbol}${o.market==='VIOP' ? ' <span style="color:var(--text-dim);font-size:11px;">(VİOP)</span>' : ''}</div>
+        <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">Üst ${upper} • Alt ${lower}</div>
+      </div>
+      <span style="color:var(--text-dim);font-size:12px;">${o.qty} adet</span>
+    </div>`;
+  }).join('');
+}
+function renderPortfoyRecentTrades(c){
+  const box = document.getElementById('portfoyRecentTradesBox');
+  if(!box) return;
+  const trades = (c && c.recentTrades) || [];
+  if(!trades.length){
+    box.innerHTML = `<div class="empty-state" style="padding:20px 0;"><span>Henüz işlem yok.</span></div>`;
+    return;
+  }
+  box.innerHTML = trades.map(h=>{
+    const typeLabel = h.type==='CLOSE' ? 'KAPAT' : 'AÇ';
+    const pnlPart = (h.pnl!==null && h.pnl!==undefined) ? `<span style="color:${h.pnl>=0?'var(--green)':'#fca5a5'};">${h.pnl>=0?'+':''}${fmtTRY(h.pnl)}</span>` : '';
+    return `<div class="list-item" style="cursor:default;">
+      <div>
+        <div style="font-weight:600;font-size:14px;">${h.symbol}${h.market==='VIOP' ? ' <span style="color:var(--text-dim);font-size:11px;">(VİOP)</span>' : ''} — ${h.side==='BUY'?'AL':'SAT'} ${typeLabel}</div>
+        <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${h.qty} adet • ${fmtTRY(h.price||0)}</div>
+      </div>
+      ${pnlPart}
+    </div>`;
+  }).join('');
+}
 function timeAgoTr(iso){
   if(!iso) return '—';
   const diffSec = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -3288,6 +3397,11 @@ function timeAgoTr(iso){
 
 let selectedCanliAppId = null;
 let selectedPortfoyAppId = null;
+// (8 Ağustos 2026) Bakiye input'unun placeholder'ını her ~5 saniyelik canlı
+// yenilemede güncelliyoruz ama .value'yu SADECE yarışmacı değiştiğinde
+// sıfırlıyoruz — yoksa admin bir sayı yazarken input her render'da
+// temizlenip yazdığı şey silinirdi.
+let lastBalanceEditorAppId = null;
 
 function renderCanliIzleme(){
   const katilimciEl = document.getElementById('canliKatilimciCount');
@@ -3421,6 +3535,8 @@ function renderKullaniciPortfoyleri(){
   const sonGuncelleme = document.getElementById('portfoySonGuncelleme');
   const positionsBody = document.getElementById('portfoyPositionsBody');
   const detayNot = document.getElementById('portfoyDetayNot');
+  const balanceInput = document.getElementById('portfoyBalanceInput');
+  const balanceBtn = document.getElementById('portfoyBalanceSetBtn');
 
   if(!data.length || !selectedPortfoyAppId){
     siraEl.textContent = '--';
@@ -3433,8 +3549,12 @@ function renderKullaniciPortfoyleri(){
     sonGuncelleme.textContent = 'Veri yok';
     positionsBody.innerHTML = `<tr><td colspan="4"><div class="empty-state" style="padding:20px 0;">Pozisyon bulunmuyor.</div></td></tr>`;
     detayNot.textContent = 'Henüz veri yok.';
+    if(balanceInput){ balanceInput.disabled = true; balanceInput.value = ''; }
+    if(balanceBtn) balanceBtn.disabled = true;
     renderPortfoyTrendChart();
     renderVarlikDagilimi();
+    renderPortfoyPendingOrders(null);
+    renderPortfoyRecentTrades(null);
     return;
   }
 
@@ -3470,12 +3590,44 @@ function renderKullaniciPortfoyleri(){
       </tr>`).join('');
   }
   detayNot.textContent = `${c.email || ''} — ${positions.length} açık pozisyon.`;
+
+  if(balanceInput && balanceBtn){
+    balanceInput.disabled = false;
+    balanceBtn.disabled = false;
+    balanceInput.placeholder = `Şu an: ${fmtTRY(c.balance||0)}`;
+    // Yarışmacı değiştiyse admin'in henüz gönderilmemiş bir girişini
+    // koruma anlamı kalmaz — temizle. Aynı yarışmacıdaysak (sadece canlı
+    // veri yenilendiyse) dokunma.
+    if(lastBalanceEditorAppId !== c.id){
+      lastBalanceEditorAppId = c.id;
+      balanceInput.value = '';
+    }
+  }
+
   renderPortfoyTrendChart();
   renderVarlikDagilimi();
+  renderPortfoyPendingOrders(c);
+  renderPortfoyRecentTrades(c);
 }
 document.getElementById('portfoySelect').addEventListener('change', function(){
   selectedPortfoyAppId = this.value;
   renderKullaniciPortfoyleri();
+});
+document.getElementById('portfoyBalanceSetBtn').addEventListener('click', ()=>{
+  if(!selectedPortfoyAppId) return;
+  const input = document.getElementById('portfoyBalanceInput');
+  const raw = input.value.trim().replace(',', '.');
+  const newBalance = parseFloat(raw);
+  if(!raw || isNaN(newBalance) || newBalance < 0){
+    showToast('Geçerli bir bakiye tutarı girin (0 veya daha büyük).', 'error');
+    return;
+  }
+  const c = oplabPortfolioData.find(x=>x.id===selectedPortfoyAppId);
+  const label = c ? (c.name || 'İsimsiz') : selectedPortfoyAppId;
+  const ok = confirm(`"${label}" adlı yarışmacının bakiyesi ${fmtTRY(newBalance)} olarak ayarlansın mı?\n\nBu işlem sadece nakit bakiyeyi değiştirir, açık pozisyonlara/işlem geçmişine dokunmaz.`);
+  if(!ok) return;
+  setCompetitorBalance(selectedPortfoyAppId, newBalance);
+  input.value = '';
 });
 
 function syncSonuclarPublishUI(){
