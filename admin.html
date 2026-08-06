@@ -617,6 +617,78 @@ tbody tr:last-child td{border-bottom:none;}
 .stage-ctrl-btn[data-mode="DURUM"].active{background:#f97316;color:#2b1000;border-color:#f97316;opacity:1;}
 .stage-exit-btn{margin-left:auto;color:#fca5a5;border-color:rgba(239,68,68,0.4);}
 
+/* ============ (6 Ağustos 2026 — "Canlı İzleme" görsel yükseltmesi) ============
+   Üç paket: (1) Podyum & Kazanan Vurgusu — gerçek podyum yüksekliği + taç +
+   parıltı + lider değiştiğinde kutlama bandı; (2) Veri Görselleştirme —
+   satır-içi mini trend çizgisi, lidere göre mesafe çubuğu, renk-körü dostu
+   ok ikonları; (3) Başlık & Düzen Cilası — tarayıcının "Esc'e bas" ipucuyla
+   çakışmayan güvenli üst boşluk + animasyonlu halka geri sayım. */
+
+/* --- Podyum & Kazanan Vurgusu --- */
+.yp-podium-card[data-rank="1"]{order:2;}
+.yp-podium-card[data-rank="2"]{order:1;}
+.yp-podium-card[data-rank="3"]{order:3;}
+.yp-podium-card.first{padding-top:26px;padding-bottom:20px;position:relative;transform:scale(1.06);z-index:2;}
+.yp-crown{
+  position:absolute;top:-15px;left:50%;transform:translateX(-50%);
+  font-size:20px;filter:drop-shadow(0 2px 4px rgba(234,179,8,0.6));
+  animation:ypCrownBob 2.2s ease-in-out infinite;
+}
+.stage-content .yp-podium-card.first{padding-top:44px;padding-bottom:26px;transform:scale(1.08);}
+.stage-content .yp-crown{font-size:30px;top:-24px;}
+@keyframes ypCrownBob{0%,100%{transform:translateX(-50%) translateY(0);}50%{transform:translateX(-50%) translateY(-4px);}}
+.yp-podium-card.first .yp-avatar{
+  box-shadow:0 0 0 2px #eab308,0 0 16px -2px rgba(234,179,8,0.8);
+  animation:ypAvatarGlow 2.4s ease-in-out infinite;
+}
+@keyframes ypAvatarGlow{
+  0%,100%{box-shadow:0 0 0 2px #eab308,0 0 10px -2px rgba(234,179,8,0.6);}
+  50%{box-shadow:0 0 0 3px #f6d675,0 0 22px 2px rgba(234,179,8,0.85);}
+}
+.yp-row[data-rank="1"] .yp-crown{position:static;transform:none;margin-right:2px;font-size:15px;animation:none;filter:none;display:inline-block;}
+.stage-content .yp-row[data-rank="1"] .yp-crown{font-size:22px;}
+/* Lider değişince ekranı geçen kısa kutlama bandı (bkz. celebrateLeaderChange()) */
+#stageLeaderBanner{
+  position:absolute;top:18%;left:50%;transform:translate(-50%,-16px);z-index:50;
+  background:linear-gradient(90deg,#eab308,#facc15);color:#241a02;
+  font-family:'Oswald',sans-serif;font-weight:700;font-size:22px;letter-spacing:.02em;
+  padding:12px 30px;border-radius:40px;box-shadow:0 8px 40px -6px rgba(234,179,8,0.7);
+  opacity:0;pointer-events:none;white-space:nowrap;
+}
+#stageLeaderBanner.show{animation:ypLeaderBanner 3.2s ease-out forwards;}
+@keyframes ypLeaderBanner{
+  0%{opacity:0;transform:translate(-50%,-16px) scale(.9);}
+  12%{opacity:1;transform:translate(-50%,0) scale(1.04);}
+  20%{transform:translate(-50%,0) scale(1);}
+  85%{opacity:1;}
+  100%{opacity:0;transform:translate(-50%,-10px) scale(.98);}
+}
+
+/* --- Veri Görselleştirme Yükseltmesi --- */
+.yp-row-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;}
+.yp-row-main .yp-name{width:100%;}
+.yp-distbar-track{height:3px;background:rgba(255,255,255,0.09);border-radius:2px;overflow:hidden;}
+.yp-distbar-fill{height:100%;border-radius:2px;background:var(--yp-accent,var(--stage-accent,#3d6fee));transition:width .6s ease;}
+.yp-spark{flex:0 0 64px;width:64px;height:22px;opacity:.9;}
+.yp-spark svg{display:block;width:100%;height:100%;}
+.stage-content .yp-distbar-track{height:4px;margin-top:2px;}
+.stage-content .yp-spark{flex:0 0 110px;width:110px;height:32px;}
+.yp-pill .yp-arrow{font-size:.8em;margin-right:2px;}
+/* --- Başlık & Düzen Cilası --- */
+.stage-header{padding:38px 40px 14px;gap:28px;}
+.stage-comp-name{margin-top:4px;}
+.stage-countdown-ring{
+  display:flex;align-items:center;gap:12px;min-width:180px;justify-content:flex-end;
+}
+.stage-countdown-ring svg{transform:rotate(-90deg);flex:none;}
+.stage-countdown-ring .ring-bg{fill:none;stroke:rgba(255,255,255,0.09);stroke-width:5;}
+.stage-countdown-ring .ring-fill{
+  fill:none;stroke:var(--stage-accent);stroke-width:5;stroke-linecap:round;
+  transition:stroke-dashoffset 1s linear,stroke .5s ease;
+}
+.stage-countdown-ring .ring-label{font-size:16px;color:var(--text-dim);font-weight:600;text-align:right;line-height:1.3;}
+.stage-countdown-ring .ring-label small{display:block;font-size:10.5px;color:var(--text-dimmer);font-weight:500;letter-spacing:.04em;}
+
 .legend-row{display:flex;gap:22px;margin-top:14px;flex-wrap:wrap;}
 .legend-item{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-dimmer);}
 .legend-dot{width:9px;height:9px;border-radius:50%;}
@@ -1650,9 +1722,16 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
   <div class="stage-header">
     <div class="stage-live-badge"><span class="stage-pulse-dot"></span> CANLI</div>
     <div class="stage-comp-name" id="stageCompName">FinteLig Yarışması</div>
-    <div class="stage-countdown" id="stageCountdown"></div>
+    <div class="stage-countdown-ring" id="stageCountdownRing" style="display:none;">
+      <div class="ring-label"><span id="stageCountdownText"></span><small>KALAN SÜRE</small></div>
+      <svg width="46" height="46" viewBox="0 0 46 46">
+        <circle class="ring-bg" cx="23" cy="23" r="19"></circle>
+        <circle class="ring-fill" id="stageCountdownRingFill" cx="23" cy="23" r="19" stroke-dasharray="119.4" stroke-dashoffset="0"></circle>
+      </svg>
+    </div>
   </div>
   <div class="stage-body">
+    <div id="stageLeaderBanner"></div>
     <div class="stage-msg" id="stageMsg">Yayın başlatıldığında önizleme burada görünecek.</div>
     <div class="stage-content" id="stageContent" style="display:none;"></div>
   </div>
@@ -1707,6 +1786,10 @@ const state = {
   // açık tutmuyorsa, süre dolduğunda hiçbir şey olmaz; panel bir dahaki
   // açılışında süresi geçmiş olduğunu görüp o anda bitirir.
   competitionEndsAt: null,
+  competitionTotalMs: null, // (6 Ağustos 2026 — sahne modu geri sayım halkası) yarışma başlarken
+  // kaydedilen ORİJİNAL toplam süre; competitionEndsAt - Date.now() tek başına
+  // "kalan süre"yi verir ama halkanın dolgu oranını çizebilmek için toplam süreye
+  // de ihtiyaç var — o an hesaplanan durationMs burada saklanıyor.
   competitionHistory: []
 };
 const COMPETITION_DURATION_MS = 2 * 60 * 60 * 1000; // varsayılan (Yarışma Adayları'nda tarih aralığı girilmemişse kullanılır)
@@ -1939,6 +2022,7 @@ function saveShared(){
     appIdCounter: appIdCounter,
     zirveIdCounter: zirveIdCounter,
     competitionEndsAt: state.competitionEndsAt,
+    competitionTotalMs: state.competitionTotalMs,
     competitionHistory: state.competitionHistory
   };
   // (Düzeltme) index.html ve admin.html'in `state` şemaları birebir aynı
@@ -2030,6 +2114,7 @@ function hydrateFromShared(){
   state.zirveRegistrations = shared.zirveRegistrations ?? state.zirveRegistrations;
   state.deletedApplicationIds = Object.assign({}, shared.deletedApplicationIds, state.deletedApplicationIds);
   state.competitionEndsAt = shared.competitionEndsAt ?? state.competitionEndsAt;
+  state.competitionTotalMs = shared.competitionTotalMs ?? state.competitionTotalMs;
   state.competitionHistory = shared.competitionHistory ?? state.competitionHistory;
   if(shared.appIdCounter) appIdCounter = shared.appIdCounter;
   if(shared.zirveIdCounter) zirveIdCounter = shared.zirveIdCounter;
@@ -3358,6 +3443,7 @@ function startCompetitionNow(source){
   const durationMs = getConfiguredCompetitionDurationMs();
   state.competitionActive = true;
   state.competitionEndsAt = Date.now() + durationMs;
+  state.competitionTotalMs = durationMs;
   state.oplabEnabled = true;
   document.getElementById('toggleYarisma')?.querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value==='aktif'));
   document.getElementById('toggleOplabErisim')?.querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value==='acik'));
@@ -3979,6 +4065,7 @@ function finishCompetition(reason){
   state.competitionHistory = [record, ...state.competitionHistory];
   state.competitionActive = false;
   state.competitionEndsAt = null;
+  state.competitionTotalMs = null;
   state.oplabEnabled = false;
 
   document.getElementById('toggleYarisma')?.querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value==='pasif'));
@@ -4004,15 +4091,36 @@ function checkCompetitionTimer(){
   if(sub && state.competitionActive && state.competitionEndsAt){
     sub.textContent = formatCountdown(state.competitionEndsAt - Date.now());
   }
-  // Sahne Modu açıkken geri sayım ve kayan bant, veri değişmese bile her
-  // ~5 saniyede tazelenir (aksi halde süre sahnede donuk kalırdı).
-  const stageCountdownEl = document.getElementById('stageCountdown');
-  if(stageCountdownEl && state.competitionActive && state.competitionEndsAt){
-    stageCountdownEl.textContent = formatCountdown(state.competitionEndsAt - Date.now());
-  }
+  // Sahne Modu açıkken geri sayım halkası ve kayan bant, veri değişmese bile
+  // her ~5 saniyede tazelenir (aksi halde süre sahnede donuk kalırdı).
+  updateStageCountdownRing();
   renderStageTicker();
 }
 setInterval(checkCompetitionTimer, 5000);
+
+// (6 Ağustos 2026 — Başlık & Düzen Cilası) Düz metin geri sayım yerine
+// animasyonlu halka: dolgu oranı state.competitionTotalMs'e göre azalıyor,
+// son %10'luk dilimde halka kırmızıya dönerek süre baskısını renkle de
+// (sadece metinle değil) hissettiriyor.
+const STAGE_RING_R = 19;
+const STAGE_RING_CIRC = 2 * Math.PI * STAGE_RING_R;
+function updateStageCountdownRing(){
+  const ringWrap = document.getElementById('stageCountdownRing');
+  const ringFill = document.getElementById('stageCountdownRingFill');
+  const textEl = document.getElementById('stageCountdownText');
+  if(!ringWrap || !ringFill || !textEl) return;
+  if(!state.competitionActive || !state.competitionEndsAt){
+    ringWrap.style.display = 'none';
+    return;
+  }
+  ringWrap.style.display = '';
+  const remainMs = Math.max(0, state.competitionEndsAt - Date.now());
+  textEl.textContent = formatCountdown(remainMs);
+  const totalMs = state.competitionTotalMs || remainMs || 1;
+  const frac = Math.max(0, Math.min(1, remainMs / totalMs));
+  ringFill.setAttribute('stroke-dashoffset', String(STAGE_RING_CIRC * (1 - frac)));
+  ringFill.style.stroke = frac <= 0.1 ? '#ef4444' : '';
+}
 
 function renderYarismaGecmisi(){
   const list = document.getElementById('gecmisYarismaList');
@@ -4062,8 +4170,27 @@ function renderYarismaGecmisi(){
 // ile TAM EKRAN sahne (renderStageMode) birebir aynı işaretlemeyi/mantığı
 // kullansın — CSS büyütmesi .stage-content descendant seçicileriyle yapılıyor,
 // JS tarafında ikisi arasında tek fark hedef DOM elemanları.
-const pctPillHtml = (pct, compId) => `<span class="yp-pill ${pct>=0?'up':'down'}"${compId!=null?` data-comp-id="${compId}"`:''} data-pct="${pct.toFixed(2)}">${pct>=0?'+':''}${pct.toFixed(2)}%</span>`;
+// (6 Ağustos 2026 — Veri Görselleştirme Yükseltmesi) Ok ikonu PILL'İN
+// DIŞINDA, ayrı bir <span> — çünkü animateNumberEl() sayaç animasyonu
+// sırasında pill'in textContent'ini doğrudan değiştiriyor; ok pill'in İÇİNDE
+// olsaydı her animasyon adımında silinirdi. Renk körlüğü dostu: yön artık
+// sadece renkle değil ok yönüyle de anlaşılıyor.
+const pctPillHtml = (pct, compId) => `<span class="yp-pill-wrap"><span class="yp-arrow ${pct>=0?'up':'down'}">${pct>=0?'▲':'▼'}</span><span class="yp-pill ${pct>=0?'up':'down'}"${compId!=null?` data-comp-id="${compId}"`:''} data-pct="${pct.toFixed(2)}">${pct>=0?'+':''}${pct.toFixed(2)}%</span></span>`;
 const avatarHtml = (name) => `<span class="yp-avatar">${initials(name||'İ')}</span>`;
+const crownHtml = () => `<span class="yp-crown">👑</span>`;
+
+// Satır-içi mini trend çizgisi — sampleEquityHistory() tarafından ~20sn'de
+// bir biriktirilen GERÇEK (uydurma olmayan) portfoyHistoryById verisini
+// kullanır (bkz. o fonksiyonun üstündeki not). Henüz yeterli örnek yoksa
+// (yarışma az önce başladıysa) boş bir yer tutucu döner — sahte veri
+// üretilmez.
+function miniSparklineHtml(compId, pct){
+  const hist = portfoyHistoryById[compId];
+  if(!hist || hist.length < 2) return '<span class="yp-spark"></span>';
+  const color = pct >= 0 ? '#22c55e' : '#ef4444';
+  const svg = buildTrendSvg([{ label:'', color, points: hist.map(h=>({ value: h.equity })) }], {});
+  return `<span class="yp-spark">${svg || ''}</span>`;
+}
 
 function buildViewModeHtml(mode, data){
   const sorted = data.slice().sort((a,b)=> (b.equity||0) - (a.equity||0));
@@ -4077,21 +4204,37 @@ function buildViewModeHtml(mode, data){
   // için ekleniyor.
   if(mode === 'LİDERLİK' || mode === 'SIRALAMA'){
     const count = mode === 'LİDERLİK' ? 5 : 10;
+    const shown = sorted.slice(0, count);
+    // Lidere göre mesafe çubuğu: GÖSTERİLEN listedeki en iyi/en kötü getiriye
+    // göre normalize ediliyor (leader=%100, en sondaki=%0) — tek başına
+    // pct/leaderPct oranı leaderPct<=0 olduğunda (herkes ekside) anlamsız
+    // negatif/patlak değerler üretebilirdi, bu yöntem her durumda tutarlı.
+    const shownPcts = shown.map(c=>pctReturn(c.equity||0));
+    const bestPct = Math.max.apply(null, shownPcts.concat([0]));
+    const worstPct = Math.min.apply(null, shownPcts.concat([0]));
+    const pctRange = bestPct - worstPct;
     html = `<div class="yp-section-label">${mode === 'LİDERLİK' ? 'LİDERLİK TABLOSU' : 'GENEL SIRALAMA'}</div>` +
-      sorted.slice(0, count).map((c,i)=>{
+      shown.map((c,i)=>{
         const pct = pctReturn(c.equity||0);
         const compId = c.id || c.email || c.name || ('r'+i);
+        const distPct = pctRange > 0 ? ((pct - worstPct) / pctRange) * 100 : 100;
         return `<div class="yp-row" data-comp-id="${compId}" data-rank="${i+1}">
-          <span class="yp-rank">${i+1}</span>
+          <span class="yp-rank">${i===0?crownHtml():''}${i+1}</span>
           ${avatarHtml(c.name)}
-          <span class="yp-name">${c.name||'İsimsiz'}</span>
+          <div class="yp-row-main">
+            <span class="yp-name">${c.name||'İsimsiz'}</span>
+            <div class="yp-distbar-track"><div class="yp-distbar-fill" style="width:${distPct.toFixed(0)}%;"></div></div>
+          </div>
+          ${miniSparklineHtml(compId, pct)}
           ${pctPillHtml(pct, compId)}
         </div>`;
       }).join('');
   } else if(mode === 'İLK 3'){
     // Madalya renkleri: 1. altın, 2. gümüş, 3. bronz — sadece lider değil
     // üçü de kendi rengiyle/madalyasıyla ayırt ediliyor (bkz. .yp-podium-card
-    // .silver/.bronze CSS'i).
+    // .silver/.bronze CSS'i). Gerçek podyum hissi için 1. ortada ve en
+    // yüksekte (CSS'te data-rank'e göre flex `order` ile diziliyor), üstünde
+    // hafifçe sallanan bir taç + nabız gibi parlayan avatar halkası var.
     const medalClass = ['first','silver','bronze'];
     const medalEmoji = ['🥇','🥈','🥉'];
     html = `<div class="yp-section-label" style="text-align:center;">İLK 3 YARIŞMACI</div>
@@ -4100,6 +4243,7 @@ function buildViewModeHtml(mode, data){
         const pct = pctReturn(c.equity||0);
         const compId = c.id || c.email || c.name || ('r'+i);
         return `<div class="yp-podium-card ${medalClass[i]}" data-comp-id="${compId}" data-rank="${i+1}">
+          ${i===0?crownHtml():''}
           <div class="yp-rank" style="width:auto;font-size:15px;margin-bottom:6px;">${medalEmoji[i]} 0${i+1}</div>
           <span class="yp-avatar" style="width:40px;height:40px;font-size:13px;margin:0 auto 8px;">${initials(c.name||'İ')}</span>
           <div class="yp-name" style="text-align:center;font-size:12.5px;">${c.name||'İsimsiz'}</div>
@@ -4181,6 +4325,7 @@ function animateRankedRows(contentEl, mode, sorted, cache){
   const rowSelector = mode === 'İLK 3' ? '.yp-podium-card' : '.yp-row';
   const rows = contentEl.querySelectorAll(rowSelector + '[data-comp-id]');
   const nextById = {};
+  let newLeaderId = null, newLeaderName = null;
   rows.forEach(row=>{
     const compId = row.dataset.compId;
     const rank = parseInt(row.dataset.rank, 10);
@@ -4188,6 +4333,10 @@ function animateRankedRows(contentEl, mode, sorted, cache){
     const newPct = parseFloat(pillEl?.dataset.pct || '0');
     const prev = cache.byId[compId];
     nextById[compId] = { pct: newPct, rank: rank };
+    if(rank === 1){
+      newLeaderId = compId;
+      newLeaderName = row.querySelector('.yp-name')?.textContent || '';
+    }
     if(skip || !prev) return;
     if(pillEl && prev.pct !== newPct){
       animateNumberEl(pillEl, prev.pct, newPct, 2, '%', 600);
@@ -4196,8 +4345,28 @@ function animateRankedRows(contentEl, mode, sorted, cache){
       flashRow(row, rank < prev.rank ? 1 : -1);
     }
   });
+  // (6 Ağustos 2026 — Podyum & Kazanan Vurgusu) Lider GERÇEKTEN değiştiyse
+  // (ilk render'da veya mod değişiminde DEĞİL — aksi halde her açılışta/mod
+  // geçişinde sahte bir "yeni lider" kutlaması tetiklenirdi) ve bu sahne
+  // modu önbelleğiyse (küçük önizleme kutusunda kutlama bandı yok, cache ===
+  // lastStageMetrics kontrolüyle sadece tam ekran sahnede tetikleniyor),
+  // kısa bir kutlama bandı göster.
+  if(!skip && cache.leaderId && newLeaderId && cache.leaderId !== newLeaderId && cache === lastStageMetrics){
+    celebrateLeaderChange(newLeaderName);
+  }
   cache.byId = nextById;
   cache.viewMode = mode;
+  cache.leaderId = newLeaderId;
+}
+
+function celebrateLeaderChange(name){
+  const banner = document.getElementById('stageLeaderBanner');
+  if(!banner) return;
+  banner.textContent = `🏆 YENİ LİDER: ${name || 'İsimsiz'}`;
+  banner.classList.remove('show');
+  void banner.offsetWidth; // reflow — art arda hızlı lider değişimlerinde animasyonu yeniden başlatır
+  banner.classList.add('show');
+  setTimeout(()=>{ banner.classList.remove('show'); }, 3300);
 }
 
 let lastPreviewMetrics = { byId: {}, viewMode: null };
@@ -4274,16 +4443,11 @@ function renderStageMode(){
   const msgEl = document.getElementById('stageMsg');
   const contentEl = document.getElementById('stageContent');
   const nameEl = document.getElementById('stageCompName');
-  const countdownEl = document.getElementById('stageCountdown');
   if(!msgEl || !contentEl) return;
 
   if(overlay) overlay.dataset.mode = state.viewMode; // renk temasını CSS'te seçtiriyor
   if(nameEl) nameEl.textContent = state.compName || 'FinteLig Yarışması';
-  if(countdownEl){
-    countdownEl.textContent = (state.competitionActive && state.competitionEndsAt)
-      ? formatCountdown(state.competitionEndsAt - Date.now())
-      : '';
-  }
+  updateStageCountdownRing();
   document.querySelectorAll('#stageModeOverlay .stage-ctrl-btn[data-mode]').forEach(b=>{
     b.classList.toggle('active', b.dataset.mode === state.viewMode);
   });
