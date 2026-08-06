@@ -1336,20 +1336,23 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
         <div class="stat-card"><div class="stat-label">AÇIK POZİSYON</div><div class="stat-value" id="portfoyAcikPozisyonValue">0</div><div class="stat-sub" id="portfoySonGuncelleme">Veri yok</div></div>
       </div>
 
-      <!-- (8 Ağustos 2026 — "herkesin bakiyesini ayarlayabileyim") seçili
-           yarışmacının nakit bakiyesini buradan manuel değiştirebilirsiniz.
-           Yarışmacı o an sitedeyse birkaç saniye içinde, değilse bir sonraki
-           girişinde otomatik uygulanır (bkz. setCompetitorBalance()). -->
+      <!-- (8 Ağustos 2026 — "anında olsun, sayfa yenilenmeden") seçili
+           yarışmacının nakit bakiyesini buradan manuel değiştirebilir ya da
+           portföyünü tamamen sıfırlayabilirsiniz. Yarışmacı o an sitedeyse
+           ANINDA uygulanır (sayfası yenilenmez — bkz. tradingEngine.js
+           setBalance()/resetPortfolio()); değilse bir sonraki girişinde
+           otomatik uygulanır (bkz. setCompetitorBalance()/resetCompetitorPortfolio()). -->
       <div class="card" style="margin-bottom:24px;padding:16px 18px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;">
           <div style="flex:1;min-width:220px;">
             <h3 class="section-title" style="margin-bottom:4px;">Bakiyeyi Manuel Ayarla</h3>
-            <p class="section-desc" style="margin:0;">Seçili yarışmacının nakit bakiyesini değiştirir. İşlem geçmişine ve açık pozisyonlara dokunmaz.</p>
+            <p class="section-desc" style="margin:0;">Yarışmacı sitedeyken bu değişiklik ANINDA uygulanır. "Uygula" sadece nakit bakiyeyi değiştirir; "Portföyü Sıfırla" bakiyeyi 100.000 TL'ye döndürüp tüm açık pozisyonları/emirleri/işlem geçmişini siler.</p>
           </div>
-          <div style="display:flex;gap:8px;align-items:center;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
             <input type="number" id="portfoyBalanceInput" placeholder="Yeni bakiye (TL)" disabled
               style="width:180px;background:var(--card-bg-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:11px 12px;color:var(--text);font-size:14px;">
             <button class="btn" id="portfoyBalanceSetBtn" disabled>UYGULA</button>
+            <button class="btn" id="portfoyBalanceResetBtn" disabled style="background:transparent;border:1px solid #fca5a5;color:#fca5a5;white-space:nowrap;">PORTFÖYÜ SIFIRLA</button>
           </div>
         </div>
       </div>
@@ -2035,8 +2038,29 @@ function setCompetitorBalance(appId, newBalance){
     requestedByAdmin: true
   };
   fsBalanceCommandsDoc.set(payload, {merge:true})
-    .then(()=> showToast('Bakiye güncelleme isteği gönderildi — yarışmacı aktifse birkaç saniye içinde uygulanır.', 'success'))
+    .then(()=> showToast('Bakiye güncellendi — yarışmacı aktifse anında uygulanır.', 'success'))
     .catch(e=>{ console.warn('Bakiye komutu yazılamadı:', e); showToast('Bakiye güncellemesi gönderilemedi — bağlantı sorunu olabilir.', 'error'); });
+}
+
+// (8 Ağustos 2026 — "istediğim kullanıcının portföyünü sıfırlamak da isterim")
+// setCompetitorBalance()'ın "reset" varyantı — aynı komut kanalına {reset:true}
+// yazar. OptiPulseLab tarafı bunu görünce tradingEngine.js'in kendi
+// resetPortfolio()'sunu (bakiye 100.000'e döner, pozisyon/emir/geçmiş SİLİNİR)
+// doğrudan çağırır — yarışmacı aktifse ANINDA, sayfa yenilenmeden uygulanır.
+function resetCompetitorPortfolio(appId){
+  if(!fsBalanceCommandsDoc){
+    showToast('Portföy sıfırlama için Firebase bağlantısı gerekli — şu an yerel modda çalışıyorsunuz.', 'error');
+    return;
+  }
+  const payload = { commands: {} };
+  payload.commands[String(appId)] = {
+    reset: true,
+    requestedAt: new Date().toISOString(),
+    requestedByAdmin: true
+  };
+  fsBalanceCommandsDoc.set(payload, {merge:true})
+    .then(()=> showToast('Portföy sıfırlama isteği gönderildi — yarışmacı aktifse anında uygulanır.', 'success'))
+    .catch(e=>{ console.warn('Sıfırlama komutu yazılamadı:', e); showToast('Sıfırlama gönderilemedi — bağlantı sorunu olabilir.', 'error'); });
 }
 
 /* ============ MOBİL YAN MENÜ (off-canvas sidebar) ============ */
@@ -3537,6 +3561,7 @@ function renderKullaniciPortfoyleri(){
   const detayNot = document.getElementById('portfoyDetayNot');
   const balanceInput = document.getElementById('portfoyBalanceInput');
   const balanceBtn = document.getElementById('portfoyBalanceSetBtn');
+  const balanceResetBtn = document.getElementById('portfoyBalanceResetBtn');
 
   if(!data.length || !selectedPortfoyAppId){
     siraEl.textContent = '--';
@@ -3551,6 +3576,7 @@ function renderKullaniciPortfoyleri(){
     detayNot.textContent = 'Henüz veri yok.';
     if(balanceInput){ balanceInput.disabled = true; balanceInput.value = ''; }
     if(balanceBtn) balanceBtn.disabled = true;
+    if(balanceResetBtn) balanceResetBtn.disabled = true;
     renderPortfoyTrendChart();
     renderVarlikDagilimi();
     renderPortfoyPendingOrders(null);
@@ -3594,6 +3620,7 @@ function renderKullaniciPortfoyleri(){
   if(balanceInput && balanceBtn){
     balanceInput.disabled = false;
     balanceBtn.disabled = false;
+    if(balanceResetBtn) balanceResetBtn.disabled = false;
     balanceInput.placeholder = `Şu an: ${fmtTRY(c.balance||0)}`;
     // Yarışmacı değiştiyse admin'in henüz gönderilmemiş bir girişini
     // koruma anlamı kalmaz — temizle. Aynı yarışmacıdaysak (sadece canlı
@@ -3624,10 +3651,18 @@ document.getElementById('portfoyBalanceSetBtn').addEventListener('click', ()=>{
   }
   const c = oplabPortfolioData.find(x=>x.id===selectedPortfoyAppId);
   const label = c ? (c.name || 'İsimsiz') : selectedPortfoyAppId;
-  const ok = confirm(`"${label}" adlı yarışmacının bakiyesi ${fmtTRY(newBalance)} olarak ayarlansın mı?\n\nBu işlem sadece nakit bakiyeyi değiştirir, açık pozisyonlara/işlem geçmişine dokunmaz.`);
+  const ok = confirm(`"${label}" adlı yarışmacının bakiyesi ${fmtTRY(newBalance)} olarak ayarlansın mı?\n\nYarışmacı o an sitedeyse ANINDA uygulanır. Bu işlem sadece nakit bakiyeyi değiştirir, açık pozisyonlara/işlem geçmişine dokunmaz.`);
   if(!ok) return;
   setCompetitorBalance(selectedPortfoyAppId, newBalance);
   input.value = '';
+});
+document.getElementById('portfoyBalanceResetBtn').addEventListener('click', ()=>{
+  if(!selectedPortfoyAppId) return;
+  const c = oplabPortfolioData.find(x=>x.id===selectedPortfoyAppId);
+  const label = c ? (c.name || 'İsimsiz') : selectedPortfoyAppId;
+  const ok = confirm(`"${label}" adlı yarışmacının TÜM portföyü sıfırlansın mı?\n\nBakiyesi 100.000 TL'ye döner; açık pozisyonları, bekleyen emirleri ve işlem geçmişi SİLİNİR. Bu işlem geri alınamaz.\n\nYarışmacı o an sitedeyse ANINDA uygulanır.`);
+  if(!ok) return;
+  resetCompetitorPortfolio(selectedPortfoyAppId);
 });
 
 function syncSonuclarPublishUI(){
