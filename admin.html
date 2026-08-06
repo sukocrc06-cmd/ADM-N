@@ -1686,6 +1686,13 @@ const state = {
   viewMode: 'LİDERLİK',
   applications: [],
   zirveRegistrations: [],
+  // (6 Ağustos 2026 — genel entegrasyon taraması) Silinen başvuru id'lerinin
+  // KALICI, PAYLAŞILAN "mezar taşı" listesi — bkz. reconcileArrayFieldById
+  // yorumu. Bellekte tutulan bir Set OLMADIĞI için (o sadece silen sekmeyi
+  // korurdu) bu bir `state` alanı: diğer TÜM sekmeler/cihazlar (index.html
+  // dahil) de saveShared() ile bunu okuyup silinen bir kaydı asla geri
+  // eklemez.
+  deletedApplicationIds: {},
   // (Yarışma süresi + otomatik bitiş + geçmiş arşivi) YARIŞMAYI BAŞLAT'a
   // basıldığında competitionEndsAt = o an + [Yarışma Adayları'nda girilen
   // Başlangıç/Bitiş Tarihi farkı, girilmemişse 2 saat] olarak ayarlanır
@@ -1874,6 +1881,44 @@ const SHARED_KEY = 'finteclub_shared_v1';
 function loadShared(){
   try{ const raw = localStorage.getItem(SHARED_KEY); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
 }
+// (6 Ağustos 2026 — genel entegrasyon taraması, "portföy sıfırlama"
+// hatasıyla AYNI KÖK SEBEP) applications/zirveRegistrations birer DİZİ
+// olarak saklanıyor ve saveShared() her çağrıldığında TAMAMI yeniden
+// yazılıyor — Firestore'un {merge:true}'su BELGE alanlarını birleştirir
+// ama bir dizinin İÇİNİ eleman bazında birleştirmez, diziyi bütün olarak
+// değiştirir. index.html'de bir ziyaretçi başvuru gönderdiği anda (ya da
+// admin paneli açık kalırken, biraz eski bir yerel kopyayla) BU sayfa da
+// ilgisiz bir sebeple (örn. sadece bir tarih değiştirerek) saveShared()
+// çağırırsa, kendi eski/az önceki dizisini yazar ve ARADA gelen diğer
+// başvuru/kayıt SESSİZCE KAYBOLUR — kişi başvurduğunu düşünür ama kayıt
+// hiçbir yerde yoktur. Çözüm: yazmadan hemen önce sunucudaki GÜNCEL kopyayı
+// çekip, yerelde bulunmayan (id'si eşleşmeyen) her kaydı yerel diziye geri
+// ekliyoruz — böylece bu sekmenin biraz eski kopyası, arada başka bir
+// sekmenin eklediği kaydı asla silemez.
+// "BİLEREK silindi" mezar taşları artık `state.deletedApplicationIds`
+// (PAYLAŞILAN/kalıcı) — sadece bu sekmenin belleğinde yaşayan bir Set İLE
+// SINIRLI DEĞİL. Neden önemli: bir kayıt silindiğinde, o silme henüz
+// Firestore'a yazılmamışken BAŞKA bir sekme/cihaz (örn. index.html'de bir
+// ziyaretçi, ya da admin'in başka bir açık sekmesi) kendi eski/az önceki
+// dizisini yazarsa, silineni FARKINDA OLMADAN geri ekleyebilir. Sadece
+// silen sekmenin bellek içi bir Set'i bu durumu önleyemez — reconcile'ın
+// TÜM sekmelerde aynı kararı vermesi için mezar taşının kendisinin de
+// paylaşılan durumda (saveShared ile aynı şekilde) taşınması gerekir.
+function reconcileArrayFieldById(localArr, remoteArr, deletedIds){
+  const tomb = deletedIds || {};
+  // Mezar taşlı id'leri, NEREDEN geldiğine bakmadan (yerel VEYA uzak)
+  // sonuçtan çıkar — "yerelde silindi ama henüz yazılmadı" ve "BAŞKA bir
+  // sekmenin sildiği ama BU sekmenin hâlâ bilmediği" durumlarını simetrik
+  // olarak ele alır.
+  const merged = (localArr||[]).filter(x=>!tomb[String(x.id)]);
+  if(!Array.isArray(remoteArr) || !remoteArr.length) return merged;
+  const localIds = new Set(merged.map(x=>String(x.id)));
+  remoteArr.forEach(item=>{
+    const idStr = String(item.id);
+    if(!localIds.has(idStr) && !tomb[idStr]) merged.push(item);
+  });
+  return merged;
+}
 function saveShared(){
   const payload = {
     applicationsOpen: state.applicationsOpen,
@@ -1890,28 +1935,59 @@ function saveShared(){
     endDate: state.endDate,
     applications: state.applications,
     zirveRegistrations: state.zirveRegistrations,
+    deletedApplicationIds: state.deletedApplicationIds,
     appIdCounter: appIdCounter,
     zirveIdCounter: zirveIdCounter,
     competitionEndsAt: state.competitionEndsAt,
     competitionHistory: state.competitionHistory
   };
-  // (Düzeltme) index.html ve admin.html'in `state` şemaları birebir aynı
-  // değil — ör. `balance`/`viewMode`/`resultsPublished` yalnızca admin.html'de
-  // var. Önceden burada localStorage/Firestore'a DÜZ ÜZERİNE YAZ (tam
-  // overwrite) yapılıyordu; bu yüzden index.html tarafında bir ziyaretçi
-  // form gönderip kendi saveShared()'ını tetiklediğinde, o dosyanın
-  // bilmediği alanlar (balance vb.) belgeden TAMAMEN SİLİNİYORDU. Şimdi
-  // localStorage'da mevcut veriyle merge ediyoruz, Firestore'da da
-  // {merge:true} kullanıyoruz — her dosya yalnızca kendi bildiği alanları
-  // günceller, diğerine dokunmaz.
-  try{
-    const existing = loadShared() || {};
-    localStorage.setItem(SHARED_KEY, JSON.stringify(Object.assign({}, existing, payload)));
-  }catch(e){}
+  function commitShared(){
+    // (Düzeltme) index.html ve admin.html'in `state` şemaları birebir aynı
+    // değil — ör. `balance`/`viewMode`/`resultsPublished` yalnızca admin.html'de
+    // var. Önceden burada localStorage/Firestore'a DÜZ ÜZERİNE YAZ (tam
+    // overwrite) yapılıyordu; bu yüzden index.html tarafında bir ziyaretçi
+    // form gönderip kendi saveShared()'ını tetiklediğinde, o dosyanın
+    // bilmediği alanlar (balance vb.) belgeden TAMAMEN SİLİNİYORDU. Şimdi
+    // localStorage'da mevcut veriyle merge ediyoruz, Firestore'da da
+    // {merge:true} kullanıyoruz — her dosya yalnızca kendi bildiği alanları
+    // günceller, diğerine dokunmaz.
+    try{
+      const existing = loadShared() || {};
+      localStorage.setItem(SHARED_KEY, JSON.stringify(Object.assign({}, existing, payload)));
+    }catch(e){}
+    if(fsSharedDoc){
+      fsSharedDoc.set(payload, {merge:true})
+        .then(hideConnectionError)
+        .catch(e=>{ console.warn('Firestore yazma hatası:', e); showConnectionError(); });
+    }
+  }
   if(fsSharedDoc){
-    fsSharedDoc.set(payload, {merge:true})
-      .then(hideConnectionError)
-      .catch(e=>{ console.warn('Firestore yazma hatası:', e); showConnectionError(); });
+    fsSharedDoc.get().then(doc=>{
+      if(doc.exists){
+        const remote = doc.data() || {};
+        // Mezar taşlarının BİRLEŞİMİNİ kullan (yerelde bu oturumda az önce
+        // eklenenler + uzakta başka bir oturumdan gelenler) — henüz uzağa
+        // yazılmamış YENİ bir silme de, uzaktan öğrenilen ESKİ bir silme de
+        // aynı şekilde saygı görsün.
+        const deletedIds = Object.assign({}, remote.deletedApplicationIds, state.deletedApplicationIds);
+        payload.applications = reconcileArrayFieldById(payload.applications, remote.applications, deletedIds);
+        payload.zirveRegistrations = reconcileArrayFieldById(payload.zirveRegistrations, remote.zirveRegistrations, {});
+        payload.deletedApplicationIds = deletedIds;
+        // Uzlaştırmada bulduğumuz (yerelde eksik olan) kayıtları admin'in
+        // KENDİ ekranına da yansıtıyoruz — aksi halde sadece Firestore
+        // düzelir ama admin bir sonraki gerçek zamanlı onSnapshot güncellemesine
+        // kadar hâlâ eksik/eski listeyi görmeye devam eder.
+        if(payload.applications !== state.applications || payload.zirveRegistrations !== state.zirveRegistrations){
+          state.applications = payload.applications;
+          state.zirveRegistrations = payload.zirveRegistrations;
+          state.deletedApplicationIds = deletedIds;
+          renderBasvuruList(); renderBasvuruDetail(); renderDashboardDynamic(); renderKullaniciVeritabani();
+        }
+      }
+      commitShared();
+    }).catch(commitShared); // okunamazsa yine de mevcut yerel veriyle yazmayı dene
+  } else {
+    commitShared();
   }
 }
 function hydrateFromShared(){
@@ -1931,6 +2007,7 @@ function hydrateFromShared(){
   state.endDate = shared.endDate ?? state.endDate;
   state.applications = shared.applications ?? state.applications;
   state.zirveRegistrations = shared.zirveRegistrations ?? state.zirveRegistrations;
+  state.deletedApplicationIds = Object.assign({}, shared.deletedApplicationIds, state.deletedApplicationIds);
   state.competitionEndsAt = shared.competitionEndsAt ?? state.competitionEndsAt;
   state.competitionHistory = shared.competitionHistory ?? state.competitionHistory;
   if(shared.appIdCounter) appIdCounter = shared.appIdCounter;
@@ -2829,6 +2906,7 @@ function deleteApplications(ids){
   const removed = state.applications.filter(a=>idSet.has(a.id));
   if(removed.length === 0) return;
   state.applications = state.applications.filter(a=>!idSet.has(a.id));
+  ids.forEach(id=>{ state.deletedApplicationIds[String(id)] = true; });
   if(idSet.has(selectedAppId)) selectedAppId = null;
   ids.forEach(id=>bulkDeleteSelection.delete(id));
   renderBasvuruList();
@@ -2890,13 +2968,34 @@ function restoreDeletedApplications(removedApps){
   // olduğundan çakışma riski yok, tam eski sıra garanti edilmiyor ama hiçbir
   // veri kaybolmuyor.
   state.applications = removedApps.concat(state.applications);
+  removedApps.forEach(a=>delete state.deletedApplicationIds[String(a.id)]);
   renderBasvuruList();
   renderBasvuruDetail();
   renderDashboardDynamic();
-  saveShared();
   const msg = removedApps.length === 1 ? `${removedApps[0].name} başvurusu geri alındı.` : `${removedApps.length} yarışmacı geri alındı.`;
-  addActivity(msg);
-  showToast(msg, 'success');
+  function finishRestore(){
+    saveShared();
+    addActivity(msg);
+    showToast(msg, 'success');
+  }
+  // (6 Ağustos 2026) ÖNCE mezar taşını Firestore'dan açıkça temizliyoruz
+  // (FieldValue.delete() ile — sadece payload'da alanı EKSİK bırakmak
+  // {merge:true} ile onu Firestore'da SİLMEZ, orada kalıcı takılı kalır),
+  // SONRA saveShared()'ı çağırıyoruz. Sıra ÖNEMLİ: saveShared()'ın kendi
+  // uzlaştırması remote.deletedApplicationIds'i de okuyup birleştiriyor —
+  // eğer önce saveShared() çağrılsaydı, o okuma mezar taşının HÂLÂ silinmemiş
+  // olduğu eski değeri görüp geri alınan kaydı DERHAL yeniden süzebilirdi
+  // (tam olarak "geri al" işe yaramıyormuş gibi görünmesine sebep olurdu).
+  if(FIREBASE_ENABLED && fsSharedDoc){
+    try{
+      const deleteField = firebase.firestore.FieldValue.delete();
+      const clearPayload = { deletedApplicationIds: {} };
+      removedApps.forEach(a=>{ clearPayload.deletedApplicationIds[String(a.id)] = deleteField; });
+      fsSharedDoc.set(clearPayload, {merge:true}).then(finishRestore).catch(e=>{ console.warn('Mezar taşı temizlenemedi:', e); finishRestore(); });
+    }catch(e){ finishRestore(); }
+  } else {
+    finishRestore();
+  }
 }
 
 document.getElementById('bsSelectAll').addEventListener('change', function(){

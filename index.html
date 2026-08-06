@@ -1099,7 +1099,14 @@ const state = {
   startDate: '',
   endDate: '',
   applications: [],
-  zirveRegistrations: []
+  zirveRegistrations: [],
+  // (6 Ağustos 2026 — genel entegrasyon taraması) admin.html'deki
+  // deletedApplicationIds ile AYNI kalıcı/paylaşılan mezar taşı listesi —
+  // bkz. admin.html'deki reconcileArrayFieldById yorumu. Bu sayfa hiçbir
+  // başvuruyu SİLMEZ ama saveShared() çağırdığında (bir ziyaretçi form
+  // gönderdiğinde) admin'in az önce sildiği bir kaydı yanlışlıkla geri
+  // eklememesi için bunu bilmesi/taşıması gerekiyor.
+  deletedApplicationIds: {}
 };
 let appIdCounter = 1;
 let zirveIdCounter = 1;
@@ -1221,6 +1228,28 @@ const SHARED_KEY = 'finteclub_shared_v1';
 function loadShared(){
   try{ const raw = localStorage.getItem(SHARED_KEY); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
 }
+// (6 Ağustos 2026 — genel entegrasyon taraması, admin.html'deki "portföy
+// sıfırlama" hatasıyla AYNI KÖK SEBEP) applications/zirveRegistrations
+// birer DİZİ — Firestore'un {merge:true}'su bir dizinin İÇİNİ eleman
+// bazında birleştirmez, bütün olarak değiştirir. İki ziyaretçi (ya da bir
+// ziyaretçi ile admin paneli) neredeyse aynı anda saveShared() çağırırsa,
+// biraz daha eski bir yerel kopyayla yazan taraf, ARADA gelen diğer
+// başvuru/kaydı SESSİZCE SİLER. Çözüm: yazmadan önce sunucudaki güncel
+// kopyayı çekip, yerelde olmayan (id eşleşmeyen) kayıtları geri ekliyoruz.
+function reconcileArrayFieldById(localArr, remoteArr, deletedIds){
+  const tomb = deletedIds || {};
+  // Mezar taşlı id'leri kaynağına bakmadan sonuçtan çıkar — admin başka bir
+  // sekmede bir başvuruyu sildiyse, bu sekmenin eski/az önceki kopyası onu
+  // asla geri getirmemeli.
+  const merged = (localArr||[]).filter(x=>!tomb[String(x.id)]);
+  if(!Array.isArray(remoteArr) || !remoteArr.length) return merged;
+  const localIds = new Set(merged.map(x=>String(x.id)));
+  remoteArr.forEach(item=>{
+    const idStr = String(item.id);
+    if(!localIds.has(idStr) && !tomb[idStr]) merged.push(item);
+  });
+  return merged;
+}
 function saveShared(){
   const payload = {
     applicationsOpen: state.applicationsOpen,
@@ -1233,17 +1262,36 @@ function saveShared(){
     endDate: state.endDate,
     applications: state.applications,
     zirveRegistrations: state.zirveRegistrations,
+    deletedApplicationIds: state.deletedApplicationIds,
     appIdCounter: appIdCounter,
     zirveIdCounter: zirveIdCounter
   };
-  // (Düzeltme) admin.html'de olup burada olmayan alanları (balance, viewMode,
-  // resultsPublished vb.) yanlışlıkla silmemek için mevcut veriyle merge
-  // ediyoruz — bkz. admin.html'deki aynı düzeltmenin yorumu.
-  try{
-    const existing = loadShared() || {};
-    localStorage.setItem(SHARED_KEY, JSON.stringify(Object.assign({}, existing, payload)));
-  }catch(e){}
-  if(fsSharedDoc){ fsSharedDoc.set(payload, {merge:true}).catch(e=>console.warn('Firestore yazma hatası:', e)); }
+  function commitShared(){
+    // (Düzeltme) admin.html'de olup burada olmayan alanları (balance, viewMode,
+    // resultsPublished vb.) yanlışlıkla silmemek için mevcut veriyle merge
+    // ediyoruz — bkz. admin.html'deki aynı düzeltmenin yorumu.
+    try{
+      const existing = loadShared() || {};
+      localStorage.setItem(SHARED_KEY, JSON.stringify(Object.assign({}, existing, payload)));
+    }catch(e){}
+    if(fsSharedDoc){ fsSharedDoc.set(payload, {merge:true}).catch(e=>console.warn('Firestore yazma hatası:', e)); }
+  }
+  if(fsSharedDoc){
+    fsSharedDoc.get().then(doc=>{
+      if(doc.exists){
+        const remote = doc.data() || {};
+        const deletedIds = Object.assign({}, remote.deletedApplicationIds, state.deletedApplicationIds);
+        payload.applications = reconcileArrayFieldById(payload.applications, remote.applications, deletedIds);
+        payload.zirveRegistrations = reconcileArrayFieldById(payload.zirveRegistrations, remote.zirveRegistrations, {});
+        payload.deletedApplicationIds = deletedIds;
+        if(payload.applications !== state.applications) state.applications = payload.applications;
+        state.deletedApplicationIds = deletedIds;
+      }
+      commitShared();
+    }).catch(commitShared);
+  } else {
+    commitShared();
+  }
 }
 function hydrateFromShared(){
   const shared = loadShared();
@@ -1258,6 +1306,7 @@ function hydrateFromShared(){
   state.endDate = shared.endDate ?? state.endDate;
   state.applications = shared.applications ?? state.applications;
   state.zirveRegistrations = shared.zirveRegistrations ?? state.zirveRegistrations;
+  state.deletedApplicationIds = Object.assign({}, shared.deletedApplicationIds, state.deletedApplicationIds);
   if(shared.appIdCounter) appIdCounter = shared.appIdCounter;
   if(shared.zirveIdCounter) zirveIdCounter = shared.zirveIdCounter;
 }
