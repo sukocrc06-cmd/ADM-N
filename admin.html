@@ -1976,10 +1976,39 @@ if(fsActivityDoc){
 // gelen canlı bakiye/özkaynak/pozisyon özetini besler — üç sayfa da AYNI
 // veriyi farklı şekillerde gösteriyor.
 let oplabPortfolioData = [];
+// (6 Ağustos 2026 — "sıfırlıyorum ama gene eski bakiyesi geliyor") Bu belge
+// (oplab_live_portfolio) TÜM yarışmacıların TEK bir paylaşılan Firestore
+// dokümanı — herhangi bir yarışmacı kendi 5 saniyelik periyodik özetini
+// gönderdiğinde bu onSnapshot TEKRAR tetiklenir ve oplabPortfolioData'yı
+// SIFIRDAN Firestore'daki ham veriyle YENİDEN OLUŞTURUR. Admin'in optimistik
+// düzeltmesi (applyOptimisticCompetitorUpdate) sadece admin'in kendi bellek
+// kopyasını değiştiriyordu; Firestore'daki asıl kayıt bozuk/eski kalıyordu.
+// Sonuç: sıfırlanan kişinin cihazı o an kapalıysa (çok olası), o kişiyle
+// İLGİSİZ bir başka yarışmacının bir sonraki periyodik gönderimi bu
+// listener'ı tetikliyor, admin'in optimistik düzeltmesi silinip Firestore'daki
+// eski/bozuk kayıt geri geliyordu — "bir dakika sonra eski bakiye geri geldi"
+// şikayetinin asıl sebebi bu. Çözüm iki parçalı: (1) optimistik düzeltmeyi
+// SADECE yerelde değil, Firestore belgesinde de kalıcı olarak uyguluyoruz
+// (bkz. applyOptimisticCompetitorUpdate), (2) yarışmacının cihazı henüz
+// kendi GERÇEK/onaylı özetini göndermediyse (updatedAt bizim düzeltmemizden
+// daha yeni olana kadar), gelen her snapshot'ta o kişi için optimistik
+// değerleri koruyoruz — böylece ilgisiz bir başka yarışmacının gönderimi
+// düzeltmeyi asla geçersiz kılamaz.
+let optimisticOplabOverrides = {};
+const OPTIMISTIC_OPLAB_OVERRIDE_TTL_MS = 30000;
 if(fsPortfolioDoc){
   fsPortfolioDoc.onSnapshot((doc)=>{
     const data = doc.exists ? (doc.data() || {}) : {};
     const competitors = data.competitors || {};
+    const now = Date.now();
+    Object.keys(optimisticOplabOverrides).forEach(id => {
+      const ov = optimisticOplabOverrides[id];
+      if(now - ov.ts > OPTIMISTIC_OPLAB_OVERRIDE_TTL_MS){ delete optimisticOplabOverrides[id]; return; }
+      const rec = competitors[id];
+      const recTs = rec && rec.updatedAt ? new Date(rec.updatedAt).getTime() : 0;
+      if(recTs >= ov.ts){ delete optimisticOplabOverrides[id]; return; }
+      competitors[id] = Object.assign({}, rec || {}, ov.changes);
+    });
     oplabPortfolioData = Object.keys(competitors).map(id => Object.assign({id: id}, competitors[id]));
     renderCanliIzleme();
     renderKullaniciPortfoyleri();
@@ -2043,11 +2072,24 @@ function applyOptimisticCompetitorUpdate(appId, changes){
   const idx = oplabPortfolioData.findIndex(c => c.id === appId);
   if(idx === -1) return;
   Object.assign(oplabPortfolioData[idx], changes);
+  // Bu düzeltmeyi, yarışmacının cihazı kendi güncel/onaylı özetini gönderene
+  // kadar (updatedAt bizden daha yeni olana kadar) koru — aksi halde ilgisiz
+  // bir başka yarışmacının periyodik gönderimi bu düzeltmeyi anında geçersiz
+  // kılar (bkz. fsPortfolioDoc.onSnapshot üzerindeki not).
+  optimisticOplabOverrides[String(appId)] = { changes: changes, ts: Date.now() };
   renderCanliIzleme();
   renderKullaniciPortfoyleri();
   renderSonuclar();
   renderYayinPreview();
   renderStageMode();
+  // Sadece admin'in kendi bellek kopyasını değil, PAYLAŞILAN Firestore
+  // belgesini de düzeltiyoruz — yarışmacının cihazı hiç açılmasa/çevrimiçi
+  // olmasa bile, eski/bozuk kayıt Firestore'da sonsuza kadar kalmasın.
+  if(fsPortfolioDoc){
+    const payload = { competitors: {} };
+    payload.competitors[String(appId)] = changes;
+    fsPortfolioDoc.set(payload, {merge:true}).catch(e=>console.warn('Canlı portföy belgesi düzeltilemedi:', e));
+  }
 }
 
 function setCompetitorBalance(appId, newBalance){
