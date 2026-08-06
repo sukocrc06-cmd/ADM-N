@@ -1266,32 +1266,45 @@ function saveShared(){
     appIdCounter: appIdCounter,
     zirveIdCounter: zirveIdCounter
   };
-  function commitShared(){
-    // (Düzeltme) admin.html'de olup burada olmayan alanları (balance, viewMode,
-    // resultsPublished vb.) yanlışlıkla silmemek için mevcut veriyle merge
-    // ediyoruz — bkz. admin.html'deki aynı düzeltmenin yorumu.
+  // (Düzeltme) admin.html'de olup burada olmayan alanları (balance, viewMode,
+  // resultsPublished vb.) yanlışlıkla silmemek için mevcut veriyle merge
+  // ediyoruz — bkz. admin.html'deki aynı düzeltmenin yorumu.
+  function persistLocal(finalPayload){
     try{
       const existing = loadShared() || {};
-      localStorage.setItem(SHARED_KEY, JSON.stringify(Object.assign({}, existing, payload)));
+      localStorage.setItem(SHARED_KEY, JSON.stringify(Object.assign({}, existing, finalPayload)));
     }catch(e){}
-    if(fsSharedDoc){ fsSharedDoc.set(payload, {merge:true}).catch(e=>console.warn('Firestore yazma hatası:', e)); }
   }
-  if(fsSharedDoc){
-    fsSharedDoc.get().then(doc=>{
-      if(doc.exists){
-        const remote = doc.data() || {};
-        const deletedIds = Object.assign({}, remote.deletedApplicationIds, state.deletedApplicationIds);
-        payload.applications = reconcileArrayFieldById(payload.applications, remote.applications, deletedIds);
-        payload.zirveRegistrations = reconcileArrayFieldById(payload.zirveRegistrations, remote.zirveRegistrations, {});
-        payload.deletedApplicationIds = deletedIds;
-        if(payload.applications !== state.applications) state.applications = payload.applications;
-        state.deletedApplicationIds = deletedIds;
-      }
-      commitShared();
-    }).catch(commitShared);
-  } else {
-    commitShared();
+  if(!fsSharedDoc || !FIREBASE_ENABLED){
+    persistLocal(payload);
+    return;
   }
+  // (6 Ağustos 2026 — "bulut köprüsünü daha da güçlendir") "önce oku, sonra
+  // yaz" deseninden Firestore'un GERÇEK transaction API'sine geçildi — bkz.
+  // admin.html'deki aynı düzeltmenin yorumu. runTransaction, okuma ile
+  // yazma arasında belge değişirse otomatik olarak en güncel veriyle
+  // yeniden çalışır; hiçbir ara yazma artık sessizce kaybolamaz.
+  firebase.firestore().runTransaction(function(transaction){
+    return transaction.get(fsSharedDoc).then(function(doc){
+      const remote = doc.exists ? (doc.data() || {}) : {};
+      const deletedIds = Object.assign({}, remote.deletedApplicationIds, state.deletedApplicationIds);
+      const finalPayload = Object.assign({}, payload, {
+        applications: reconcileArrayFieldById(payload.applications, remote.applications, deletedIds),
+        zirveRegistrations: reconcileArrayFieldById(payload.zirveRegistrations, remote.zirveRegistrations, {}),
+        deletedApplicationIds: deletedIds
+      });
+      transaction.set(fsSharedDoc, finalPayload, {merge:true});
+      return finalPayload;
+    });
+  }).then(function(finalPayload){
+    if(finalPayload.applications !== state.applications) state.applications = finalPayload.applications;
+    state.deletedApplicationIds = finalPayload.deletedApplicationIds;
+    persistLocal(finalPayload);
+  }).catch(function(e){
+    console.warn('Firestore transaction hatası, düz yazmaya düşülüyor:', e);
+    persistLocal(payload);
+    fsSharedDoc.set(payload, {merge:true}).catch(e2=>console.warn('Yedek düz yazma da başarısız:', e2));
+  });
 }
 function hydrateFromShared(){
   const shared = loadShared();

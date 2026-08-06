@@ -1941,54 +1941,75 @@ function saveShared(){
     competitionEndsAt: state.competitionEndsAt,
     competitionHistory: state.competitionHistory
   };
-  function commitShared(){
-    // (Düzeltme) index.html ve admin.html'in `state` şemaları birebir aynı
-    // değil — ör. `balance`/`viewMode`/`resultsPublished` yalnızca admin.html'de
-    // var. Önceden burada localStorage/Firestore'a DÜZ ÜZERİNE YAZ (tam
-    // overwrite) yapılıyordu; bu yüzden index.html tarafında bir ziyaretçi
-    // form gönderip kendi saveShared()'ını tetiklediğinde, o dosyanın
-    // bilmediği alanlar (balance vb.) belgeden TAMAMEN SİLİNİYORDU. Şimdi
-    // localStorage'da mevcut veriyle merge ediyoruz, Firestore'da da
-    // {merge:true} kullanıyoruz — her dosya yalnızca kendi bildiği alanları
-    // günceller, diğerine dokunmaz.
+  // (Düzeltme) index.html ve admin.html'in `state` şemaları birebir aynı
+  // değil — ör. `balance`/`viewMode`/`resultsPublished` yalnızca admin.html'de
+  // var. Önceden burada localStorage/Firestore'a DÜZ ÜZERİNE YAZ (tam
+  // overwrite) yapılıyordu; bu yüzden index.html tarafında bir ziyaretçi
+  // form gönderip kendi saveShared()'ını tetiklediğinde, o dosyanın
+  // bilmediği alanlar (balance vb.) belgeden TAMAMEN SİLİNİYORDU. Şimdi
+  // localStorage'da mevcut veriyle merge ediyoruz, Firestore'da da
+  // {merge:true} kullanıyoruz — her dosya yalnızca kendi bildiği alanları
+  // günceller, diğerine dokunmaz.
+  function persistLocal(finalPayload){
     try{
       const existing = loadShared() || {};
-      localStorage.setItem(SHARED_KEY, JSON.stringify(Object.assign({}, existing, payload)));
+      localStorage.setItem(SHARED_KEY, JSON.stringify(Object.assign({}, existing, finalPayload)));
     }catch(e){}
-    if(fsSharedDoc){
-      fsSharedDoc.set(payload, {merge:true})
-        .then(hideConnectionError)
-        .catch(e=>{ console.warn('Firestore yazma hatası:', e); showConnectionError(); });
+  }
+  if(!fsSharedDoc || !FIREBASE_ENABLED){
+    persistLocal(payload);
+    return;
+  }
+  // (6 Ağustos 2026 — "bulut köprüsünü daha da güçlendir") ÖNCEKİ tasarım
+  // "önce oku (.get()), sonra hesapla, sonra yaz (.set())" şeklindeydi — bu
+  // hâlâ ÇOK KISA bir yarış penceresi bırakıyordu: okuma ile yazma arasındaki
+  // milisaniyelerde BAŞKA bir sekme/cihaz da bu belgeye yazarsa, o yazma
+  // bizim (artık biraz eskimiş) hesabımızla sessizce ezilebilirdi. Firestore'un
+  // GERÇEK transaction API'si (runTransaction) bunu KÖKTEN çözer: transaction
+  // içindeki transaction.get() ile okunan belge, transaction.set() ile
+  // yazılana kadar BAŞKA biri değiştirirse, Firestore transaction'ı OTOMATİK
+  // OLARAK EN GÜNCEL veriyle YENİDEN ÇALIŞTIRIR — "oku→uzlaştır→yaz" artık
+  // gerçekten ATOMİK, hiçbir ara yazma asla sessizce kaybolamaz.
+  firebase.firestore().runTransaction(function(transaction){
+    return transaction.get(fsSharedDoc).then(function(doc){
+      const remote = doc.exists ? (doc.data() || {}) : {};
+      // Mezar taşlarının BİRLEŞİMİNİ kullan (yerelde bu oturumda az önce
+      // eklenenler + uzakta başka bir oturumdan gelenler) — henüz uzağa
+      // yazılmamış YENİ bir silme de, uzaktan öğrenilen ESKİ bir silme de
+      // aynı şekilde saygı görsün.
+      const deletedIds = Object.assign({}, remote.deletedApplicationIds, state.deletedApplicationIds);
+      const finalPayload = Object.assign({}, payload, {
+        applications: reconcileArrayFieldById(payload.applications, remote.applications, deletedIds),
+        zirveRegistrations: reconcileArrayFieldById(payload.zirveRegistrations, remote.zirveRegistrations, {}),
+        deletedApplicationIds: deletedIds
+      });
+      transaction.set(fsSharedDoc, finalPayload, {merge:true});
+      return finalPayload;
+    });
+  }).then(function(finalPayload){
+    // Uzlaştırmada bulduğumuz (yerelde eksik olan) kayıtları admin'in
+    // KENDİ ekranına da yansıtıyoruz — aksi halde sadece Firestore düzelir
+    // ama admin bir sonraki gerçek zamanlı onSnapshot güncellemesine kadar
+    // hâlâ eksik/eski listeyi görmeye devam eder.
+    if(finalPayload.applications !== state.applications || finalPayload.zirveRegistrations !== state.zirveRegistrations){
+      state.applications = finalPayload.applications;
+      state.zirveRegistrations = finalPayload.zirveRegistrations;
+      state.deletedApplicationIds = finalPayload.deletedApplicationIds;
+      renderBasvuruList(); renderBasvuruDetail(); renderDashboardDynamic(); renderKullaniciVeritabani();
     }
-  }
-  if(fsSharedDoc){
-    fsSharedDoc.get().then(doc=>{
-      if(doc.exists){
-        const remote = doc.data() || {};
-        // Mezar taşlarının BİRLEŞİMİNİ kullan (yerelde bu oturumda az önce
-        // eklenenler + uzakta başka bir oturumdan gelenler) — henüz uzağa
-        // yazılmamış YENİ bir silme de, uzaktan öğrenilen ESKİ bir silme de
-        // aynı şekilde saygı görsün.
-        const deletedIds = Object.assign({}, remote.deletedApplicationIds, state.deletedApplicationIds);
-        payload.applications = reconcileArrayFieldById(payload.applications, remote.applications, deletedIds);
-        payload.zirveRegistrations = reconcileArrayFieldById(payload.zirveRegistrations, remote.zirveRegistrations, {});
-        payload.deletedApplicationIds = deletedIds;
-        // Uzlaştırmada bulduğumuz (yerelde eksik olan) kayıtları admin'in
-        // KENDİ ekranına da yansıtıyoruz — aksi halde sadece Firestore
-        // düzelir ama admin bir sonraki gerçek zamanlı onSnapshot güncellemesine
-        // kadar hâlâ eksik/eski listeyi görmeye devam eder.
-        if(payload.applications !== state.applications || payload.zirveRegistrations !== state.zirveRegistrations){
-          state.applications = payload.applications;
-          state.zirveRegistrations = payload.zirveRegistrations;
-          state.deletedApplicationIds = deletedIds;
-          renderBasvuruList(); renderBasvuruDetail(); renderDashboardDynamic(); renderKullaniciVeritabani();
-        }
-      }
-      commitShared();
-    }).catch(commitShared); // okunamazsa yine de mevcut yerel veriyle yazmayı dene
-  } else {
-    commitShared();
-  }
+    persistLocal(finalPayload);
+    hideConnectionError();
+  }).catch(function(e){
+    // Transaction'ın kendisi başarısız olursa (ağ/izin sorunu — normal
+    // koşullarda çakışma nedeniyle DEĞİL, Firestore çakışmaları kendi içinde
+    // otomatik yeniden dener) en azından düz bir yazma denemesi yapıyoruz —
+    // hiçbir zaman sessizce vazgeçmiyoruz.
+    console.warn('Firestore transaction hatası, düz yazmaya düşülüyor:', e);
+    persistLocal(payload);
+    fsSharedDoc.set(payload, {merge:true})
+      .then(hideConnectionError)
+      .catch(e2=>{ console.warn('Yedek düz yazma da başarısız:', e2); showConnectionError(); });
+  });
 }
 function hydrateFromShared(){
   const shared = loadShared();
