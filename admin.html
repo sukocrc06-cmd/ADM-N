@@ -2026,6 +2026,30 @@ function cleanupOplabDataForIds(ids){
 // OptiPulseLab tarafı (finteclubBridge.js, listenForBalanceCommands) bunu
 // gerçek zamanlı dinleyip kendi localStorage'ına uygular. Yarışmacı o an
 // sitedeyse birkaç saniye içinde, değilse bir sonraki girişinde uygulanır.
+// (6 Ağustos 2026 — "100000 uyguladım ama admin panelinde değişmedi, anlık
+// olması lazım") setCompetitorBalance()/resetCompetitorPortfolio() öncesi
+// tasarım SADECE Firestore'a bir komut yazıyordu — admin'in KENDİ ekranı
+// (oplabPortfolioData) sadece yarışmacının cihazı komutu uygulayıp GERİ
+// bir özet gönderdiğinde güncelleniyordu (bkz. fsPortfolioDoc.onSnapshot).
+// Yarışmacının cihazı o an açık/aktif DEĞİLSE (çok olası bir durum — admin
+// birini test ederken ya da yarışmacı sitede değilken bakiye ayarlayabilir),
+// bu geri bildirim HİÇ gelmez ve admin paneli değişmeden kalır — "anında
+// değişmedi" şikayetinin asıl sebebi budur. Çözüm: admin'in kendi
+// oplabPortfolioData kaydını DA aynı anda, optimistik olarak güncelleyip
+// hemen yeniden çiziyoruz. Yarışmacının cihazı gerçekten uyguladığında zaten
+// gelecek olan gerçek/otoriter özet, bu optimistik tahmini sorunsuzca
+// üzerine yazar (aynı değer olacağı için görsel bir fark oluşmaz).
+function applyOptimisticCompetitorUpdate(appId, changes){
+  const idx = oplabPortfolioData.findIndex(c => c.id === appId);
+  if(idx === -1) return;
+  Object.assign(oplabPortfolioData[idx], changes);
+  renderCanliIzleme();
+  renderKullaniciPortfoyleri();
+  renderSonuclar();
+  renderYayinPreview();
+  renderStageMode();
+}
+
 function setCompetitorBalance(appId, newBalance){
   if(!fsBalanceCommandsDoc){
     showToast('Bakiye güncellemesi için Firebase bağlantısı gerekli — şu an yerel modda çalışıyorsunuz.', 'error');
@@ -2037,8 +2061,19 @@ function setCompetitorBalance(appId, newBalance){
     requestedAt: new Date().toISOString(),
     requestedByAdmin: true
   };
+  // Denklem: özkaynak = bakiye + kullanılan marj + açık K/Z. Sadece bakiye
+  // değiştiğinde, marj+K/Z aynı kaldığından yeni özkaynak = eski özkaynak -
+  // eski bakiye + yeni bakiye — margin/pnl'i tek tek bilmeye gerek yok.
+  const c = oplabPortfolioData.find(x => x.id === appId);
+  const oldBalance = c ? (c.balance || 0) : 0;
+  const oldEquity = c ? (c.equity || 0) : 0;
+  applyOptimisticCompetitorUpdate(appId, {
+    balance: newBalance,
+    equity: oldEquity - oldBalance + newBalance,
+    updatedAt: new Date().toISOString()
+  });
   fsBalanceCommandsDoc.set(payload, {merge:true})
-    .then(()=> showToast('Bakiye güncellendi — yarışmacı aktifse anında uygulanır.', 'success'))
+    .then(()=> showToast('Bakiye güncellendi.', 'success'))
     .catch(e=>{ console.warn('Bakiye komutu yazılamadı:', e); showToast('Bakiye güncellemesi gönderilemedi — bağlantı sorunu olabilir.', 'error'); });
 }
 
@@ -2058,8 +2093,18 @@ function resetCompetitorPortfolio(appId){
     requestedAt: new Date().toISOString(),
     requestedByAdmin: true
   };
+  applyOptimisticCompetitorUpdate(appId, {
+    balance: 100000,
+    equity: 100000,
+    openPnl: 0,
+    positionsCount: 0,
+    positions: [],
+    pendingOrders: [],
+    recentTrades: [],
+    updatedAt: new Date().toISOString()
+  });
   fsBalanceCommandsDoc.set(payload, {merge:true})
-    .then(()=> showToast('Portföy sıfırlama isteği gönderildi — yarışmacı aktifse anında uygulanır.', 'success'))
+    .then(()=> showToast('Portföy sıfırlandı.', 'success'))
     .catch(e=>{ console.warn('Sıfırlama komutu yazılamadı:', e); showToast('Sıfırlama gönderilemedi — bağlantı sorunu olabilir.', 'error'); });
 }
 
