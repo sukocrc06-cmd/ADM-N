@@ -549,20 +549,11 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 .video-card{background:var(--card-bg);border:1px solid var(--border-strong);border-radius:26px;padding:34px;}
 .video-thumb{aspect-ratio:16/10;background:var(--card-bg-2);border-radius:18px;display:flex;align-items:center;justify-content:center;margin-bottom:24px;border:1px solid var(--border);cursor:pointer;position:relative;overflow:hidden;transition:border-color .18s ease;}
 .video-thumb:hover{border-color:var(--blue);}
-.video-thumb::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(61,111,238,0.16),transparent 70%);}
-.play-btn{width:70px;height:70px;border-radius:50%;background:#c7cbd6;border:none;display:flex;align-items:center;justify-content:center;font-size:24px;color:#12172a;padding:0;transition:transform .18s ease,filter .18s,box-shadow .18s;position:relative;z-index:1;}
-.play-btn:hover{filter:brightness(1.2);transform:scale(1.12);box-shadow:0 0 0 10px rgba(61,111,238,0.12);}
+.video-thumb video{width:100%;height:100%;object-fit:cover;display:block;background:#000;}
+.video-thumb .sound-badge{position:absolute;bottom:14px;right:14px;display:flex;align-items:center;gap:6px;background:rgba(4,7,16,0.72);border:1px solid var(--border-strong);color:#fff;font-size:12px;font-weight:600;padding:8px 13px;border-radius:20px;transition:background .15s ease,transform .15s ease;z-index:1;pointer-events:none;}
+.video-thumb:hover .sound-badge{background:var(--blue);transform:translateY(-2px);}
 .video-card h3{font-size:20px;margin-bottom:10px;}
 .video-card > p{font-size:14.5px !important;line-height:1.6 !important;margin-bottom:20px !important;}
-
-/* ============ Tanıtım videosu lightbox ("intro" — 9 Ağustos 2026) ============ */
-.video-lightbox{position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;padding:24px;}
-.video-lightbox.open{display:flex;}
-.video-lightbox-backdrop{position:absolute;inset:0;background:rgba(4,7,16,0.86);backdrop-filter:blur(4px);}
-.video-lightbox-inner{position:relative;width:100%;max-width:960px;background:#000;border-radius:16px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,0.55);border:1px solid var(--border-strong);animation:fadeIn .22s ease;}
-.video-lightbox-inner video{display:block;width:100%;max-height:80vh;background:#000;}
-.video-lightbox-close{position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;background:rgba(4,7,16,0.72);border:1px solid var(--border-strong);color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s ease;z-index:2;}
-.video-lightbox-close:hover{background:var(--blue);}
 
 .how-it-works{padding:70px 44px 0;max-width:1440px;margin:0 auto;}
 .how-it-works h2{font-size:42px;margin-bottom:32px;}
@@ -807,22 +798,16 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
         </div>
       </div>
       <div class="video-card">
-        <div class="video-thumb" id="heroVideoThumb" role="button" tabindex="0" aria-label="FinteLig tanıtım videosunu oynat"><button class="play-btn" id="playBtn">▶</button></div>
+        <div class="video-thumb" id="heroVideoThumb" role="button" tabindex="0" aria-label="Sesi açmak için tıkla">
+          <video id="introVideo" autoplay muted loop playsinline preload="auto">
+            <source src="./_Intro%20%281%29.mp4" type="video/mp4">
+            Tarayıcınız video oynatmayı desteklemiyor.
+          </video>
+          <span class="sound-badge" id="soundBadge">🔇 Sesi açmak için tıkla</span>
+        </div>
         <h3 style="font-size:17px;margin-bottom:8px;">FinTeLig Tanıtım Videosu</h3>
         <p style="color:var(--text-dim);font-size:13px;line-height:1.55;margin-bottom:16px;text-transform:none;letter-spacing:0;font-weight:400;">Yarışma mantığını, katılım sürecini ve portföy deneyimini kısa videoyla keşfedin.</p>
         <span class="status-pill" id="heroStatusBadge">YARIŞMA BAŞLAMADI</span>
-      </div>
-    </div>
-
-    <!-- Tanıtım videosu lightbox oynatıcı ("intro" videosu — sesli, tıklanarak açılır) -->
-    <div class="video-lightbox" id="videoLightbox">
-      <div class="video-lightbox-backdrop" id="videoLightboxBackdrop"></div>
-      <div class="video-lightbox-inner">
-        <button class="video-lightbox-close" id="videoLightboxClose" aria-label="Videoyu kapat">✕</button>
-        <video id="introVideo" controls playsinline preload="metadata">
-          <source src="./_Intro%20%281%29.mp4" type="video/mp4">
-          Tarayıcınız video oynatmayı desteklemiyor.
-        </video>
       </div>
     </div>
 
@@ -1538,45 +1523,40 @@ document.querySelectorAll('[data-pubnav]').forEach(btn=>{
   });
 });
 
-/* ============ Tanıtım videosu lightbox ("intro" — 9 Ağustos 2026) ============
-   Hero'daki "VİDEOYU İZLE" butonu ve küçük oynatma ikonu artık gerçek bir
-   videoyu (aynı klasördeki _Intro (1).mp4) açıyor: tam ekrana yakın bir
-   lightbox içinde, tıklamayla (kullanıcı jesti sayesinde tarayıcılar sesli
-   otomatik oynatmaya izin veriyor) sesli şekilde başlıyor. */
+/* ============ Tanıtım videosu — sessiz önizleme, tıklayınca sesli devam (9 Ağustos 2026) ============
+   Hero kartındaki video (_Intro (1).mp4) sayfa açılır açılmaz sessiz ve
+   döngüde oynuyor (tarayıcılar SADECE sessiz otomatik oynatmaya izin
+   veriyor). Kullanıcı kutunun üzerine tıkladığında (gerçek bir kullanıcı
+   jesti) video OLDUĞU YERDEN sesi açılarak oynamaya devam ediyor — yeniden
+   başlamıyor, sadece sesi devreye giriyor ve tarayıcının kendi kontrolleri
+   (oynat/duraklat/ses seviyesi) görünür oluyor. */
 (function(){
-  var lightbox = document.getElementById('videoLightbox');
+  var thumb = document.getElementById('heroVideoThumb');
   var video = document.getElementById('introVideo');
-  var backdrop = document.getElementById('videoLightboxBackdrop');
-  var closeBtn = document.getElementById('videoLightboxClose');
-  function openIntroVideo(){
-    if(!lightbox) return;
-    lightbox.classList.add('open');
-    document.body.style.overflow = 'hidden';
-    if(video){
-      video.muted = false;
-      video.currentTime = 0;
-      var p = video.play();
-      if(p && typeof p.catch === 'function') p.catch(function(){ /* otomatik oynatma engellendiyse kullanıcı kontrolden başlatır */ });
-    }
+  var badge = document.getElementById('soundBadge');
+  var unmuted = false;
+  function unmuteIntroVideo(){
+    if(!video || unmuted) return;
+    unmuted = true;
+    video.muted = false;
+    video.loop = false;
+    video.controls = true;
+    if(badge) badge.style.display = 'none';
+    if(thumb) thumb.setAttribute('aria-label', 'Tanıtım videosu sesli oynuyor');
+    var p = video.play();
+    if(p && typeof p.catch === 'function') p.catch(function(){ /* tarayıcı engellerse kullanıcı artık görünen kontrollerden başlatabilir */ });
   }
-  function closeIntroVideo(){
-    if(!lightbox) return;
-    lightbox.classList.remove('open');
-    document.body.style.overflow = '';
-    if(video) video.pause();
+  if(thumb){
+    thumb.addEventListener('click', unmuteIntroVideo);
+    thumb.addEventListener('keydown', function(e){ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); unmuteIntroVideo(); } });
   }
-  if(backdrop) backdrop.addEventListener('click', closeIntroVideo);
-  if(closeBtn) closeBtn.addEventListener('click', closeIntroVideo);
-  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeIntroVideo(); });
-  var heroThumb = document.getElementById('heroVideoThumb');
-  if(heroThumb){
-    heroThumb.addEventListener('keydown', function(e){ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openIntroVideo(); } });
-  }
-  window.__openIntroVideo = openIntroVideo;
+  window.__unmuteIntroVideo = unmuteIntroVideo;
 })();
-document.getElementById('watchVideoBtn').addEventListener('click', ()=> window.__openIntroVideo());
-document.getElementById('playBtn').addEventListener('click', (e)=> { e.stopPropagation(); window.__openIntroVideo(); });
-document.getElementById('heroVideoThumb').addEventListener('click', ()=> window.__openIntroVideo());
+document.getElementById('watchVideoBtn').addEventListener('click', ()=> {
+  var thumbEl = document.getElementById('heroVideoThumb');
+  if(thumbEl) thumbEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  window.__unmuteIntroVideo();
+});
 
 /* ============ DIŞ BAĞLANTILAR: OP / OPTIPULSE ve FinTeClub logoları ============ */
 const OPTIPULSE_URL = 'https://rekabet-testi.vercel.app/';
