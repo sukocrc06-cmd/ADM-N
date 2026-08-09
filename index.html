@@ -1766,6 +1766,14 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
     resultArea.innerHTML = `<div class="card" style="text-align:center;color:var(--text-dim);">Bu e-posta ile eşleşen bir kayıt bulunamadı. E-postanı kontrol edip tekrar dene.</div>`;
     return;
   }
+  // (9 Ağustos 2026 — XSS kök neden düzeltmesi) app.name/zirve.club gibi
+  // alanlar kullanıcının kendi başvuru formuna girdiği serbest metin — kötü
+  // niyetli biri buraya bir HTML/script payload'ı koyup, bu durum sorgulama
+  // ekranını (kendi veya başka birinin) açan herkesin tarayıcısında
+  // çalıştırabilirdi. admin.html'deki aynı kök neden düzeltmesiyle tutarlı.
+  const escapeHtml = (s) => String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   const appStatusMap = {bekliyor:{label:'ONAY BEKLİYOR', cls:'yellow'}, onayli:{label:'ONAYLANDI', cls:'green'}, reddedildi:{label:'REDDEDİLDİ', cls:'red'}};
   const zirveStatusMap = {incelemede:{label:'İNCELEMEDE', cls:'yellow'}, onayli:{label:'ONAYLANDI', cls:'green'}, reddedildi:{label:'UYGUN DEĞİL', cls:'red'}};
   let html = '';
@@ -1777,9 +1785,9 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
     const s = appStatusMap[app.status] || {label:app.status, cls:''};
     html += `<div class="card" style="margin-bottom:16px;">
       <div class="field-label" style="margin-bottom:8px;">FINTELIG BAŞVURUSU</div>
-      <div style="font-family:'Oswald',sans-serif;font-size:20px;margin-bottom:10px;">${app.name}</div>
-      <span class="status-pill ${s.cls}">${s.label}</span>
-      <p style="color:var(--text-dimmer);font-size:12.5px;margin-top:12px;">Başvuru tarihi: ${app.date}</p>
+      <div style="font-family:'Oswald',sans-serif;font-size:20px;margin-bottom:10px;">${escapeHtml(app.name)}</div>
+      <span class="status-pill ${s.cls}">${escapeHtml(s.label)}</span>
+      <p style="color:var(--text-dimmer);font-size:12.5px;margin-top:12px;">Başvuru tarihi: ${escapeHtml(app.date)}</p>
       ${app.status === 'onayli' ? `
         <p style="color:var(--text-dim);font-size:12.5px;margin-top:14px;">✓ Başvurun onaylandı! OPLab'a git, kayıt olurken belirlediğin e-posta ve şifreyle giriş yap — doğrudan alım-satım ekranına yönlendirileceksin.</p>
       ` : ''}
@@ -1789,9 +1797,9 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
     const zs = zirveStatusMap[zirve.status] || {label:zirve.status, cls:''};
     html += `<div class="card">
       <div class="field-label" style="margin-bottom:8px;">ZİRVE KAYDI</div>
-      <div style="font-family:'Oswald',sans-serif;font-size:20px;margin-bottom:10px;">${zirve.club}</div>
-      <span class="status-pill ${zs.cls}">${zs.label}</span>
-      <p style="color:var(--text-dimmer);font-size:12.5px;margin-top:12px;">Kayıt tarihi: ${zirve.date}</p>
+      <div style="font-family:'Oswald',sans-serif;font-size:20px;margin-bottom:10px;">${escapeHtml(zirve.club)}</div>
+      <span class="status-pill ${zs.cls}">${escapeHtml(zs.label)}</span>
+      <p style="color:var(--text-dimmer);font-size:12.5px;margin-top:12px;">Kayıt tarihi: ${escapeHtml(zirve.date)}</p>
     </div>`;
   }
   resultArea.innerHTML = html;

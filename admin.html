@@ -2811,8 +2811,8 @@ function renderOplabVisitorList(){
   container.innerHTML = sorted.map(v => `
     <div class="list-item" style="cursor:default;">
       <div>
-        <div style="font-weight:600;font-size:14px;">${v.name || 'İsimsiz'}</div>
-        <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${v.email || '—'} • ${v.lastVisit ? new Date(v.lastVisit).toLocaleString('tr-TR') : '—'}</div>
+        <div style="font-weight:600;font-size:14px;">${escapeHtml(v.name) || 'İsimsiz'}</div>
+        <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${escapeHtml(v.email) || '—'} • ${v.lastVisit ? new Date(v.lastVisit).toLocaleString('tr-TR') : '—'}</div>
       </div>
       <span class="status-pill green">${v.visitCount || 1} ziyaret</span>
     </div>`).join('');
@@ -2853,7 +2853,12 @@ function renderActivityLog(){
   }
   log.innerHTML = entries.map(entry=>{
     const time = entry.at ? new Date(entry.at).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
-    return `<li style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border);font-size:13.5px;"><span>${entry.text}</span><span style="color:var(--text-dim);">${time}</span></li>`;
+    // (9 Ağustos 2026 — XSS kök nokta düzeltmesi) addActivity() metnine
+    // başvuru sahibinin kendi girdiği app.name/z.club gibi GÜVENİLMEYEN
+    // veriler karışabiliyor (bkz. deleteApplications/restoreDeletedApplications
+    // ve yakında eklenecek denetim günlüğü — madde #120). Tek merkezi
+    // kaçış noktası burası: her ihtimale karşı escapeHtml uygulanıyor.
+    return `<li style="display:flex;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border);font-size:13.5px;"><span>${escapeHtml(entry.text)}</span><span style="color:var(--text-dim);">${time}</span></li>`;
   }).join('');
 }
 
@@ -2892,6 +2897,23 @@ const basvuruEmptyMsgs = {
   tumu: {icon:'—', title:'Hiç başvuru yok', desc:'FinteLig başvuruları geldiğinde tüm kayıtlar burada listelenecek.'}
 };
 
+// (9 Ağustos 2026 — XSS kök neden düzeltmesi) Başvuru/Zirve formundan gelen
+// ad/kurum/motivasyon/kulüp gibi alanlar HERKESE AÇIK sitedeki (index.html)
+// formlardan geliyor — yani kötü niyetli biri kendi başvurusuna
+// `<img src=x onerror=...>` gibi bir HTML/script payload'ı koyabilir. Bu
+// alanlar önceden aşağıdaki render fonksiyonlarında escape edilmeden
+// doğrudan innerHTML'e yazılıyordu — admin paneli açılınca bu payload,
+// GERÇEK ADMİNİN Firebase Authentication oturumuyla çalışırdı (stored XSS).
+// escapeHtml() metin İÇERİĞİ için güvenli; HTML özniteliği (attribute)
+// içine yazılan değerler için escapeAttr() kullanılıyor (tırnak karakterini
+// de kaçırır — attribute context'te & < > kaçırmak tek başına yeterli
+// değildir, " veya ' de kaçırılmalı).
+function escapeHtml(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+const escapeAttr = escapeHtml; // aynı escape seti attribute context'i için de güvenli
 function initials(name){ return name.split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
 
 const kvStatusMap = {bekliyor:{label:'ONAY BEKLİYOR', cls:'yellow'}, onayli:{label:'ONAYLI', cls:'green'}, reddedildi:{label:'REDDEDİLDİ', cls:'red'}};
@@ -2928,13 +2950,13 @@ function renderKullaniciVeritabani(){
   tbody.innerHTML = rows.map(a => {
     const s = kvStatusMap[a.status] || {label:a.status, cls:''};
     return `<tr>
-      <td>${a.name}</td>
-      <td>${a.email}</td>
-      <td>${a.org || '—'}</td>
-      <td>${a.level || '—'}</td>
-      <td><span class="status-pill ${s.cls}">${s.label}</span></td>
-      <td>${a.date || '—'}</td>
-      <td>${a.approvedDate || '—'}</td>
+      <td>${escapeHtml(a.name)}</td>
+      <td>${escapeHtml(a.email)}</td>
+      <td>${escapeHtml(a.org) || '—'}</td>
+      <td>${escapeHtml(a.level) || '—'}</td>
+      <td><span class="status-pill ${s.cls}">${escapeHtml(s.label)}</span></td>
+      <td>${escapeHtml(a.date) || '—'}</td>
+      <td>${escapeHtml(a.approvedDate) || '—'}</td>
     </tr>`;
   }).join('');
 }
@@ -2973,8 +2995,8 @@ function renderBasvuruList(){
       <div style="display:flex;align-items:center;gap:12px;">
         <input type="checkbox" class="bs-row-check" data-app-id="${a.id}" ${bulkDeleteSelection.has(a.id) ? 'checked' : ''} onclick="event.stopPropagation();">
         <div>
-          <div style="font-weight:600;font-size:14px;">${a.name}</div>
-          <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${a.email} • ${a.level}</div>
+          <div style="font-weight:600;font-size:14px;">${escapeHtml(a.name)}</div>
+          <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${escapeHtml(a.email)} • ${escapeHtml(a.level)}</div>
         </div>
       </div>
       <span class="status-pill ${a.status==='onayli'?'green':a.status==='reddedildi'?'red':'yellow'}">${a.status==='onayli'?'ONAYLI':a.status==='reddedildi'?'REDDEDİLDİ':'BEKLİYOR'}</span>
@@ -3167,12 +3189,12 @@ function renderBasvuruDetail(){
   }
   el.innerHTML = `
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;">
-      <div class="avatar-circle" style="width:44px;height:44px;font-size:15px;">${initials(app.name)}</div>
-      <div><div style="font-weight:600;font-size:15px;">${app.name}</div><div style="color:var(--text-dim);font-size:12px;">${app.level}</div></div>
+      <div class="avatar-circle" style="width:44px;height:44px;font-size:15px;">${escapeHtml(initials(app.name))}</div>
+      <div><div style="font-weight:600;font-size:15px;">${escapeHtml(app.name)}</div><div style="color:var(--text-dim);font-size:12px;">${escapeHtml(app.level)}</div></div>
     </div>
-    <div style="margin-bottom:14px;"><div class="field-label">E-POSTA</div><div style="font-size:13.5px;">${app.email}</div></div>
-    <div style="margin-bottom:14px;"><div class="field-label">ÜNİVERSİTE / KURUM</div><div style="font-size:13.5px;">${app.org}</div></div>
-    <div style="margin-bottom:18px;"><div class="field-label">MOTİVASYON</div><div style="font-size:13.5px;color:var(--text-dim);line-height:1.6;">${app.motivation || '—'}</div></div>
+    <div style="margin-bottom:14px;"><div class="field-label">E-POSTA</div><div style="font-size:13.5px;">${escapeHtml(app.email)}</div></div>
+    <div style="margin-bottom:14px;"><div class="field-label">ÜNİVERSİTE / KURUM</div><div style="font-size:13.5px;">${escapeHtml(app.org)}</div></div>
+    <div style="margin-bottom:18px;"><div class="field-label">MOTİVASYON</div><div style="font-size:13.5px;color:var(--text-dim);line-height:1.6;">${escapeHtml(app.motivation) || '—'}</div></div>
     <div class="btn-row">
       <button class="btn btn-green" style="flex:1;" id="approveAppBtn" ${app.status==='onayli'?'disabled':''}>ONAYLA</button>
       <button class="btn btn-red" style="flex:1;" id="rejectAppBtn" ${app.status==='reddedildi'?'disabled':''}>REDDET</button>
@@ -3247,8 +3269,8 @@ function renderZirveList(){
   container.innerHTML = list.map(z => `
     <div class="list-item" style="cursor:pointer;${selectedZirveId===z.id ? 'border-color:var(--blue);' : ''}" data-zirve-id="${z.id}">
       <div>
-        <div style="font-weight:600;font-size:14px;">${z.club}</div>
-        <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${z.org} • ${z.students.length} öğrenci</div>
+        <div style="font-weight:600;font-size:14px;">${escapeHtml(z.club)}</div>
+        <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${escapeHtml(z.org)} • ${z.students.length} öğrenci</div>
       </div>
       <span class="status-pill ${z.status==='onayli'?'green':z.status==='reddedildi'?'red':'yellow'}">${z.status==='onayli'?'ONAYLI':z.status==='reddedildi'?'UYGUN DEĞİL':'BEKLİYOR'}</span>
     </div>`).join('');
@@ -3267,13 +3289,13 @@ function renderZirveDetail(){
   }
   el.innerHTML = `
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;">
-      <div class="avatar-circle" style="width:44px;height:44px;font-size:15px;">${initials(z.club)}</div>
-      <div><div style="font-weight:600;font-size:15px;">${z.club}</div><div style="color:var(--text-dim);font-size:12px;">${z.org}</div></div>
+      <div class="avatar-circle" style="width:44px;height:44px;font-size:15px;">${escapeHtml(initials(z.club))}</div>
+      <div><div style="font-weight:600;font-size:15px;">${escapeHtml(z.club)}</div><div style="color:var(--text-dim);font-size:12px;">${escapeHtml(z.org)}</div></div>
     </div>
-    <div style="margin-bottom:14px;"><div class="field-label">TEMSİLCİ</div><div style="font-size:13.5px;">${z.contact} • ${z.contactEmail}</div></div>
-    <div style="margin-bottom:14px;"><div class="field-label">KULÜP ALANI</div><div style="font-size:13.5px;">${z.area || '—'}</div></div>
+    <div style="margin-bottom:14px;"><div class="field-label">TEMSİLCİ</div><div style="font-size:13.5px;">${escapeHtml(z.contact)} • ${escapeHtml(z.contactEmail)}</div></div>
+    <div style="margin-bottom:14px;"><div class="field-label">KULÜP ALANI</div><div style="font-size:13.5px;">${escapeHtml(z.area) || '—'}</div></div>
     <div style="margin-bottom:14px;"><div class="field-label">ÖĞRENCİ KATILIMCILAR (${z.students.length})</div>
-      <div style="font-size:12.5px;color:var(--text-dim);line-height:1.9;">${z.students.map((s,i)=>`${i+1}. ${s.name} — ${s.phone} — ${s.email}`).join('<br>')}</div>
+      <div style="font-size:12.5px;color:var(--text-dim);line-height:1.9;">${z.students.map((s,i)=>`${i+1}. ${escapeHtml(s.name)} — ${escapeHtml(s.phone)} — ${escapeHtml(s.email)}`).join('<br>')}</div>
     </div>
     <div class="btn-row">
       <button class="btn btn-green" style="flex:1;" id="approveZirveBtn" ${z.status==='onayli'?'disabled':''}>ONAYLA</button>
@@ -3352,7 +3374,7 @@ function renderDashboardDynamic(){
   }
   tbody.innerHTML = pending.map(a => `
     <tr>
-      <td>${a.name}</td><td>${a.email}</td><td>${a.level}</td>
+      <td>${escapeHtml(a.name)}</td><td>${escapeHtml(a.email)}</td><td>${escapeHtml(a.level)}</td>
       <td><span class="status-pill yellow">Onay Bekliyor</span></td>
       <td><button class="btn btn-green" style="padding:7px 16px;font-size:11.5px;" data-quick-approve="${a.id}">Onayla</button></td>
     </tr>`).join('');
@@ -3756,7 +3778,7 @@ function renderCanliIzleme(){
     const pct = pctReturn(c.equity||0);
     return `<div class="list-item" style="cursor:pointer;${selectedCanliAppId===c.id?'border-color:var(--blue);':''}" data-canli-id="${c.id}">
       <div>
-        <div style="font-weight:600;font-size:14px;">${i+1}. ${c.name || 'İsimsiz'}</div>
+        <div style="font-weight:600;font-size:14px;">${i+1}. ${escapeHtml(c.name) || 'İsimsiz'}</div>
         <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">Özkaynak: ${fmtTRY(c.equity||0)} • ${c.positionsCount||0} açık pozisyon</div>
       </div>
       <span class="status-pill ${pct>=0?'green':'red'}">${pct>=0?'+':''}${pct.toFixed(2)}%</span>
@@ -3770,7 +3792,7 @@ function renderCanliIzleme(){
   sonGuncellenenlerEl.innerHTML = sortedByUpdate.map(c=>`
     <div class="list-item" style="cursor:default;">
       <div>
-        <div style="font-weight:600;font-size:14px;">${c.name || 'İsimsiz'}</div>
+        <div style="font-weight:600;font-size:14px;">${escapeHtml(c.name) || 'İsimsiz'}</div>
         <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${fmtTRY(c.equity||0)} özkaynak</div>
       </div>
       <span style="color:var(--text-dim);font-size:12px;">${timeAgoTr(c.updatedAt)}</span>
@@ -3792,8 +3814,8 @@ function updateCanliSeciliPortfoy(){
   const pct = pctReturn(c.equity||0);
   el.innerHTML = `
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">
-      <div class="avatar-circle" style="width:40px;height:40px;font-size:14px;">${initials(c.name||'?')}</div>
-      <div><div style="font-weight:600;font-size:14.5px;">${c.name||'İsimsiz'}</div><div style="color:var(--text-dim);font-size:12px;">${fmtTRY(c.equity||0)} özkaynak</div></div>
+      <div class="avatar-circle" style="width:40px;height:40px;font-size:14px;">${escapeHtml(initials(c.name||'?'))}</div>
+      <div><div style="font-weight:600;font-size:14.5px;">${escapeHtml(c.name)||'İsimsiz'}</div><div style="color:var(--text-dim);font-size:12px;">${fmtTRY(c.equity||0)} özkaynak</div></div>
     </div>
     <div style="color:${pct>=0?'var(--green)':'#fca5a5'};font-weight:700;font-size:14px;">${pct>=0?'+':''}${pct.toFixed(2)}%</div>`;
   btn.disabled = false;
@@ -3818,7 +3840,7 @@ function populatePortfoySelect(){
   }
   select.disabled = false;
   const sorted = data.slice().sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'tr'));
-  select.innerHTML = sorted.map(c=>`<option value="${c.id}">${c.name || 'İsimsiz'} (${c.email || 'e-posta yok'})</option>`).join('');
+  select.innerHTML = sorted.map(c=>`<option value="${escapeAttr(c.id)}">${escapeHtml(c.name) || 'İsimsiz'} (${escapeHtml(c.email) || 'e-posta yok'})</option>`).join('');
   if(!selectedPortfoyAppId || !sorted.some(c=>c.id===selectedPortfoyAppId)){
     selectedPortfoyAppId = sorted[0].id;
   }
@@ -4017,7 +4039,7 @@ function renderSonuclar(){
     const p = pctReturn(c.equity||0);
     return `<tr>
       <td>${i+1}</td>
-      <td>${c.name || 'İsimsiz'}</td>
+      <td>${escapeHtml(c.name) || 'İsimsiz'}</td>
       <td>${fmtTRY(c.equity||0)}</td>
       <td style="color:${p>=0?'var(--green)':'#fca5a5'};">${p>=0?'+':''}${p.toFixed(2)}%</td>
     </tr>`;
@@ -4134,18 +4156,18 @@ function renderYarismaGecmisi(){
     const dateRange = (rec.startDate && rec.endDate) ? `${fmtDate(rec.startDate)} – ${fmtDate(rec.endDate)}` : 'Tarih belirtilmedi';
     const top3 = (rec.ranking || []).slice(0,3);
     const rows = (rec.ranking || []).map((c,i)=>`
-      <tr><td>${i+1}</td><td>${c.name}</td><td>${fmtTRY(c.equity)}</td><td style="color:${c.pct>=0?'var(--green)':'#fca5a5'};">${c.pct>=0?'+':''}${c.pct.toFixed(2)}%</td></tr>`).join('');
+      <tr><td>${i+1}</td><td>${escapeHtml(c.name)}</td><td>${fmtTRY(c.equity)}</td><td style="color:${c.pct>=0?'var(--green)':'#fca5a5'};">${c.pct>=0?'+':''}${c.pct.toFixed(2)}%</td></tr>`).join('');
     return `<div class="card" style="background:var(--card-bg-2);margin-bottom:16px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
         <div>
-          <div style="font-family:'Oswald',sans-serif;font-size:17px;">${rec.compName}</div>
-          <div style="color:var(--text-dim);font-size:12.5px;margin-top:2px;">${dateRange} • Bitiş: ${rec.endedAt}</div>
+          <div style="font-family:'Oswald',sans-serif;font-size:17px;">${escapeHtml(rec.compName)}</div>
+          <div style="color:var(--text-dim);font-size:12.5px;margin-top:2px;">${dateRange} • Bitiş: ${escapeHtml(rec.endedAt)}</div>
         </div>
-        <span class="status-pill" style="background:rgba(255,255,255,0.05);">${rec.endReason || ''}</span>
+        <span class="status-pill" style="background:rgba(255,255,255,0.05);">${escapeHtml(rec.endReason) || ''}</span>
       </div>
       <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;font-size:12.5px;color:var(--text-dim);">
         <span>${rec.participantCount} katılımcı</span>
-        ${top3.map((c,i)=>`<span>${i+1}. ${c.name} (${c.pct>=0?'+':''}${c.pct.toFixed(2)}%)</span>`).join('')}
+        ${top3.map((c,i)=>`<span>${i+1}. ${escapeHtml(c.name)} (${c.pct>=0?'+':''}${c.pct.toFixed(2)}%)</span>`).join('')}
       </div>
       <details>
         <summary style="cursor:pointer;color:#7ea3ff;font-size:12.5px;">Tam sıralamayı göster (${(rec.ranking||[]).length})</summary>
@@ -4175,8 +4197,8 @@ function renderYarismaGecmisi(){
 // sırasında pill'in textContent'ini doğrudan değiştiriyor; ok pill'in İÇİNDE
 // olsaydı her animasyon adımında silinirdi. Renk körlüğü dostu: yön artık
 // sadece renkle değil ok yönüyle de anlaşılıyor.
-const pctPillHtml = (pct, compId) => `<span class="yp-pill-wrap"><span class="yp-arrow ${pct>=0?'up':'down'}">${pct>=0?'▲':'▼'}</span><span class="yp-pill ${pct>=0?'up':'down'}"${compId!=null?` data-comp-id="${compId}"`:''} data-pct="${pct.toFixed(2)}">${pct>=0?'+':''}${pct.toFixed(2)}%</span></span>`;
-const avatarHtml = (name) => `<span class="yp-avatar">${initials(name||'İ')}</span>`;
+const pctPillHtml = (pct, compId) => `<span class="yp-pill-wrap"><span class="yp-arrow ${pct>=0?'up':'down'}">${pct>=0?'▲':'▼'}</span><span class="yp-pill ${pct>=0?'up':'down'}"${compId!=null?` data-comp-id="${escapeAttr(compId)}"`:''} data-pct="${pct.toFixed(2)}">${pct>=0?'+':''}${pct.toFixed(2)}%</span></span>`;
+const avatarHtml = (name) => `<span class="yp-avatar">${escapeHtml(initials(name||'İ'))}</span>`;
 const crownHtml = () => `<span class="yp-crown">👑</span>`;
 
 // Satır-içi mini trend çizgisi — sampleEquityHistory() tarafından ~20sn'de
@@ -4218,11 +4240,11 @@ function buildViewModeHtml(mode, data){
         const pct = pctReturn(c.equity||0);
         const compId = c.id || c.email || c.name || ('r'+i);
         const distPct = pctRange > 0 ? ((pct - worstPct) / pctRange) * 100 : 100;
-        return `<div class="yp-row" data-comp-id="${compId}" data-rank="${i+1}">
+        return `<div class="yp-row" data-comp-id="${escapeAttr(compId)}" data-rank="${i+1}">
           <span class="yp-rank">${i===0?crownHtml():''}${i+1}</span>
           ${avatarHtml(c.name)}
           <div class="yp-row-main">
-            <span class="yp-name">${c.name||'İsimsiz'}</span>
+            <span class="yp-name">${escapeHtml(c.name) || 'İsimsiz'}</span>
             <div class="yp-distbar-track"><div class="yp-distbar-fill" style="width:${distPct.toFixed(0)}%;"></div></div>
           </div>
           ${miniSparklineHtml(compId, pct)}
@@ -4242,11 +4264,11 @@ function buildViewModeHtml(mode, data){
       sorted.slice(0,3).map((c,i)=>{
         const pct = pctReturn(c.equity||0);
         const compId = c.id || c.email || c.name || ('r'+i);
-        return `<div class="yp-podium-card ${medalClass[i]}" data-comp-id="${compId}" data-rank="${i+1}">
+        return `<div class="yp-podium-card ${medalClass[i]}" data-comp-id="${escapeAttr(compId)}" data-rank="${i+1}">
           ${i===0?crownHtml():''}
           <div class="yp-rank" style="width:auto;font-size:15px;margin-bottom:6px;">${medalEmoji[i]} 0${i+1}</div>
-          <span class="yp-avatar" style="width:40px;height:40px;font-size:13px;margin:0 auto 8px;">${initials(c.name||'İ')}</span>
-          <div class="yp-name" style="text-align:center;font-size:12.5px;">${c.name||'İsimsiz'}</div>
+          <span class="yp-avatar" style="width:40px;height:40px;font-size:13px;margin:0 auto 8px;">${escapeHtml(initials(c.name||'İ'))}</span>
+          <div class="yp-name" style="text-align:center;font-size:12.5px;">${escapeHtml(c.name) || 'İsimsiz'}</div>
           <div style="margin-top:6px;">${pctPillHtml(pct, compId)}</div>
         </div>`;
       }).join('') + `</div>`;
@@ -4255,7 +4277,7 @@ function buildViewModeHtml(mode, data){
     html = `<div class="yp-section-label">CANLI İŞLEM AKIŞI</div>` +
       sortedByUpdate.map(c=>`<div class="yp-row">
         ${avatarHtml(c.name)}
-        <span class="yp-name">${c.name||'İsimsiz'}<div class="yp-sub">${timeAgoTr(c.updatedAt)}</div></span>
+        <span class="yp-name">${escapeHtml(c.name) || 'İsimsiz'}<div class="yp-sub">${timeAgoTr(c.updatedAt)}</div></span>
         <span style="color:var(--text-dim);font-weight:600;">${fmtTRY(c.equity||0)}</span>
       </div>`).join('');
   } else {
@@ -4414,7 +4436,7 @@ function renderYayinPreview(){
       const pct = pctReturn(c.equity||0);
       return `<div class="yp-row">
         <span class="yp-rank">${i+1}</span>
-        <span class="yp-name">${c.name||'İsimsiz'}</span>
+        <span class="yp-name">${escapeHtml(c.name)||'İsimsiz'}</span>
         ${pctPillHtml(pct)}
       </div>`;
     }).join('');
@@ -4512,14 +4534,14 @@ function renderStageTicker(){
   const bottomPct = pctReturn(bottom.equity||0);
   const lastActivity = (state.activityLog && state.activityLog[0]) ? state.activityLog[0].text : null;
   const items = [
-    `🏆 LİDER: ${top.name||'İsimsiz'} <span class="${topPct>=0?'up':'down'}">${topPct>=0?'+':''}${topPct.toFixed(2)}%</span>`,
-    `📉 SON SIRA: ${bottom.name||'İsimsiz'} <span class="${bottomPct>=0?'up':'down'}">${bottomPct>=0?'+':''}${bottomPct.toFixed(2)}%</span>`,
+    `🏆 LİDER: ${escapeHtml(top.name)||'İsimsiz'} <span class="${topPct>=0?'up':'down'}">${topPct>=0?'+':''}${topPct.toFixed(2)}%</span>`,
+    `📉 SON SIRA: ${escapeHtml(bottom.name)||'İsimsiz'} <span class="${bottomPct>=0?'up':'down'}">${bottomPct>=0?'+':''}${bottomPct.toFixed(2)}%</span>`,
     `👥 ${data.length} KATILIMCI CANLI YAYINDA`
   ];
   if(state.competitionActive && state.competitionEndsAt){
     items.push(`⏱ ${formatCountdown(state.competitionEndsAt - Date.now())}`);
   }
-  if(lastActivity) items.push(`🔔 ${lastActivity}`);
+  if(lastActivity) items.push(`🔔 ${escapeHtml(lastActivity)}`);
   const itemsHtml = items.map(t=>`<span>${t}</span>`).join('<span class="stage-ticker-sep">●</span>');
   track.innerHTML = itemsHtml;
 }
