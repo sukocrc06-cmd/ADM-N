@@ -2159,6 +2159,17 @@ if(fsActivityDoc){
 // gelen canlı bakiye/özkaynak/pozisyon özetini besler — üç sayfa da AYNI
 // veriyi farklı şekillerde gösteriyor.
 let oplabPortfolioData = [];
+// (9 Ağustos 2026 — Madde #121: diskalifikasyon akışı) oplabPortfolioData
+// içindeki kayıtlar (canlı özkaynak/pozisyon özeti) application id'siyle
+// gelir ama diskalifiye bayrağı state.applications'ta tutulur — bu yüzden
+// ödül/derece odaklı sıralamalarda (İLK 3, sonuç tablosu, lider kutuları)
+// bu yardımcıyla çapraz referans veriliyor. Genel sıralama/işlem akışı
+// tabloları BİLEREK bunu kullanmıyor (diskalifiye olsa bile şeffaflık için
+// listede görünmeye devam etsin diye).
+function isRankExcluded(appId){
+  const a = state.applications.find(x => String(x.id) === String(appId));
+  return !!(a && a.disqualified);
+}
 // (6 Ağustos 2026 — "sıfırlıyorum ama gene eski bakiyesi geliyor") Bu belge
 // (oplab_live_portfolio) TÜM yarışmacıların TEK bir paylaşılan Firestore
 // dokümanı — herhangi bir yarışmacı kendi 5 saniyelik periyodik özetini
@@ -2298,7 +2309,14 @@ function setCompetitorBalance(appId, newBalance){
     updatedAt: new Date().toISOString()
   });
   fsBalanceCommandsDoc.set(payload, {merge:true})
-    .then(()=> showToast('Bakiye güncellendi.', 'success'))
+    .then(()=>{
+      showToast('Bakiye güncellendi.', 'success');
+      // (9 Ağustos 2026 — Madde #120: denetim günlüğü) c.name güvenilmeyen
+      // (öğrencinin kendi başvuru formuna girdiği) veri — renderActivityLog()
+      // artık TEK MERKEZİ noktada (bkz. XSS kök neden düzeltmesi) escapeHtml
+      // uyguladığından burada çıplak metin olarak eklemek güvenli.
+      addActivity(`${(c && c.name) || ('#'+appId)} için bakiye ${fmtTRY(newBalance)} olarak ayarlandı.`);
+    })
     .catch(e=>{ console.warn('Bakiye komutu yazılamadı:', e); showToast('Bakiye güncellemesi gönderilemedi — bağlantı sorunu olabilir.', 'error'); });
 }
 
@@ -2312,6 +2330,7 @@ function resetCompetitorPortfolio(appId){
     showToast('Portföy sıfırlama için Firebase bağlantısı gerekli — şu an yerel modda çalışıyorsunuz.', 'error');
     return;
   }
+  const c = oplabPortfolioData.find(x => x.id === appId);
   const payload = { commands: {} };
   payload.commands[String(appId)] = {
     reset: true,
@@ -2329,7 +2348,10 @@ function resetCompetitorPortfolio(appId){
     updatedAt: new Date().toISOString()
   });
   fsBalanceCommandsDoc.set(payload, {merge:true})
-    .then(()=> showToast('Portföy sıfırlandı.', 'success'))
+    .then(()=>{
+      showToast('Portföy sıfırlandı.', 'success');
+      addActivity(`${(c && c.name) || ('#'+appId)} portföyü sıfırlandı (100.000 TL).`);
+    })
     .catch(e=>{ console.warn('Sıfırlama komutu yazılamadı:', e); showToast('Sıfırlama gönderilemedi — bağlantı sorunu olabilir.', 'error'); });
 }
 
@@ -2954,7 +2976,7 @@ function renderKullaniciVeritabani(){
       <td>${escapeHtml(a.email)}</td>
       <td>${escapeHtml(a.org) || '—'}</td>
       <td>${escapeHtml(a.level) || '—'}</td>
-      <td><span class="status-pill ${s.cls}">${escapeHtml(s.label)}</span></td>
+      <td><span class="status-pill ${s.cls}">${escapeHtml(s.label)}</span>${a.disqualified ? ' <span class="status-pill red">DİSKALİFİYE</span>' : ''}</td>
       <td>${escapeHtml(a.date) || '—'}</td>
       <td>${escapeHtml(a.approvedDate) || '—'}</td>
     </tr>`;
@@ -2995,7 +3017,7 @@ function renderBasvuruList(){
       <div style="display:flex;align-items:center;gap:12px;">
         <input type="checkbox" class="bs-row-check" data-app-id="${a.id}" ${bulkDeleteSelection.has(a.id) ? 'checked' : ''} onclick="event.stopPropagation();">
         <div>
-          <div style="font-weight:600;font-size:14px;">${escapeHtml(a.name)}</div>
+          <div style="font-weight:600;font-size:14px;">${escapeHtml(a.name)}${a.disqualified ? ' <span class="status-pill red" style="font-size:9.5px;padding:2px 6px;">DİSKALİFİYE</span>' : ''}</div>
           <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${escapeHtml(a.email)} • ${escapeHtml(a.level)}</div>
         </div>
       </div>
@@ -3190,7 +3212,7 @@ function renderBasvuruDetail(){
   el.innerHTML = `
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;">
       <div class="avatar-circle" style="width:44px;height:44px;font-size:15px;">${escapeHtml(initials(app.name))}</div>
-      <div><div style="font-weight:600;font-size:15px;">${escapeHtml(app.name)}</div><div style="color:var(--text-dim);font-size:12px;">${escapeHtml(app.level)}</div></div>
+      <div><div style="font-weight:600;font-size:15px;">${escapeHtml(app.name)} ${app.disqualified ? '<span class="status-pill red" style="margin-left:6px;">DİSKALİFİYE</span>' : ''}</div><div style="color:var(--text-dim);font-size:12px;">${escapeHtml(app.level)}</div></div>
     </div>
     <div style="margin-bottom:14px;"><div class="field-label">E-POSTA</div><div style="font-size:13.5px;">${escapeHtml(app.email)}</div></div>
     <div style="margin-bottom:14px;"><div class="field-label">ÜNİVERSİTE / KURUM</div><div style="font-size:13.5px;">${escapeHtml(app.org)}</div></div>
@@ -3200,10 +3222,15 @@ function renderBasvuruDetail(){
       <button class="btn btn-red" style="flex:1;" id="rejectAppBtn" ${app.status==='reddedildi'?'disabled':''}>REDDET</button>
     </div>
     ${app.status==='onayli' ? `<p style="font-size:11px;color:var(--text-dimmer);margin-top:8px;">OPLab girişi: başvuru sırasında belirlediği e-posta ve şifresiyle kendisi giriş yapar.</p>` : ''}
+    ${app.status==='onayli' ? `
+    <button class="btn" style="width:100%;margin-top:10px;background:transparent;border:1px solid ${app.disqualified?'var(--green)':'#fca5a5'};color:${app.disqualified?'var(--green)':'#fca5a5'};" id="toggleDisqualifyBtn">${app.disqualified ? 'DİSKALİFİYEYİ KALDIR' : 'DİSKALİFİYE ET'}</button>
+    <p style="font-size:11px;color:var(--text-dimmer);margin-top:6px;">Diskalifiye edilen yarışmacı sıralamada/işlem akışında GÖRÜNMEYE devam eder (şeffaflık için) ama İLK 3 / dereceye giremez.</p>
+    ` : ''}
     <button class="btn" style="width:100%;margin-top:10px;background:transparent;border:1px solid #fca5a5;color:#fca5a5;" id="deleteAppBtn">SİSTEMDEN SİL</button>`;
   document.getElementById('approveAppBtn')?.addEventListener('click', ()=>{
     app.status='onayli'; app.approvedDate = new Date().toLocaleDateString('tr-TR');
     showToast(app.name+' başvurusu onaylandı.','success');
+    addActivity(`${app.name} başvurusu ONAYLANDI.`);
     renderBasvuruList(); renderBasvuruDetail(); renderDashboardDynamic(); renderKullaniciVeritabani(); saveShared();
     sendApplicationDecisionEmail(app, 'onayli').then(function(ok){
       showToast(ok ? ('Bilgilendirme e-postası ' + app.email + ' adresine gönderildi.') : ('E-posta gönderilemedi (' + app.email + ') — ayrıntı için tarayıcı konsolunu (F12) kontrol edin.'), ok ? 'success' : 'warn');
@@ -3212,6 +3239,7 @@ function renderBasvuruDetail(){
   document.getElementById('rejectAppBtn')?.addEventListener('click', ()=>{
     app.status='reddedildi';
     showToast(app.name+' başvurusu reddedildi.','error');
+    addActivity(`${app.name} başvurusu REDDEDİLDİ.`);
     renderBasvuruList(); renderBasvuruDetail(); renderDashboardDynamic(); renderKullaniciVeritabani(); saveShared();
     sendApplicationDecisionEmail(app, 'reddedildi').then(function(ok){
       showToast(ok ? ('Bilgilendirme e-postası ' + app.email + ' adresine gönderildi.') : ('E-posta gönderilemedi (' + app.email + ') — ayrıntı için tarayıcı konsolunu (F12) kontrol edin.'), ok ? 'success' : 'warn');
@@ -3221,6 +3249,23 @@ function renderBasvuruDetail(){
     const ok = confirm(`${app.name} adlı yarışmacıyı kalıcı olarak silmek istediğine emin misin?\n\nBu işlem GERİ ALINAMAZ — ne bekleyen, ne onaylı, ne reddedilen listesinde görünecek; sistemden tamamen kaldırılacak.`);
     if(!ok) return;
     deleteApplications([app.id]);
+  });
+  // (9 Ağustos 2026 — Madde #121: diskalifikasyon akışı) Diskalifiye,
+  // başvuru durumundan (onaylı/reddedildi) AYRI bir bayrak — onaylı bir
+  // yarışmacının OPLab erişimini/hesabını SİLMEDEN, sadece "dereceye giremez"
+  // hale getirir. Sıralama/işlem akışında görünmeye devam eder (şeffaflık),
+  // ama İLK 3/sonuç tablosu gibi ödül odaklı görünümlerden filtrelenir
+  // (bkz. isRankExcluded() ve onu kullanan buildViewModeHtml/renderSonuclar).
+  document.getElementById('toggleDisqualifyBtn')?.addEventListener('click', ()=>{
+    app.disqualified = !app.disqualified;
+    if(app.disqualified){
+      showToast(app.name+' diskalifiye edildi.', 'error');
+      addActivity(`${app.name} DİSKALİFİYE edildi.`);
+    } else {
+      showToast(app.name+' diskalifikasyonu kaldırıldı.', 'success');
+      addActivity(`${app.name} diskalifikasyonu KALDIRILDI.`);
+    }
+    renderBasvuruDetail(); renderBasvuruList(); renderKullaniciVeritabani(); saveShared();
   });
 }
 
@@ -3304,10 +3349,12 @@ function renderZirveDetail(){
   document.getElementById('approveZirveBtn')?.addEventListener('click', ()=>{
     z.status='onayli'; z.approvedDate = new Date().toLocaleDateString('tr-TR');
     showToast(z.club+' kaydı onaylandı.','success');
+    addActivity(`${z.club} zirve kaydı ONAYLANDI.`);
     renderZirveList(); renderZirveDetail(); renderDashboardDynamic(); saveShared();
   });
   document.getElementById('rejectZirveBtn')?.addEventListener('click', ()=>{
     z.status='reddedildi'; showToast(z.club+' kaydı reddedildi.','error');
+    addActivity(`${z.club} zirve kaydı REDDEDİLDİ.`);
     renderZirveList(); renderZirveDetail(); renderDashboardDynamic(); saveShared();
   });
 }
@@ -3385,6 +3432,7 @@ function renderDashboardDynamic(){
         app.status='onayli';
         app.approvedDate = new Date().toLocaleDateString('tr-TR');
         showToast(app.name+' onaylandı.','success');
+        addActivity(`${app.name} başvurusu ONAYLANDI.`);
         renderDashboardDynamic(); renderBasvuruList(); renderBasvuruDetail(); renderKullaniciVeritabani(); saveShared();
         sendApplicationDecisionEmail(app, 'onayli').then(function(ok){
           showToast(ok ? ('Bilgilendirme e-postası ' + app.email + ' adresine gönderildi.') : ('E-posta gönderilemedi (' + app.email + ') — ayrıntı için tarayıcı konsolunu (F12) kontrol edin.'), ok ? 'success' : 'warn');
@@ -4016,15 +4064,25 @@ function renderSonuclar(){
   }
 
   const sorted = data.slice().sort((a,b)=> (b.equity||0) - (a.equity||0));
-  const top = sorted[0];
-  const topPct = pctReturn(top.equity||0);
-  enYuksekVal.textContent = (topPct>=0?'+':'') + topPct.toFixed(2) + '%';
-  enYuksekVal.className = 'stat-value';
-  enYuksekVal.style.color = topPct>=0 ? 'var(--green)' : '#fca5a5';
-  enYuksekAd.textContent = top.name || 'İsimsiz';
+  // (9 Ağustos 2026 — Madde #121) "En yüksek getiri" ve İLK 3 ödül
+  // sıraları SADECE dereceye girebilecek (diskalifiye OLMAYAN) yarışmacılar
+  // arasından belirlenir — aşağıdaki `sorted` (tam liste, tablo için) buna
+  // dahil değil, o herkesi şeffaflık için gösteriyor.
+  const rankable = sorted.filter(c => !isRankExcluded(c.id));
+  const top = rankable[0];
+  if(top){
+    const topPct = pctReturn(top.equity||0);
+    enYuksekVal.textContent = (topPct>=0?'+':'') + topPct.toFixed(2) + '%';
+    enYuksekVal.className = 'stat-value';
+    enYuksekVal.style.color = topPct>=0 ? 'var(--green)' : '#fca5a5';
+    enYuksekAd.textContent = top.name || 'İsimsiz';
+  } else {
+    enYuksekVal.textContent = '--'; enYuksekVal.className = 'stat-value gray';
+    enYuksekAd.textContent = 'Henüz belirlenmedi';
+  }
 
   rankSlots.forEach((slot, i)=>{
-    const c = sorted[i];
+    const c = rankable[i];
     if(c){
       slot.name.textContent = c.name || 'İsimsiz';
       const p = pctReturn(c.equity||0);
@@ -4037,9 +4095,10 @@ function renderSonuclar(){
 
   tbody.innerHTML = sorted.map((c,i)=>{
     const p = pctReturn(c.equity||0);
-    return `<tr>
+    const dq = isRankExcluded(c.id);
+    return `<tr${dq?' style="opacity:.55;"':''}>
       <td>${i+1}</td>
-      <td>${escapeHtml(c.name) || 'İsimsiz'}</td>
+      <td>${escapeHtml(c.name) || 'İsimsiz'}${dq?' <span class="status-pill red" style="font-size:9.5px;padding:2px 6px;">DİSKALİFİYE</span>':''}</td>
       <td>${fmtTRY(c.equity||0)}</td>
       <td style="color:${p>=0?'var(--green)':'#fca5a5'};">${p>=0?'+':''}${p.toFixed(2)}%</td>
     </tr>`;
@@ -4216,6 +4275,12 @@ function miniSparklineHtml(compId, pct){
 
 function buildViewModeHtml(mode, data){
   const sorted = data.slice().sort((a,b)=> (b.equity||0) - (a.equity||0));
+  // (9 Ağustos 2026 — Madde #121) LİDERLİK/SIRALAMA BİLEREK `sorted`i
+  // (diskalifiye dahil, tam liste) kullanmaya devam ediyor — sıralamada
+  // görünmeye devam etmeleri şeffaflık için isteniyordu. İLK 3 (podyum/ödül
+  // görünümü) ise `rankable`i kullanıyor, çünkü orası GERÇEKTEN "dereceye
+  // giren" kişileri temsil ediyor.
+  const rankable = sorted.filter(c => !isRankExcluded(c.id));
   let html = '';
 
   // (5 Ağustos 2026 — görsel yenileme) Düz metin satırları yerine gerçek
@@ -4240,11 +4305,15 @@ function buildViewModeHtml(mode, data){
         const pct = pctReturn(c.equity||0);
         const compId = c.id || c.email || c.name || ('r'+i);
         const distPct = pctRange > 0 ? ((pct - worstPct) / pctRange) * 100 : 100;
-        return `<div class="yp-row" data-comp-id="${escapeAttr(compId)}" data-rank="${i+1}">
-          <span class="yp-rank">${i===0?crownHtml():''}${i+1}</span>
+        const dq = isRankExcluded(c.id);
+        // (9 Ağustos 2026 — Madde #121) Diskalifiye biri #1 sırada görünse
+        // bile taç GÖSTERİLMİYOR (taç = "lider/kazanan" anlamına geliyor) —
+        // yerine küçük bir DİSKALİFİYE etiketi ekleniyor.
+        return `<div class="yp-row" data-comp-id="${escapeAttr(compId)}" data-rank="${i+1}"${dq?' style="opacity:.6;"':''}>
+          <span class="yp-rank">${(i===0 && !dq)?crownHtml():''}${i+1}</span>
           ${avatarHtml(c.name)}
           <div class="yp-row-main">
-            <span class="yp-name">${escapeHtml(c.name) || 'İsimsiz'}</span>
+            <span class="yp-name">${escapeHtml(c.name) || 'İsimsiz'}${dq?' <span class="status-pill red" style="font-size:9px;padding:1px 5px;">DİSKALİFİYE</span>':''}</span>
             <div class="yp-distbar-track"><div class="yp-distbar-fill" style="width:${distPct.toFixed(0)}%;"></div></div>
           </div>
           ${miniSparklineHtml(compId, pct)}
@@ -4261,7 +4330,7 @@ function buildViewModeHtml(mode, data){
     const medalEmoji = ['🥇','🥈','🥉'];
     html = `<div class="yp-section-label" style="text-align:center;">İLK 3 YARIŞMACI</div>
       <div class="yp-podium-row">` +
-      sorted.slice(0,3).map((c,i)=>{
+      rankable.slice(0,3).map((c,i)=>{
         const pct = pctReturn(c.equity||0);
         const compId = c.id || c.email || c.name || ('r'+i);
         return `<div class="yp-podium-card ${medalClass[i]}" data-comp-id="${escapeAttr(compId)}" data-rank="${i+1}">
@@ -4355,7 +4424,11 @@ function animateRankedRows(contentEl, mode, sorted, cache){
     const newPct = parseFloat(pillEl?.dataset.pct || '0');
     const prev = cache.byId[compId];
     nextById[compId] = { pct: newPct, rank: rank };
-    if(rank === 1){
+    // (9 Ağustos 2026 — Madde #121) Diskalifiye biri rank 1'e düşse bile
+    // (LİDERLİK/SIRALAMA modunda hâlâ görünür durumda) "YENİ LİDER"
+    // kutlaması TETİKLENMEMELİ — dereceye giremeyen biri "lider" olarak
+    // kutlanmamalı.
+    if(rank === 1 && !isRankExcluded(compId)){
       newLeaderId = compId;
       newLeaderName = row.querySelector('.yp-name')?.textContent || '';
     }
@@ -4434,9 +4507,10 @@ function renderYayinPreview(){
   selectedEl.innerHTML = `<div style="font-weight:700;margin-bottom:6px;color:var(--text-dim);">CANLI LİDERLER</div>` +
     top.map((c,i)=>{
       const pct = pctReturn(c.equity||0);
-      return `<div class="yp-row">
+      const dq = isRankExcluded(c.id);
+      return `<div class="yp-row"${dq?' style="opacity:.6;"':''}>
         <span class="yp-rank">${i+1}</span>
-        <span class="yp-name">${escapeHtml(c.name)||'İsimsiz'}</span>
+        <span class="yp-name">${escapeHtml(c.name)||'İsimsiz'}${dq?' <span class="status-pill red" style="font-size:9px;padding:1px 5px;">DİSK.</span>':''}</span>
         ${pctPillHtml(pct)}
       </div>`;
     }).join('');
