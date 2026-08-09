@@ -1687,11 +1687,28 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
               <button type="button" class="toggle-opt off" data-value="durduruldu">Durduruldu</button>
             </div>
           </div>
+          <!-- (9 Ağustos 2026 — admin panelinden marka teması kontrolü)
+               OptiPulseLab tarafındaki kullanıcının KENDİ Koyu/Açık tema
+               tercihinin ÜZERİNE, admin istediğinde TÜM kullanıcılara aynı
+               anda, bu panelin kendi mavi marka renkleriyle (--blue/--bg
+               paleti) BİREBİR eşleşen "Kurumsal Mavi" temasını zorunlu
+               kılabilir. Kullanıcı bunu kendi tema butonundan seçemez —
+               SADECE buradan açılıp kapatılır. Kapatıldığında her kullanıcı
+               otomatik olarak kendi kayıtlı Koyu/Açık tercihine döner. bkz.
+               finteclubBridge.js updateForcedThemeState() / tradingEngine.js
+               setAdminForcedTheme(). -->
+          <div class="field" style="margin-top:14px;">
+            <label>Tema (Kurumsal Mavi)</label>
+            <div class="toggle-group" id="toggleOplabTema">
+              <button type="button" class="toggle-opt off" data-value="normal">Normal (Koyu/Açık)</button>
+              <button type="button" class="toggle-opt on-green" data-value="kurumsal_mavi">Kurumsal Mavi</button>
+            </div>
+          </div>
           <div class="btn-row" style="margin-top:6px;">
             <button class="btn btn-blue" id="saveOplabSettingsBtn" style="flex:1;">AYARLARI KAYDET</button>
             <button class="btn" id="openOplabSiteBtn" style="flex:1;">SİTEYİ GÖRÜNTÜLE ↗</button>
           </div>
-          <p class="note-box" style="margin-top:14px;">Aktivasyon sayısı, OPLab'da FinTeClub e-postasıyla kendini doğrulamış (rozet kazanmış) benzersiz yarışmacı sayısını gösterir. Piyasa (BIST) saatleri dışında (hafta içi 09:55–18:00 TRT dışı, hafta sonları tamamen) emirler zaten otomatik olarak reddedilir — "Alım-Satım Durumu"nu "Durduruldu" yapmak, bunun ÜZERİNE, saatlerden bağımsız ek bir kapatma anahtarıdır.</p>
+          <p class="note-box" style="margin-top:14px;">Aktivasyon sayısı, OPLab'da FinTeClub e-postasıyla kendini doğrulamış (rozet kazanmış) benzersiz yarışmacı sayısını gösterir. Piyasa (BIST) saatleri dışında (hafta içi 09:55–18:00 TRT dışı, hafta sonları tamamen) emirler zaten otomatik olarak reddedilir — "Alım-Satım Durumu"nu "Durduruldu" yapmak, bunun ÜZERİNE, saatlerden bağımsız ek bir kapatma anahtarıdır. "Tema"yı "Kurumsal Mavi" yaptığınızda, o an sitede olan/olmayan TÜM yarışmacılarda tema anında (birkaç saniye içinde) değişir; kullanıcılar kendi tema butonlarından bunu geçici olarak değiştiremez.</p>
         </div>
         <div class="card">
           <h3 class="section-title">Nasıl Çalışır</h3>
@@ -1783,6 +1800,12 @@ const state = {
   // devam eder. bkz. finteclubBridge.js window.FTC_TRADING_STATE ve
   // tradingEngine.js isTradingHaltedByAdmin().
   tradingHalted: false,
+  // (9 Ağustos 2026 — admin panelinden marka teması kontrolü) true olduğunda
+  // OptiPulseLab'daki TÜM kullanıcılara, kullanıcının kendi Koyu/Açık
+  // tercihinden BAĞIMSIZ olarak "Kurumsal Mavi" (bu panelin kendi marka
+  // renkleri) teması zorunlu kılınır. bkz. finteclubBridge.js
+  // updateForcedThemeState() / tradingEngine.js setAdminForcedTheme().
+  oplabFintechTheme: false,
   resultsPublished: false,
   activityLog: [],
   broadcastLive: false,
@@ -2052,6 +2075,7 @@ function saveShared(){
     zirveOpen: state.zirveOpen,
     oplabEnabled: state.oplabEnabled,
     tradingHalted: state.tradingHalted,
+    oplabFintechTheme: state.oplabFintechTheme,
     resultsPublished: state.resultsPublished,
     activityLog: state.activityLog,
     competitionActive: state.competitionActive,
@@ -2159,6 +2183,7 @@ function hydrateFromShared(){
   state.zirveOpen = shared.zirveOpen ?? state.zirveOpen;
   state.oplabEnabled = shared.oplabEnabled ?? state.oplabEnabled;
   state.tradingHalted = shared.tradingHalted ?? state.tradingHalted;
+  state.oplabFintechTheme = shared.oplabFintechTheme ?? state.oplabFintechTheme;
   state.resultsPublished = shared.resultsPublished ?? state.resultsPublished;
   state.activityLog = shared.activityLog ?? state.activityLog;
   state.competitionActive = shared.competitionActive ?? state.competitionActive;
@@ -2880,6 +2905,8 @@ function syncOplabSettingsUI(){
   if(group){ group.querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value === (state.oplabEnabled ? 'acik' : 'kapali'))); }
   const tradingGroup = document.getElementById('toggleOplabTrading');
   if(tradingGroup){ tradingGroup.querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value === (state.tradingHalted ? 'durduruldu' : 'aktif'))); }
+  const temaGroup = document.getElementById('toggleOplabTema');
+  if(temaGroup){ temaGroup.querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value === (state.oplabFintechTheme ? 'kurumsal_mavi' : 'normal'))); }
   const durumEl = document.getElementById('oplabDurumuStat');
   if(durumEl){
     durumEl.textContent = state.oplabEnabled ? 'AÇIK' : 'KAPALI';
@@ -2923,11 +2950,17 @@ document.getElementById('saveOplabSettingsBtn').addEventListener('click', functi
   const oplabTrading = document.querySelector('#toggleOplabTrading .toggle-opt.active').dataset.value;
   const tradingWasHalted = state.tradingHalted;
   state.tradingHalted = oplabTrading === 'durduruldu';
+  const oplabTema = document.querySelector('#toggleOplabTema .toggle-opt.active').dataset.value;
+  const temaWasFintech = state.oplabFintechTheme;
+  state.oplabFintechTheme = oplabTema === 'kurumsal_mavi';
   saveShared();
   syncOplabSettingsUI();
   addActivity('OPLab erişim durumu güncellendi (' + (state.oplabEnabled ? 'Açık' : 'Kapalı') + ', alım-satım: ' + (state.tradingHalted ? 'Durduruldu' : 'Aktif') + ').');
   if(state.tradingHalted !== tradingWasHalted){
     addActivity('Alım-satım ' + (state.tradingHalted ? 'YÖNETİCİ TARAFINDAN DURDURULDU.' : 'yeniden AKTİF edildi.'));
+  }
+  if(state.oplabFintechTheme !== temaWasFintech){
+    addActivity('OPLab teması ' + (state.oplabFintechTheme ? 'TÜM kullanıcılar için "Kurumsal Mavi" olarak zorunlu kılındı.' : 'normal Koyu/Açık sistemine döndürüldü.'));
   }
   showToast('OPLab ayarları kaydedildi.', 'success');
 });
