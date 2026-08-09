@@ -10,6 +10,8 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<!-- (9 Ağustos 2026 — Madde #127: Kulüp CV gerçek dosya yükleme) Firebase Storage — Zirve kayıt formundaki "Kulüp CV" alanı önceden sadece dosya ADINI kaydediyordu, dosyanın kendisi hiçbir yere yüklenmiyordu. -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 <!-- EmailJS (opsiyonel e-posta bildirimi — EMAILJS_PUBLIC_KEY doldurulmadan hiçbir şeyi etkilemez) -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <!-- reCAPTCHA (opsiyonel spam/bot koruması — RECAPTCHA_SITE_KEY doldurulmadan hiçbir şeyi etkilemez) -->
@@ -966,6 +968,21 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
     </div>
   </section>
 
+  <!-- ============ PUBLIC: ZİRVE CHECK-IN (QR/GİRİŞ) ============ -->
+  <!-- (9 Ağustos 2026 — Madde #128) admin.html'deki onaylı zirve kayıtları
+       için üretilen QR kodu, ?checkin=<id>.<kod> parametresiyle buraya
+       yönlendiriyor. Sayfa yüklendiğinde JS bu parametreyi okuyup
+       state.zirveRegistrations içinde eşleşen kaydı arıyor ve sonucu bu
+       bölümde gösteriyor. -->
+  <section id="pub-checkin" class="pub-page">
+    <div class="pub-page-inner" style="max-width:640px;">
+      <button class="pub-back-pill" data-pubnav="pub-home" style="margin-bottom:22px;">← Ana Sayfaya Dön</button>
+      <div class="pub-section-label">ZİRVE GİRİŞ</div>
+      <h1 style="font-size:40px;">CHECK-IN</h1>
+      <div id="checkinResultArea" class="card" style="margin-top:20px;"></div>
+    </div>
+  </section>
+
   <!-- ============ PUBLIC: ZİRVE KAYDI ============ -->
   <!-- ============ PUBLIC: FINTECLUB ZİRVE (LANDING) ============ -->
   <section id="pub-zirve" class="pub-page">
@@ -1031,6 +1048,13 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           <div id="zirveClosedNotice" class="empty-state hidden" style="padding:16px;border:1px solid var(--yellow);border-radius:var(--radius-sm);margin-bottom:18px;">
             <strong style="color:var(--yellow);">Zirve kayıtları şu anda kapalı</strong>
             <span>YAKINDA tekrar açılacak, takipte kal.</span>
+          </div>
+          <!-- (9 Ağustos 2026 — Madde #129) Kulüp kontenjanı dolduğunda, form
+               açık kalır ama başvuran kulüplere gönderim öncesi kontenjanın
+               dolduğu ve kaydın bekleme listesine alınacağı şeffafça belirtilir. -->
+          <div id="zirveKontenjanNotice" class="empty-state hidden" style="padding:16px;border:1px solid var(--yellow);border-radius:var(--radius-sm);margin-bottom:18px;">
+            <strong style="color:var(--yellow);">Kulüp kontenjanı doldu</strong>
+            <span>Yeni başvurular bekleme listesine alınacak, bir yer açıldığında değerlendirilecektir.</span>
           </div>
           <form id="pubZirveForm">
             <div class="field-row">
@@ -1098,6 +1122,12 @@ const state = {
   compName: '',
   startDate: '',
   endDate: '',
+  // (9 Ağustos 2026 — Madde #126) balance/resultsPublished admin.html'de
+  // zaten shared_state'e yazılıyordu, bu sayfa önceden ikisini de hiç
+  // okumuyordu — sonuç tablosu için ikisi de gerekli (getiri yüzdesi
+  // hesaplamak + sonuçların "yayınlanmış" olup olmadığını bilmek için).
+  balance: 100000,
+  resultsPublished: false,
   applications: [],
   zirveRegistrations: [],
   // (6 Ağustos 2026 — genel entegrasyon taraması) admin.html'deki
@@ -1106,7 +1136,16 @@ const state = {
   // başvuruyu SİLMEZ ama saveShared() çağırdığında (bir ziyaretçi form
   // gönderdiğinde) admin'in az önce sildiği bir kaydı yanlışlıkla geri
   // eklememesi için bunu bilmesi/taşıması gerekiyor.
-  deletedApplicationIds: {}
+  deletedApplicationIds: {},
+  // (9 Ağustos 2026 — Madde #124: zirve kayıtları tombstone düzeltmesi)
+  // deletedApplicationIds'in BİREBİR aynısı, ama zirveRegistrations için —
+  // bkz. admin.html'deki aynı düzeltmenin yorumu.
+  deletedZirveIds: {},
+  // (9 Ağustos 2026 — Madde #129: Zirve kontenjan/bekleme listesi) SADECE
+  // admin.html'de ayarlanan, buradan salt-okunur şekilde okunan bir alan —
+  // bu yüzden saveShared()'ın payload'ına EKLENMİYOR (balance/resultsPublished
+  // ile aynı desen — bkz. saveShared() yorumu).
+  zirveKontenjan: 0
 };
 let appIdCounter = 1;
 let zirveIdCounter = 1;
@@ -1131,10 +1170,21 @@ const FIREBASE_CONFIG = {
 const FIREBASE_ENABLED = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY' && typeof firebase !== 'undefined';
 let fsSharedDoc = null;
 let fbAuth = null;
+// (9 Ağustos 2026 — Madde #126: sonuç tablosunu gerçek veriye bağla)
+// admin.html'in Canlı İzleme/Sonuçlar ekranlarının okuduğu AYNI belge —
+// bkz. PAYLASILAN_SEMA.md. Herkese açık okuma (firestore.rules: allow
+// read: if true), giriş gerektirmiyor.
+let fsPortfolioDoc = null;
+// (9 Ağustos 2026 — Madde #127) Storage isteğe bağlı — SDK yüklenmemiş/proje
+// Storage'ı hiç kurulmamışsa fbStorage null kalır, CV yükleme sessizce
+// atlanır (sadece dosya adı kaydedilir, eskisi gibi) — "hiçbir şey bozulmaz".
+let fbStorage = null;
 if(FIREBASE_ENABLED){
   try{
     firebase.initializeApp(FIREBASE_CONFIG);
     fsSharedDoc = firebase.firestore().collection('finteclub').doc('shared_state');
+    fsPortfolioDoc = firebase.firestore().collection('finteclub').doc('oplab_live_portfolio');
+    if(typeof firebase.storage === 'function') fbStorage = firebase.storage();
   }catch(e){ console.warn('Firebase başlatılamadı, tarayıcı-içi modda devam ediliyor.', e); }
 }
 // (Gerçek Firebase Authentication ile OPLab girişi) Başvuru formunda
@@ -1145,6 +1195,15 @@ if(FIREBASE_ENABLED){
 const AUTH_ENABLED = FIREBASE_ENABLED && typeof firebase.auth === 'function';
 if(AUTH_ENABLED){
   try{ fbAuth = firebase.auth(); }catch(e){ console.warn('Firebase Auth başlatılamadı.', e); }
+}
+// (9 Ağustos 2026) Paylaşılan/genel escapeHtml — önceden sadece durum
+// sorgulama ekranının kendi tıklama olayı içinde yerel bir const olarak
+// tanımlıydı; sonuç tablosu (madde #126) gibi başka yerlerin de kullanması
+// gerektiğinden dosya seviyesine taşındı.
+function escapeHtml(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 function publicAuthErrorMessage(err){
   const code = err && err.code;
@@ -1263,6 +1322,7 @@ function saveShared(){
     applications: state.applications,
     zirveRegistrations: state.zirveRegistrations,
     deletedApplicationIds: state.deletedApplicationIds,
+    deletedZirveIds: state.deletedZirveIds,
     appIdCounter: appIdCounter,
     zirveIdCounter: zirveIdCounter
   };
@@ -1288,17 +1348,24 @@ function saveShared(){
     return transaction.get(fsSharedDoc).then(function(doc){
       const remote = doc.exists ? (doc.data() || {}) : {};
       const deletedIds = Object.assign({}, remote.deletedApplicationIds, state.deletedApplicationIds);
+      // (9 Ağustos 2026 — Madde #124) applications'la BİREBİR aynı mezar
+      // taşı birleştirmesi, artık zirveRegistrations için de — bkz.
+      // admin.html'deki aynı düzeltmenin yorumu.
+      const deletedZirveIdsMerged = Object.assign({}, remote.deletedZirveIds, state.deletedZirveIds);
       const finalPayload = Object.assign({}, payload, {
         applications: reconcileArrayFieldById(payload.applications, remote.applications, deletedIds),
-        zirveRegistrations: reconcileArrayFieldById(payload.zirveRegistrations, remote.zirveRegistrations, {}),
-        deletedApplicationIds: deletedIds
+        zirveRegistrations: reconcileArrayFieldById(payload.zirveRegistrations, remote.zirveRegistrations, deletedZirveIdsMerged),
+        deletedApplicationIds: deletedIds,
+        deletedZirveIds: deletedZirveIdsMerged
       });
       transaction.set(fsSharedDoc, finalPayload, {merge:true});
       return finalPayload;
     });
   }).then(function(finalPayload){
     if(finalPayload.applications !== state.applications) state.applications = finalPayload.applications;
+    if(finalPayload.zirveRegistrations !== state.zirveRegistrations) state.zirveRegistrations = finalPayload.zirveRegistrations;
     state.deletedApplicationIds = finalPayload.deletedApplicationIds;
+    state.deletedZirveIds = finalPayload.deletedZirveIds;
     persistLocal(finalPayload);
   }).catch(function(e){
     console.warn('Firestore transaction hatası, düz yazmaya düşülüyor:', e);
@@ -1317,15 +1384,20 @@ function hydrateFromShared(){
   state.compName = shared.compName ?? state.compName;
   state.startDate = shared.startDate ?? state.startDate;
   state.endDate = shared.endDate ?? state.endDate;
+  state.balance = shared.balance ?? state.balance;
+  state.resultsPublished = shared.resultsPublished ?? state.resultsPublished;
   state.applications = shared.applications ?? state.applications;
   state.zirveRegistrations = shared.zirveRegistrations ?? state.zirveRegistrations;
   state.deletedApplicationIds = Object.assign({}, shared.deletedApplicationIds, state.deletedApplicationIds);
+  state.deletedZirveIds = Object.assign({}, shared.deletedZirveIds, state.deletedZirveIds);
+  state.zirveKontenjan = shared.zirveKontenjan ?? state.zirveKontenjan;
   if(shared.appIdCounter) appIdCounter = shared.appIdCounter;
   if(shared.zirveIdCounter) zirveIdCounter = shared.zirveIdCounter;
 }
 function onSharedDataUpdated(){
   hydrateFromShared();
   syncGlobalStatus();
+  processCheckinParam();
 }
 window.addEventListener('storage', (e)=>{
   if(e.key === SHARED_KEY) onSharedDataUpdated();
@@ -1337,6 +1409,61 @@ if(fsSharedDoc){
       onSharedDataUpdated();
     }
   }, (err)=>console.warn('Firestore dinleme hatası:', err));
+}
+
+/* ============ ZİRVE CHECK-IN (QR/GİRİŞ) — Madde #128 ============ */
+// admin.html'de bir zirve kaydı ONAYLANDIĞINDA üretilen benzersiz
+// checkInCode, PUBLIC_SITE_URL + '?checkin=<id>.<kod>' biçiminde bir QR
+// koda gömülüyor. Bu fonksiyon sayfa açıldığında (ve — Firestore verisi
+// henüz gelmemiş olabileceğinden — her onSharedDataUpdated() çağrısında
+// tekrar) URL'deki bu parametreyi okuyup eşleşen kaydı arıyor; sadece BİR
+// KEZ (checkinProcessed bayrağıyla) sonuca göre giriş kaydını işliyor.
+let checkinProcessed = false;
+function processCheckinParam(){
+  if(checkinProcessed) return;
+  const params = new URLSearchParams(location.search);
+  const raw = params.get('checkin');
+  if(!raw) return;
+  // zirveRegistrations verisi henüz gelmediyse (ilk yüklemede Firestore
+  // dinleyicisi henüz tetiklenmemiş olabilir) bir sonraki
+  // onSharedDataUpdated() çağrısını bekle — bayrağı burada set ETME.
+  if(!state.zirveRegistrations || !state.zirveRegistrations.length) return;
+  checkinProcessed = true;
+  navigatePublic('pub-checkin');
+  const area = document.getElementById('checkinResultArea');
+  if(!area) return;
+  function showCheckinState(icon, title, desc, color){
+    area.innerHTML = `<div style="text-align:center;padding:10px 6px;">
+      <div style="font-size:44px;margin-bottom:10px;">${icon}</div>
+      <div style="font-weight:700;font-size:18px;color:${color};margin-bottom:8px;">${escapeHtml(title)}</div>
+      <div style="color:var(--text-dim);font-size:13.5px;line-height:1.7;">${escapeHtml(desc)}</div>
+    </div>`;
+  }
+  const dotIdx = raw.indexOf('.');
+  const idPart = dotIdx >= 0 ? raw.slice(0, dotIdx) : raw;
+  const codePart = dotIdx >= 0 ? raw.slice(dotIdx + 1) : '';
+  const zId = Number(idPart);
+  const z = state.zirveRegistrations.find(x => x.id === zId);
+  if(!z){
+    showCheckinState('✕', 'KOD GEÇERSİZ', 'Bu check-in bağlantısı geçerli bir zirve kaydına ait değil.', '#fca5a5');
+    return;
+  }
+  if(!codePart || z.checkInCode !== codePart){
+    showCheckinState('✕', 'KOD GEÇERSİZ', 'Check-in kodu eşleşmiyor. Lütfen QR kodu tekrar okutun.', '#fca5a5');
+    return;
+  }
+  if(z.status !== 'onayli'){
+    showCheckinState('⏳', 'KAYIT HENÜZ ONAYLANMADI', `${z.club} için başvuru henüz onaylanmadığından giriş yapılamıyor.`, 'var(--yellow)');
+    return;
+  }
+  if(z.checkedIn){
+    showCheckinState('✓', 'ZATEN GİRİŞ YAPILDI', `${z.club} için giriş daha önce alınmış${z.checkedInAt ? ' (' + new Date(z.checkedInAt).toLocaleString('tr-TR') + ')' : ''}.`, 'var(--green)');
+    return;
+  }
+  z.checkedIn = true;
+  z.checkedInAt = new Date().toISOString();
+  showCheckinState('✓', 'GİRİŞ ALINDI', `${z.club} için zirve girişi başarıyla kaydedildi. Hoş geldiniz!`, 'var(--green)');
+  saveShared();
 }
 
 /* ============ PUBLIC SITE NAVIGATION ============ */
@@ -1534,6 +1661,98 @@ function updateEcoStats(){
   if(growthEl) growthEl.textContent = (ecoStats.growth >= 0 ? '+' : '-') + '%' + Math.abs(ecoStats.growth);
 }
 
+/* ============ PUBLIC: SONUÇLAR (madde #126 — gerçek veriye bağlama) ============
+   Önceden bu sayfadaki "İLK ÜÇ YARIŞMACI" kartları ve "GENEL SIRALAMA"
+   tablosu TAMAMEN statik/placeholder HTML idi ("Henüz belirlenmedi", "--%") —
+   hiçbir JS bunlara dokunmuyordu. admin.html'in Kullanıcı Portföyleri/Canlı
+   İzleme/Sonuçlar ekranlarının okuduğu AYNI finteclub/oplab_live_portfolio
+   belgesinden besleniyor (bkz. PAYLASILAN_SEMA.md). admin.html'deki
+   resultsPublished bayrağı YAYINLANMADAN gerçek sıralama gösterilmiyor —
+   admin "TASLAK" aşamasındayken ziyaretçiler yarım/olgunlaşmamış bir
+   sıralama görmesin diye. */
+let oplabPortfolioData = [];
+function fmtTRY(n){ return (n||0).toLocaleString('tr-TR', {maximumFractionDigits:0}) + ' TL'; }
+function getBaslangicBakiyesi(){ return state.balance || 100000; }
+function pctReturn(equity){
+  const base = getBaslangicBakiyesi();
+  if(!base) return 0;
+  return ((equity - base) / base) * 100;
+}
+// admin.html'deki isRankExcluded() ile AYNI mantık: diskalifiye bayrağı
+// applications'ta tutuluyor, oplab_live_portfolio'da değil — çapraz referans
+// gerekiyor. Diskalifiye biri sıralamada GÖRÜNMEYE devam eder (şeffaflık)
+// ama İLK 3'e giremez.
+function isRankExcluded(appId){
+  const a = state.applications.find(x => String(x.id) === String(appId));
+  return !!(a && a.disqualified);
+}
+if(fsPortfolioDoc){
+  fsPortfolioDoc.onSnapshot((doc)=>{
+    const data = doc.exists ? (doc.data() || {}) : {};
+    const competitors = data.competitors || {};
+    oplabPortfolioData = Object.keys(competitors).map(id => Object.assign({id: id}, competitors[id]));
+    renderPublicSonuclar();
+  }, (err)=>console.warn('Canlı sonuç verisi dinlenemedi:', err));
+}
+function renderPublicSonuclar(){
+  const rankCards = document.querySelectorAll('#pub-sonuclar .rank-card');
+  const tbody = document.querySelector('#pub-sonuclar table tbody');
+  if(!rankCards.length || !tbody) return;
+
+  if(!state.resultsPublished){
+    rankCards.forEach(card=>{
+      card.querySelector('.rank-name').textContent = 'Henüz belirlenmedi';
+      card.querySelector('.rank-pct').textContent = '--%';
+    });
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state" style="padding:24px 0;">Sonuçlar henüz yayınlanmadı.</div></td></tr>`;
+    return;
+  }
+
+  const data = oplabPortfolioData;
+  if(!data.length){
+    rankCards.forEach(card=>{
+      card.querySelector('.rank-name').textContent = 'Henüz belirlenmedi';
+      card.querySelector('.rank-pct').textContent = '--%';
+    });
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state" style="padding:24px 0;">Henüz sonuç oluşmadı.</div></td></tr>`;
+    return;
+  }
+
+  const sorted = data.slice().sort((a,b)=> (b.equity||0) - (a.equity||0));
+  const rankable = sorted.filter(c => !isRankExcluded(c.id));
+  // rank-card sırası HTML'de 02/01/03 (ortadaki lider) olarak dizili —
+  // buildViewModeHtml (admin.html) ile aynı üç kişiyi kullanıyoruz, sadece
+  // DOM sırası farklı (kart 0 → 2., kart 1 → 1., kart 2 → 3.).
+  const podiumOrder = [1, 0, 2];
+  rankCards.forEach((card, i)=>{
+    const c = rankable[podiumOrder[i]];
+    const nameEl = card.querySelector('.rank-name');
+    const pctEl = card.querySelector('.rank-pct');
+    if(c){
+      const pct = pctReturn(c.equity||0);
+      nameEl.textContent = c.name || 'İsimsiz';
+      pctEl.textContent = (pct>=0?'+':'') + pct.toFixed(2) + '%';
+    } else {
+      nameEl.textContent = 'Henüz belirlenmedi';
+      pctEl.textContent = '--%';
+    }
+  });
+
+  tbody.innerHTML = sorted.map((c,i)=>{
+    const pct = pctReturn(c.equity||0);
+    const dq = isRankExcluded(c.id);
+    const tradeCount = (c.recentTrades || []).length;
+    return `<tr${dq?' style="opacity:.55;"':''}>
+      <td>${i+1}</td>
+      <td>${escapeHtml(c.name) || 'İsimsiz'}${dq?' <span class="status-pill red" style="font-size:9.5px;padding:2px 6px;">DİSKALİFİYE</span>':''}</td>
+      <td>${fmtTRY(c.equity||0)}</td>
+      <td style="color:${pct>=0?'var(--green)':'#fca5a5'};">${pct>=0?'+':''}${pct.toFixed(2)}%</td>
+      <td>${tradeCount}</td>
+      <td><span class="status-pill ${dq?'red':'green'}">${dq?'DİSKALİFİYE':'AKTİF'}</span></td>
+    </tr>`;
+  }).join('');
+}
+
 function syncGlobalStatus(){
   const active = state.competitionActive;
   const dateRange = (state.startDate && state.endDate) ? `${fmtDate(state.startDate)} – ${fmtDate(state.endDate)}` : 'Belirlenmedi';
@@ -1548,11 +1767,12 @@ function syncGlobalStatus(){
   document.getElementById('pubSonucDurum').className = 'stat-value ' + (active ? 'green' : 'gray');
   document.getElementById('pubSonucDurum').style.fontSize = '22px';
   document.getElementById('pubSonucTarih').textContent = dateRange;
-  document.getElementById('pubSonucBadge').textContent = active ? 'AKTİF' : 'BEKLEMEDE';
-  document.getElementById('pubSonucBadge').className = 'status-pill ' + (active ? 'green' : '');
+  document.getElementById('pubSonucBadge').textContent = state.resultsPublished ? 'YAYINLANDI' : (active ? 'AKTİF' : 'BEKLEMEDE');
+  document.getElementById('pubSonucBadge').className = 'status-pill ' + (state.resultsPublished || active ? 'green' : '');
 
   updatePublicBasvuruAvailability();
   updatePublicZirveAvailability();
+  renderPublicSonuclar();
 }
 
 function updatePublicBasvuruAvailability(){
@@ -1574,6 +1794,12 @@ function updatePublicZirveAvailability(){
   }
   const notice = document.getElementById('zirveClosedNotice');
   if(notice) notice.classList.toggle('hidden', open);
+  const kontenjanNotice = document.getElementById('zirveKontenjanNotice');
+  if(kontenjanNotice){
+    const kontenjan = state.zirveKontenjan || 0;
+    const onayliSayisi = (state.zirveRegistrations || []).filter(z => z.status === 'onayli').length;
+    kontenjanNotice.classList.toggle('hidden', !(open && kontenjan > 0 && onayliSayisi >= kontenjan));
+  }
   const submitBtn = document.getElementById('pzSubmitBtn');
   if(submitBtn) submitBtn.disabled = !open;
   document.querySelectorAll('#pubZirveForm input, #pubZirveForm textarea').forEach(el => el.disabled = !open);
@@ -1733,7 +1959,12 @@ document.getElementById('pubZirveForm').addEventListener('submit', function(e){
     students.push({name, phone, email});
   }
   if(!isRecaptchaVerified('zirve')){ showToast('Lütfen "Ben robot değilim" doğrulamasını tamamlayın.', 'error'); return; }
-  state.zirveRegistrations.push({id: zirveIdCounter++, club, org, contact, contactEmail, contactPhone, area, reason, fileName: document.getElementById('pzFileName').textContent, students, status:'incelemede', date: new Date().toLocaleDateString('tr-TR')});
+  // (9 Ağustos 2026 — Madde #127) Dosyayı submit ANINDA (input change'de değil)
+  // yakalıyoruz — form reset edilmeden önceki son an. selectedFile null ise
+  // (kimse dosya seçmediyse) yükleme adımı tamamen atlanır.
+  const selectedFile = (document.getElementById('pzFileInput').files || [])[0] || null;
+  const zirveId = zirveIdCounter++;
+  state.zirveRegistrations.push({id: zirveId, club, org, contact, contactEmail, contactPhone, area, reason, fileName: selectedFile ? selectedFile.name : document.getElementById('pzFileName').textContent, fileUrl: null, students, status:'incelemede', date: new Date().toLocaleDateString('tr-TR'), checkInCode: null, checkedIn: false, checkedInAt: null});
   this.reset();
   resetRecaptcha('zirve');
   document.getElementById('pzFileName').textContent = 'Dosya seçilmedi';
@@ -1743,6 +1974,28 @@ document.getElementById('pubZirveForm').addEventListener('submit', function(e){
   document.getElementById('pzDateVal').textContent = new Date().toLocaleDateString('tr-TR');
   showToast(`${club} için Zirve kaydı gönderildi.`, 'success');
   saveShared();
+  // (9 Ağustos 2026 — Madde #127) Dosya GERÇEKTEN Firebase Storage'a
+  // yükleniyor — önceden sadece adı kaydedilip dosyanın kendisi hiçbir yere
+  // gitmiyordu, admin CV'yi asla göremiyordu. Yükleme, kayıt zaten
+  // gönderildikten SONRA (form kullanıcıyı bekletmeden) arka planda
+  // yapılıyor; başarılı olursa aynı kaydın fileUrl alanı güncellenip tekrar
+  // saveShared() çağrılıyor. Storage kuralları henüz yayınlanmadıysa (bkz.
+  // storage.rules) ya da SDK/ağ sorunu olursa BU ADIM SESSİZCE BAŞARISIZ
+  // OLUR — kayıt zaten (dosya adıyla) gönderilmiş olduğundan hiçbir şey
+  // bozulmaz, admin panelinde sadece "CV yüklenemedi" görünür.
+  if(selectedFile && fbStorage){
+    const safeName = selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const path = `zirve-cv/${zirveId}_${Date.now()}_${safeName}`;
+    fbStorage.ref(path).put(selectedFile).then(function(snapshot){
+      return snapshot.ref.getDownloadURL();
+    }).then(function(url){
+      const reg = state.zirveRegistrations.find(z => z.id === zirveId);
+      if(reg) reg.fileUrl = url;
+      saveShared();
+    }).catch(function(e){
+      console.warn('[Zirve CV] Dosya yüklenemedi (Storage kuralları henüz yayınlanmamış olabilir):', e);
+    });
+  }
   sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
     to_email: contactEmail, to_name: contact,
     subject_line: 'FinTeClub Zirve Kaydın Alındı',
@@ -1771,9 +2024,7 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
   // niyetli biri buraya bir HTML/script payload'ı koyup, bu durum sorgulama
   // ekranını (kendi veya başka birinin) açan herkesin tarayıcısında
   // çalıştırabilirdi. admin.html'deki aynı kök neden düzeltmesiyle tutarlı.
-  const escapeHtml = (s) => String(s == null ? '' : s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  // (escapeHtml artık dosya seviyesinde paylaşılan bir fonksiyon.)
   const appStatusMap = {bekliyor:{label:'ONAY BEKLİYOR', cls:'yellow'}, onayli:{label:'ONAYLANDI', cls:'green'}, reddedildi:{label:'REDDEDİLDİ', cls:'red'}};
   const zirveStatusMap = {incelemede:{label:'İNCELEMEDE', cls:'yellow'}, onayli:{label:'ONAYLANDI', cls:'green'}, reddedildi:{label:'UYGUN DEĞİL', cls:'red'}};
   let html = '';
@@ -1815,6 +2066,7 @@ hydrateFromShared();
 renderStudentRows();
 syncGlobalStatus();
 navigatePublic('pub-ekosistem');
+processCheckinParam();
 </script>
 
 </body>

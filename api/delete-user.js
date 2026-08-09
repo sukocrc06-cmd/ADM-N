@@ -111,8 +111,21 @@ module.exports = async function handler(req, res) {
 
   const body = req.body || {};
   const emails = Array.isArray(body.emails) ? body.emails : [];
-  if (!emails.length) {
-    res.status(400).json({ error: 'missing_emails' });
+  // (9 Ağustos 2026 — Madde #123: tam Firestore temizliği) Önceden bu uç
+  // noktası SADECE Firebase Authentication hesabını siliyordu — OPLab'ın
+  // dört ayrı Firestore belgesindeki (oplab_activity, oplab_live_portfolio,
+  // oplab_user_portfolios, oplab_balance_commands) applicationId ile
+  // anahtarlanmış kayıtları HİÇ TEMİZLEMİYORDU. admin.html tarafı bunlardan
+  // sadece ikisini (activity/live_portfolio) KENDİ tarayıcı oturumundan
+  // temizleyebiliyordu (bkz. cleanupOplabDataForIds) — diğer ikisine
+  // (user_portfolios/balance_commands) admin.html'in hiç Firestore
+  // referansı yok, VE admin'in sekmesi "GERİ AL" penceresi dolmadan
+  // kapanırsa o temizlik de hiç çalışmazdı. Admin SDK Firestore güvenlik
+  // kurallarını (bkz. firestore.rules) TAMAMEN atladığından, bu dört
+  // belgeyi burada, sunucu tarafında, güvenilir şekilde temizliyoruz.
+  const applicationIds = Array.isArray(body.applicationIds) ? body.applicationIds : [];
+  if (!emails.length && !applicationIds.length) {
+    res.status(400).json({ error: 'missing_emails_or_ids' });
     return;
   }
 
@@ -136,5 +149,44 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  res.status(200).json({ results });
+  let firestoreCleanup = { attempted: false };
+  const idList = applicationIds.map((x) => String(x || '').trim()).filter(Boolean);
+  if (idList.length) {
+    firestoreCleanup = { attempted: true, ids: idList, errors: [] };
+    try {
+      const db = admin.firestore();
+      const FieldValue = admin.firestore.FieldValue;
+      const finteclubDoc = (name) => db.collection('finteclub').doc(name);
+
+      // Her belge farklı bir üst seviye anahtar altında tutuyor (users /
+      // competitors / visitors / commands) — dördü de aynı desende:
+      // { <anahtar>: { <applicationId>: FieldValue.delete() } } ile tek
+      // bir update() çağrısında, sadece o id'lerin kayıtlarını siliyoruz,
+      // belgenin geri kalanına dokunmuyoruz.
+      const targets = [
+        { doc: finteclubDoc('oplab_activity'), field: 'visitors' },
+        { doc: finteclubDoc('oplab_live_portfolio'), field: 'competitors' },
+        { doc: finteclubDoc('oplab_user_portfolios'), field: 'users' },
+        { doc: finteclubDoc('oplab_balance_commands'), field: 'commands' },
+      ];
+      for (const t of targets) {
+        try {
+          const payload = {};
+          idList.forEach((id) => { payload[`${t.field}.${id}`] = FieldValue.delete(); });
+          await t.doc.update(payload);
+        } catch (e) {
+          // 'not-found' → belge hiç oluşmamış (ör. kimse hiç veri
+          // göndermemiş) — hedeflenen sonuca zaten ulaşılmış, hata değil.
+          if (e && e.code === 5) continue; // gRPC NOT_FOUND
+          console.error('[delete-user] Firestore temizliği başarısız:', t.field, e && e.message);
+          firestoreCleanup.errors.push({ field: t.field, error: (e && e.message) || 'unknown_error' });
+        }
+      }
+    } catch (e) {
+      console.error('[delete-user] Firestore Admin SDK erişimi başarısız:', e && e.message);
+      firestoreCleanup.errors = [{ field: 'all', error: (e && e.message) || 'unknown_error' }];
+    }
+  }
+
+  res.status(200).json({ results, firestoreCleanup });
 };

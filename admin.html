@@ -1556,7 +1556,12 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
               <button type="button" class="toggle-opt off" data-value="kapali">Kapalı</button>
             </div>
           </div>
+          <div class="field">
+            <label>Kulüp Kontenjanı (0 = sınırsız)</label>
+            <input type="number" id="zirveKontenjanInput" min="0" step="1" placeholder="0">
+          </div>
         </div>
+        <p class="section-desc" style="margin-top:-4px;">Kontenjan dolduğunda, "ONAYLA"ya basılan yeni kayıtlar otomatik olarak bekleme listesine alınır. Bekleme listesindeki bir kaydı yine de istediğiniz an elle onaylayabilirsiniz. <span id="zirveKontenjanDurum" style="color:var(--text-dim);"></span></p>
         <button class="btn btn-blue" id="saveZirveSettingsBtn" style="margin-top:6px;">AYARLARI KAYDET</button>
       </div>
 
@@ -1569,6 +1574,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
             <button class="tab-btn active" data-tab="tumu">Tümü</button>
             <button class="tab-btn" data-tab="onayli">Onaylı</button>
             <button class="tab-btn" data-tab="bekleyen">Bekleyen</button>
+            <button class="tab-btn" data-tab="listede">Bekleme Listesi</button>
             <button class="tab-btn" data-tab="uygunsuz">Uygun Değil</button>
           </div>
           <div id="zirveList">
@@ -1772,6 +1778,22 @@ const state = {
   // dahil) de saveShared() ile bunu okuyup silinen bir kaydı asla geri
   // eklemez.
   deletedApplicationIds: {},
+  // (9 Ağustos 2026 — Madde #124: zirve kayıtları tombstone düzeltmesi)
+  // deletedApplicationIds'in BİREBİR aynısı, ama zirveRegistrations için —
+  // önceden reconcileArrayFieldById(payload.zirveRegistrations, ..., {})
+  // her zaman BOŞ bir mezar taşı haritası kullanıyordu, yani silinen bir
+  // zirve kaydı, başka bir sekme/cihaz kendi eski kopyasıyla saveShared()
+  // çağırdığında SESSİZCE GERİ GELEBİLİYORDU — applications için ZATEN
+  // düzeltilmiş olan kök nedenin birebir aynısı.
+  deletedZirveIds: {},
+  // (9 Ağustos 2026 — Madde #129: Zirve kontenjan/bekleme listesi) 0 =
+  // sınırsız (varsayılan — mevcut davranış hiç değişmez). Admin bir sayı
+  // girerse, ONAYLI (aktif kontenjanı dolduran) zirve kaydı sayısı bu
+  // sınıra ulaştığında, "ONAYLA"ya basılan YENİ kayıtlar otomatik olarak
+  // 'beklemede' (bekleme listesi) durumuna alınır — admin bekleme
+  // listesindeki bir kaydı yine de istediği an elle onaylayabilir (bkz.
+  // approveZirveBtn handler'ındaki kontenjan kontrolü).
+  zirveKontenjan: 0,
   // (Yarışma süresi + otomatik bitiş + geçmiş arşivi) YARIŞMAYI BAŞLAT'a
   // basıldığında competitionEndsAt = o an + [Yarışma Adayları'nda girilen
   // Başlangıç/Bitiş Tarihi farkı, girilmemişse 2 saat] olarak ayarlanır
@@ -2019,6 +2041,8 @@ function saveShared(){
     applications: state.applications,
     zirveRegistrations: state.zirveRegistrations,
     deletedApplicationIds: state.deletedApplicationIds,
+    deletedZirveIds: state.deletedZirveIds,
+    zirveKontenjan: state.zirveKontenjan,
     appIdCounter: appIdCounter,
     zirveIdCounter: zirveIdCounter,
     competitionEndsAt: state.competitionEndsAt,
@@ -2062,10 +2086,14 @@ function saveShared(){
       // yazılmamış YENİ bir silme de, uzaktan öğrenilen ESKİ bir silme de
       // aynı şekilde saygı görsün.
       const deletedIds = Object.assign({}, remote.deletedApplicationIds, state.deletedApplicationIds);
+      // (9 Ağustos 2026 — Madde #124) applications'la BİREBİR aynı mezar
+      // taşı birleştirmesi, artık zirveRegistrations için de.
+      const deletedZirveIdsMerged = Object.assign({}, remote.deletedZirveIds, state.deletedZirveIds);
       const finalPayload = Object.assign({}, payload, {
         applications: reconcileArrayFieldById(payload.applications, remote.applications, deletedIds),
-        zirveRegistrations: reconcileArrayFieldById(payload.zirveRegistrations, remote.zirveRegistrations, {}),
-        deletedApplicationIds: deletedIds
+        zirveRegistrations: reconcileArrayFieldById(payload.zirveRegistrations, remote.zirveRegistrations, deletedZirveIdsMerged),
+        deletedApplicationIds: deletedIds,
+        deletedZirveIds: deletedZirveIdsMerged
       });
       transaction.set(fsSharedDoc, finalPayload, {merge:true});
       return finalPayload;
@@ -2079,7 +2107,13 @@ function saveShared(){
       state.applications = finalPayload.applications;
       state.zirveRegistrations = finalPayload.zirveRegistrations;
       state.deletedApplicationIds = finalPayload.deletedApplicationIds;
+      state.deletedZirveIds = finalPayload.deletedZirveIds;
+      // (9 Ağustos 2026) renderZirveList/renderZirveDetail önceden burada
+      // EKSİKTİ — zirveRegistrations uzlaştırmada değişse bile zirve
+      // ekranları bir sonraki onSnapshot'a kadar eski görünmeye devam
+      // ederdi (applications ekranları zaten yenileniyordu).
       renderBasvuruList(); renderBasvuruDetail(); renderDashboardDynamic(); renderKullaniciVeritabani();
+      renderZirveList(); renderZirveDetail();
     }
     persistLocal(finalPayload);
     hideConnectionError();
@@ -2113,6 +2147,8 @@ function hydrateFromShared(){
   state.applications = shared.applications ?? state.applications;
   state.zirveRegistrations = shared.zirveRegistrations ?? state.zirveRegistrations;
   state.deletedApplicationIds = Object.assign({}, shared.deletedApplicationIds, state.deletedApplicationIds);
+  state.deletedZirveIds = Object.assign({}, shared.deletedZirveIds, state.deletedZirveIds);
+  state.zirveKontenjan = shared.zirveKontenjan ?? state.zirveKontenjan;
   state.competitionEndsAt = shared.competitionEndsAt ?? state.competitionEndsAt;
   state.competitionTotalMs = shared.competitionTotalMs ?? state.competitionTotalMs;
   state.competitionHistory = shared.competitionHistory ?? state.competitionHistory;
@@ -2661,16 +2697,20 @@ document.getElementById('saveSettingsBtn').addEventListener('click', function(){
 /* ============ ZİRVE KAYIT AYARLARI (Açık/Kapalı) ============ */
 function syncZirveSettingsUI(){
   const group = document.getElementById('toggleZirveKatilim');
-  if(!group) return;
-  group.querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value === (state.zirveOpen ? 'acik' : 'kapali')));
+  if(group) group.querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value === (state.zirveOpen ? 'acik' : 'kapali')));
+  const kontenjanInput = document.getElementById('zirveKontenjanInput');
+  if(kontenjanInput && document.activeElement !== kontenjanInput) kontenjanInput.value = state.zirveKontenjan || 0;
 }
 
 document.getElementById('saveZirveSettingsBtn').addEventListener('click', function(){
   const zirveKatilim = document.querySelector('#toggleZirveKatilim .toggle-opt.active').dataset.value;
   state.zirveOpen = zirveKatilim === 'acik';
+  const kontenjanRaw = parseInt(document.getElementById('zirveKontenjanInput').value, 10);
+  state.zirveKontenjan = (isNaN(kontenjanRaw) || kontenjanRaw < 0) ? 0 : kontenjanRaw;
   saveShared();
-  addActivity('Zirve kayıt durumu güncellendi (' + (state.zirveOpen ? 'Açık' : 'Kapalı') + ').');
+  addActivity('Zirve kayıt durumu güncellendi (' + (state.zirveOpen ? 'Açık' : 'Kapalı') + ', kontenjan: ' + (state.zirveKontenjan > 0 ? state.zirveKontenjan : 'sınırsız') + ').');
   showToast('Zirve kayıt ayarları kaydedildi.', 'success');
+  renderZirveList();
 });
 
 /* ============ OPLAB (ALIM-SATIM SİTESİ) KONTROLÜ ============ */
@@ -2767,10 +2807,21 @@ function sendApplicationDecisionEmail(app, decision){
 //
 // Kendi Vercel domain'in değişirse burayı güncelle:
 const BACKEND_API_BASE = 'https://adm-n-one.vercel.app';
+// (9 Ağustos 2026 — Madde #128: Zirve check-in/QR yoklama sistemi) Bu, herkese
+// açık FinTeClub sitesinin (index.html) yayınlandığı domain — admin.html'in
+// KENDİSİYLE AYNI Vercel deposundan geldiğini varsayıyoruz (ikisi de
+// ADMİN/ klasöründe). EĞER index.html GERÇEKTE FARKLI bir domain'de
+// yayınlanıyorsa (ör. ayrı bir Vercel projesi), bu satırı o gerçek adrese
+// güncelle — aksi halde QR kodları yanlış bir siteye yönlenir.
+const PUBLIC_SITE_URL = BACKEND_API_BASE + '/index.html';
+function generateCheckInCode(){
+  return Math.random().toString(36).slice(2, 8).toUpperCase() + Date.now().toString(36).slice(-4).toUpperCase();
+}
 
-function deleteFirebaseAuthAccounts(emails){
+function deleteFirebaseAuthAccounts(emails, ids){
   const list = (emails || []).filter(Boolean);
-  if(!list.length) return;
+  const idList = (ids || []).filter(x => x !== null && x !== undefined).map(String);
+  if(!list.length && !idList.length) return;
   if(!AUTH_ENABLED || !firebase.auth().currentUser){
     console.warn('[Backend] Gerçek hesap silme atlandı — admin gerçek bir Firebase oturumuyla giriş yapmamış (ya da Firebase Auth yapılandırılmamış).');
     return;
@@ -2779,7 +2830,7 @@ function deleteFirebaseAuthAccounts(emails){
     return fetch(BACKEND_API_BASE + '/api/delete-user', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
-      body: JSON.stringify({ emails: list })
+      body: JSON.stringify({ emails: list, applicationIds: idList })
     });
   }).then(function(res){
     if(!res.ok) throw new Error('HTTP ' + res.status);
@@ -3111,7 +3162,14 @@ function showUndoDeleteToast(removedApps, ids){
 // kurulmuşsa — kişinin GERÇEK Firebase Authentication hesabını siler.
 function finalizeApplicationDeletion(removedApps, ids){
   cleanupOplabDataForIds(ids);
-  deleteFirebaseAuthAccounts((removedApps || []).map(a => a.email));
+  // (9 Ağustos 2026 — Madde #123: delete-user.js tam Firestore temizliği)
+  // ids de gönderiliyor — backend artık sadece Firebase Authentication
+  // hesabını değil, applicationId ile eşleşen oplab_user_portfolios ve
+  // oplab_balance_commands kayıtlarını da (admin.html'in ERİŞEMEDİĞİ,
+  // finteclubBridge.js'e özel belgeler) Admin SDK ile temizliyor — bu,
+  // Firestore güvenlik kurallarını atladığı için admin'in tarayıcı
+  // sekmesi "GERİ AL" penceresi dolmadan kapansa bile güvenilir çalışır.
+  deleteFirebaseAuthAccounts((removedApps || []).map(a => a.email), ids);
 }
 function restoreDeletedApplications(removedApps){
   // Geri eklenenler listenin başına konuyor — id'ler zaten benzersiz
@@ -3169,8 +3227,17 @@ function isSilConfirmed(value){
 }
 function openBulkDeleteModal(ids){
   pendingBulkDeleteIds = ids;
-  document.getElementById('bulkDeleteModalText').textContent =
-    `${ids.length} yarışmacıyı kalıcı olarak silmek üzeresiniz. Bu işlem GERİ ALINAMAZ — silinenler ne bekleyen, ne onaylı, ne reddedilen listesinde görünmeyecek; sistemden tamamen kaldırılacak.`;
+  // (9 Ağustos 2026 — Madde #122: tekil silme onayını toplu silmeyle
+  // tutarlı hale getir) Önceden tekil silme (SİSTEMDEN SİL) native
+  // confirm() kullanıyordu — tek bir "Tamam" tıklamasıyla geçilebiliyordu,
+  // toplu silmenin "SİL yazmadan buton aktifleşmez" korumasına sahip
+  // değildi. Artık İKİSİ DE bu AYNI modalı kullanıyor; tek kayıt siliniyorsa
+  // ismi açıkça yazılıyor (eski confirm() metniyle aynı netlik).
+  const idSet = new Set(ids.map(String));
+  const targetApps = state.applications.filter(a => idSet.has(String(a.id)));
+  document.getElementById('bulkDeleteModalText').textContent = (ids.length === 1)
+    ? `${(targetApps[0] && targetApps[0].name) || 'Bu yarışmacıyı'} adlı yarışmacıyı kalıcı olarak silmek üzeresiniz. Bu işlem GERİ ALINAMAZ — ne bekleyen, ne onaylı, ne reddedilen listesinde görünecek; sistemden tamamen kaldırılacak.`
+    : `${ids.length} yarışmacıyı kalıcı olarak silmek üzeresiniz. Bu işlem GERİ ALINAMAZ — silinenler ne bekleyen, ne onaylı, ne reddedilen listesinde görünmeyecek; sistemden tamamen kaldırılacak.`;
   const input = document.getElementById('bulkDeleteConfirmInput');
   input.value = '';
   document.getElementById('bulkDeleteConfirmBtn').disabled = true;
@@ -3246,9 +3313,9 @@ function renderBasvuruDetail(){
     });
   });
   document.getElementById('deleteAppBtn')?.addEventListener('click', ()=>{
-    const ok = confirm(`${app.name} adlı yarışmacıyı kalıcı olarak silmek istediğine emin misin?\n\nBu işlem GERİ ALINAMAZ — ne bekleyen, ne onaylı, ne reddedilen listesinde görünecek; sistemden tamamen kaldırılacak.`);
-    if(!ok) return;
-    deleteApplications([app.id]);
+    // (9 Ağustos 2026 — Madde #122) Native confirm() yerine artık toplu
+    // silmeyle AYNI güçlendirilmiş "SİL yazmadan silinmez" modalı kullanılıyor.
+    openBulkDeleteModal([app.id]);
   });
   // (9 Ağustos 2026 — Madde #121: diskalifikasyon akışı) Diskalifiye,
   // başvuru durumundan (onaylı/reddedildi) AYRI bir bayrak — onaylı bir
@@ -3284,21 +3351,30 @@ const zirveEmptyMsgs = {
   tumu: {icon:'—', title:'Henüz kayıt yok', desc:'Zirve registration formu doldurulduğunda kayıtlar burada listelenecek.'},
   onayli: {icon:'✓', title:'Onaylı kayıt yok', desc:'Onaylanan kulüpler burada listelenecek.'},
   bekleyen: {icon:'—', title:'Bekleyen kayıt yok', desc:'İncelemedeki kulüp başvuruları burada listelenecek.'},
+  listede: {icon:'⏳', title:'Bekleme listesinde kayıt yok', desc:'Kontenjan dolduğunda onaylanmak istenen kulüpler burada listelenecek.'},
   uygunsuz: {icon:'✕', title:'Uygun olmayan kayıt yok', desc:'Reddedilen kulüp başvuruları burada listelenecek.'}
 };
 
 function renderZirveList(){
   const onayli = state.zirveRegistrations.filter(z=>z.status==='onayli');
   const bekleyen = state.zirveRegistrations.filter(z=>z.status==='incelemede');
+  const listede = state.zirveRegistrations.filter(z=>z.status==='listede');
   const uygunsuz = state.zirveRegistrations.filter(z=>z.status==='reddedildi');
   document.getElementById('zvToplamCount').textContent = state.zirveRegistrations.length;
   document.getElementById('zvOnayliCount').textContent = onayli.length;
   document.getElementById('zvBekleyenCount').textContent = bekleyen.length;
   document.getElementById('zvUygunsuzCount').textContent = uygunsuz.length;
+  const kontenjanEl = document.getElementById('zirveKontenjanDurum');
+  if(kontenjanEl){
+    kontenjanEl.textContent = state.zirveKontenjan > 0
+      ? `Doluluk: ${onayli.length}/${state.zirveKontenjan} onaylı${listede.length ? ` — ${listede.length} kulüp bekleme listesinde` : ''}.`
+      : (listede.length ? `${listede.length} kulüp bekleme listesinde.` : '');
+  }
 
   let list;
   if(currentZirveFilter==='onayli') list = onayli;
   else if(currentZirveFilter==='bekleyen') list = bekleyen;
+  else if(currentZirveFilter==='listede') list = listede;
   else if(currentZirveFilter==='uygunsuz') list = uygunsuz;
   else list = state.zirveRegistrations;
 
@@ -3311,13 +3387,16 @@ function renderZirveList(){
     container.innerHTML = `<div class="empty-state"><div class="icon">${m.icon}</div><strong>${m.title}</strong><span>${m.desc}</span></div>`;
     return;
   }
+  const statusLabel = (s) => s==='onayli' ? 'ONAYLI' : s==='reddedildi' ? 'UYGUN DEĞİL' : s==='listede' ? 'BEKLEME LİSTESİ' : 'BEKLİYOR';
+  const statusColor = (s) => s==='onayli' ? 'green' : s==='reddedildi' ? 'red' : s==='listede' ? 'yellow' : 'yellow';
   container.innerHTML = list.map(z => `
     <div class="list-item" style="cursor:pointer;${selectedZirveId===z.id ? 'border-color:var(--blue);' : ''}" data-zirve-id="${z.id}">
       <div>
         <div style="font-weight:600;font-size:14px;">${escapeHtml(z.club)}</div>
         <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${escapeHtml(z.org)} • ${z.students.length} öğrenci</div>
       </div>
-      <span class="status-pill ${z.status==='onayli'?'green':z.status==='reddedildi'?'red':'yellow'}">${z.status==='onayli'?'ONAYLI':z.status==='reddedildi'?'UYGUN DEĞİL':'BEKLİYOR'}</span>
+      <span class="status-pill ${statusColor(z.status)}">${statusLabel(z.status)}</span>
+      ${z.status==='onayli' ? (z.checkedIn ? `<span class="status-pill green" style="margin-left:6px;">✓ GİRİŞ</span>` : `<span class="status-pill" style="margin-left:6px;background:var(--bg-soft,rgba(255,255,255,0.06));color:var(--text-dim);">GİRİŞ YOK</span>`) : ''}
     </div>`).join('');
   container.querySelectorAll('[data-zirve-id]').forEach(el=>{
     el.addEventListener('click', ()=>{ selectedZirveId = Number(el.dataset.zirveId); renderZirveList(); renderZirveDetail(); });
@@ -3339,18 +3418,63 @@ function renderZirveDetail(){
     </div>
     <div style="margin-bottom:14px;"><div class="field-label">TEMSİLCİ</div><div style="font-size:13.5px;">${escapeHtml(z.contact)} • ${escapeHtml(z.contactEmail)}</div></div>
     <div style="margin-bottom:14px;"><div class="field-label">KULÜP ALANI</div><div style="font-size:13.5px;">${escapeHtml(z.area) || '—'}</div></div>
+    <div style="margin-bottom:14px;"><div class="field-label">KULÜP CV / TANITIM DOSYASI</div><div style="font-size:13.5px;">${
+      z.fileUrl
+        ? `<a href="${escapeAttr(z.fileUrl)}" target="_blank" rel="noopener" style="color:var(--blue);">${escapeHtml(z.fileName) || 'Dosyayı Görüntüle'} ↗</a>`
+        : (z.fileName && z.fileName !== 'Dosya seçilmedi' ? `${escapeHtml(z.fileName)} <span style="color:var(--text-dimmer);">(yükleniyor / yüklenemedi — bir süre sonra tekrar kontrol edin)</span>` : '—')
+    }</div></div>
     <div style="margin-bottom:14px;"><div class="field-label">ÖĞRENCİ KATILIMCILAR (${z.students.length})</div>
       <div style="font-size:12.5px;color:var(--text-dim);line-height:1.9;">${z.students.map((s,i)=>`${i+1}. ${escapeHtml(s.name)} — ${escapeHtml(s.phone)} — ${escapeHtml(s.email)}`).join('<br>')}</div>
     </div>
+    ${z.status==='listede' ? `
+    <div style="margin-bottom:14px;padding:12px 14px;background:rgba(250,204,21,0.08);border:1px solid var(--yellow);border-radius:10px;font-size:13px;color:var(--yellow);">
+      ⏳ Bu kayıt, kontenjan dolduğu için bekleme listesine alındı. "ONAYLA"ya tekrar basarak kontenjanı aşarak yine de onaylayabilirsiniz.
+    </div>
+    ` : ''}
+    ${z.status==='onayli' ? `
+    <div style="margin-bottom:14px;padding:14px;background:var(--bg-soft,rgba(255,255,255,0.03));border:1px solid var(--border);border-radius:10px;">
+      <div class="field-label" style="margin-bottom:10px;">ZİRVE GİRİŞ (CHECK-IN) — QR KOD</div>
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(PUBLIC_SITE_URL + '?checkin=' + z.id + '.' + (z.checkInCode || ''))}" alt="Check-in QR kodu" style="border-radius:8px;background:#fff;padding:6px;width:160px;height:160px;">
+        <div style="flex:1;min-width:180px;">
+          <div style="font-size:13px;margin-bottom:6px;">Durum: ${z.checkedIn ? `<span style="color:var(--green);font-weight:600;">GİRİŞ YAPILDI ✓</span>` : `<span style="color:var(--text-dim);">HENÜZ GİRİŞ YAPILMADI</span>`}</div>
+          ${z.checkedIn && z.checkedInAt ? `<div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">${new Date(z.checkedInAt).toLocaleString('tr-TR')}</div>` : ''}
+          <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">Kod: <code>${escapeHtml(z.checkInCode || '')}</code></div>
+          <button class="btn" style="width:100%;" id="manualCheckInBtn" ${z.checkedIn?'disabled':''}>${z.checkedIn?'GİRİŞ ZATEN ALINDI':'ELLE YOKLAMA AL'}</button>
+        </div>
+      </div>
+    </div>
+    ` : ''}
     <div class="btn-row">
       <button class="btn btn-green" style="flex:1;" id="approveZirveBtn" ${z.status==='onayli'?'disabled':''}>ONAYLA</button>
       <button class="btn btn-red" style="flex:1;" id="rejectZirveBtn" ${z.status==='reddedildi'?'disabled':''}>REDDET</button>
     </div>`;
   document.getElementById('approveZirveBtn')?.addEventListener('click', ()=>{
-    z.status='onayli'; z.approvedDate = new Date().toLocaleDateString('tr-TR');
-    showToast(z.club+' kaydı onaylandı.','success');
-    addActivity(`${z.club} zirve kaydı ONAYLANDI.`);
+    // (9 Ağustos 2026 — Madde #129: Zirve kontenjan/bekleme listesi)
+    // z.status === 'listede' iken buraya basmak, admin'in BİLEREK bekleme
+    // listesindeki bir kaydı kontenjanı aşarak onaylamak istediği anlamına
+    // gelir — bu durumda kontenjan kontrolü tekrar ATLANIR (aksi halde
+    // bekleme listesinden asla çıkılamazdı). Yeni bir 'incelemede' kaydı
+    // için ise kontenjan doluysa otomatik olarak 'listede'ye alınır.
+    const kontenjan = state.zirveKontenjan || 0;
+    const onayliSayisi = state.zirveRegistrations.filter(x => x.status==='onayli' && x.id !== z.id).length;
+    if(z.status !== 'listede' && kontenjan > 0 && onayliSayisi >= kontenjan){
+      z.status = 'listede';
+      showToast(z.club+' için kontenjan dolu — bekleme listesine eklendi.', 'warn');
+      addActivity(`${z.club} zirve kaydı KONTENJAN DOLU nedeniyle BEKLEME LİSTESİNE alındı.`);
+    } else {
+      z.status='onayli'; z.approvedDate = new Date().toLocaleDateString('tr-TR');
+      if(!z.checkInCode) z.checkInCode = generateCheckInCode();
+      showToast(z.club+' kaydı onaylandı.','success');
+      addActivity(`${z.club} zirve kaydı ONAYLANDI.`);
+    }
     renderZirveList(); renderZirveDetail(); renderDashboardDynamic(); saveShared();
+  });
+  document.getElementById('manualCheckInBtn')?.addEventListener('click', ()=>{
+    z.checkedIn = true; z.checkedInAt = new Date().toISOString();
+    showToast(z.club+' için elle yoklama alındı.','success');
+    addActivity(`${z.club} için ELLE yoklama alındı (admin panelinden).`);
+    renderZirveList(); renderZirveDetail(); saveShared();
   });
   document.getElementById('rejectZirveBtn')?.addEventListener('click', ()=>{
     z.status='reddedildi'; showToast(z.club+' kaydı reddedildi.','error');
