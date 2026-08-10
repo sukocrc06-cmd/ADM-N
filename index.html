@@ -1317,6 +1317,57 @@ function reconcileArrayFieldById(localArr, remoteArr, deletedIds){
   });
   return merged;
 }
+
+// (10 Ağustos 2026 — "yarışmacı id çakışması" kök neden düzeltmesi)
+// appIdCounter/zirveIdCounter önceden SADECE istemci tarafında (bu sekmenin
+// kendi belleğinde) `appIdCounter++` ile artırılıyordu — hiçbir Firestore
+// transaction'ı YOKTU. İki farklı ziyaretçi neredeyse aynı anda başvuru
+// gönderdiğinde (özellikle bir yarışma öncesi kayıt yoğunluğunda), ikisi de
+// henüz birbirinin yazdığı güncel appIdCounter'ı GÖRMEDEN aynı sayacı okuyup
+// AYNI id'yi alabiliyordu — hele başvuru formunda id atamasından ÖNCE bir
+// Firebase Authentication hesabı oluşturma adımı (ağ üzerinden, yüzlerce
+// milisaniye sürebilen) olduğundan bu çakışma penceresi hiç de küçük değildi.
+// Bu id daha sonra OPLab tarafında (finteclubBridge.js) doğrudan
+// oplab_user_portfolios / oplab_balance_commands belgelerinde anahtar olarak
+// kullanılıyor — yani İKİ FARKLI yarışmacı aynı id'yi alırsa, biri diğerinin
+// portföyünü/bakiyesini görür ya da ezer (tam olarak "bakiyem 252 binden
+// 100 bine sıfırlandı" şikayetinin kök nedeni budur).
+//
+// Kök çözüm: id artık istemci belleğinden DEĞİL, küçük ve ayrı bir Firestore
+// TRANSACTION'ı içinde, sadece o an paylaşılan belgedeki GERÇEK sayaç
+// alanından (appIdCounter/zirveIdCounter) rezerve ediliyor. Transaction
+// atomik olduğundan, iki ziyaretçi tam olarak aynı anda başvursa bile
+// Firestore ikinci transaction'ı otomatik olarak yeniden çalıştırır — o da
+// artık BİRİNCİNİN yazdığı güncel sayacı görüp bir sonraki id'yi alır, asla
+// aynı id iki farklı kişiye gitmez. Firebase yoksa (tarayıcı-içi/yerel mod)
+// eskisi gibi senkron istemci sayacına düşülür — o modda zaten tek bir
+// tarayıcı/sekme vardır, çakışma riski hiç yok.
+function reserveNextId(counterField, getLocalCounter, setLocalCounter){
+  if(!fsSharedDoc || !FIREBASE_ENABLED){
+    const id = getLocalCounter();
+    setLocalCounter(id + 1);
+    return Promise.resolve(id);
+  }
+  return firebase.firestore().runTransaction(function(transaction){
+    return transaction.get(fsSharedDoc).then(function(doc){
+      const remote = doc.exists ? (doc.data() || {}) : {};
+      // Bulutun bildiği sayaç ile bu sekmenin kendi (belki bayat) yerel
+      // sayacından BÜYÜK OLANI taban al — hangisi ileriyse ondan devam et.
+      const current = Math.max(Number(remote[counterField]) || 1, getLocalCounter() || 1);
+      const payload = {}; payload[counterField] = current + 1;
+      transaction.set(fsSharedDoc, payload, {merge:true});
+      return current;
+    });
+  }).then(function(id){
+    setLocalCounter(id + 1);
+    return id;
+  }).catch(function(e){
+    console.warn('Kimlik rezervasyonu başarısız, yerel sayaca düşülüyor:', e);
+    const id = getLocalCounter();
+    setLocalCounter(id + 1);
+    return id;
+  });
+}
 function saveShared(){
   const payload = {
     applicationsOpen: state.applicationsOpen,
@@ -1870,22 +1921,38 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
 
   function finishApplication(){
     hideReapplyNotice();
-    state.applications.push({id: appIdCounter++, name, email, org, level: level || 'Belirtilmedi', motivation, status:'bekliyor', date: new Date().toLocaleDateString('tr-TR')});
-    form.reset();
-    resetRecaptcha('basvuru');
-    document.getElementById('pubBasvuruDurum').textContent = 'ONAY BEKLİYOR';
-    document.getElementById('pubBasvuruDurum').style.color = 'var(--yellow)';
-    showToast(`Başvurunuz alındı, ${name}! Admin onayını bekleyin.`, 'success');
-    saveShared();
-    sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
-      to_email: email, to_name: name,
-      subject_line: 'FinteLig Başvurun Alındı',
-      message_body: `Merhaba ${name}, FinteLig yarışması başvurun alındı. Admin onayından sonra, belirlediğin e-posta ve şifreyle OPLab (alım-satım platformu) üzerinde FinteLig Yarışmacısı olarak giriş yapabileceksin.`
-    });
-    sendNotificationEmail(EMAILJS_TEMPLATE_ADMIN, {
-      to_email: ADMIN_NOTIFY_EMAIL, to_name: 'Admin',
-      subject_line: 'Yeni FinteLig Başvurusu',
-      message_body: `${name} (${email}) FinteLig yarışmasına başvurdu. Admin panelinden inceleyebilirsin.`
+    // (10 Ağustos 2026 — "yarışmacı id çakışması" kök neden düzeltmesi) id
+    // artık `appIdCounter++` ile senkron/yerel DEĞİL, reserveNextId() ile
+    // Firestore transaction'ı içinde atomik olarak rezerve ediliyor — bkz.
+    // reserveNextId() yorumu. Bu, iki farklı kişinin (özellikle yarışma
+    // öncesi kayıt yoğunluğunda) neredeyse aynı anda başvurup AYNI id'yi
+    // almasını (ve bu id OPLab'da portföy anahtarı olarak kullanıldığından
+    // birinin bakiyesinin/portföyünün diğerininkiyle karışmasını) imkansız
+    // hale getirir.
+    // (10 Ağustos 2026 devamı) Bu fonksiyon artık reserveNextId()'nin
+    // promise'ini GERİ DÖNDÜRÜYOR — çağıranlar (aşağıdaki iki noktada)
+    // submit butonunu id rezervasyonu/kaydetme tamamlanmadan yeniden
+    // AKTİF etmesin diye (aksi halde çok hızlı art arda çift tıklama,
+    // henüz state.applications'a eklenmemiş bir başvuruyla aynı e-postanın
+    // yerel yinelenen-başvuru kontrolünü atlatabilirdi).
+    return reserveNextId('appIdCounter', () => appIdCounter, (v) => { appIdCounter = v; }).then(function(newId){
+      state.applications.push({id: newId, name, email, org, level: level || 'Belirtilmedi', motivation, status:'bekliyor', date: new Date().toLocaleDateString('tr-TR')});
+      form.reset();
+      resetRecaptcha('basvuru');
+      document.getElementById('pubBasvuruDurum').textContent = 'ONAY BEKLİYOR';
+      document.getElementById('pubBasvuruDurum').style.color = 'var(--yellow)';
+      showToast(`Başvurunuz alındı, ${name}! Admin onayını bekleyin.`, 'success');
+      saveShared();
+      sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
+        to_email: email, to_name: name,
+        subject_line: 'FinteLig Başvurun Alındı',
+        message_body: `Merhaba ${name}, FinteLig yarışması başvurun alındı. Admin onayından sonra, belirlediğin e-posta ve şifreyle OPLab (alım-satım platformu) üzerinde FinteLig Yarışmacısı olarak giriş yapabileceksin.`
+      });
+      sendNotificationEmail(EMAILJS_TEMPLATE_ADMIN, {
+        to_email: ADMIN_NOTIFY_EMAIL, to_name: 'Admin',
+        subject_line: 'Yeni FinteLig Başvurusu',
+        message_body: `${name} (${email}) FinteLig yarışmasına başvurdu. Admin panelinden inceleyebilirsin.`
+      });
     });
   }
 
@@ -1900,9 +1967,8 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
     submitBtn.disabled = true;
     submitBtn.textContent = 'GÖNDERİLİYOR...';
     fbAuth.createUserWithEmailAndPassword(email, password).then(function(){
-      finishApplication();
-      resetSubmitBtn();
-    }).catch(function(err){
+      return finishApplication();
+    }).then(resetSubmitBtn).catch(function(err){
       // (Silinen başvuru sonrası "hiç olmamış gibi" yeniden başvurabilme)
       // Firebase Authentication hesapları istemci taraflı (Admin SDK/backend
       // OLMAYAN) bir siteden SİLİNEMEZ — bu Firebase'in kendi güvenlik kısıtı.
@@ -1917,7 +1983,7 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
       // sunuyoruz (aşağıdaki ŞİFREMİ SIFIRLA butonu).
       if(err && err.code === 'auth/email-already-in-use'){
         fbAuth.signInWithEmailAndPassword(email, password).then(function(){
-          finishApplication();
+          return finishApplication();
         }).catch(function(){
           showReapplyNotice();
           showToast('Bu e-postayla önceden bir hesap açılmış ama artık sistemde aktif bir başvurun yok. Az önce girdiğin şifre önceki hesabınla eşleşmiyor — aşağıdaki seçeneklerden birini kullan.', 'error');
@@ -2003,9 +2069,14 @@ document.getElementById('pubZirveForm').addEventListener('submit', function(e){
   // yakalıyoruz — form reset edilmeden önceki son an. selectedFile null ise
   // (kimse dosya seçmediyse) yükleme adımı tamamen atlanır.
   const selectedFile = (document.getElementById('pzFileInput').files || [])[0] || null;
-  const zirveId = zirveIdCounter++;
+  const formEl = this;
+  // (10 Ağustos 2026 — "yarışmacı id çakışması" kök neden düzeltmesi)
+  // zirveId de artık `zirveIdCounter++` ile senkron/yerel DEĞİL,
+  // reserveNextId() ile atomik olarak rezerve ediliyor — bkz.
+  // reserveNextId() ve finishApplication() içindeki aynı düzeltmenin yorumu.
+  reserveNextId('zirveIdCounter', () => zirveIdCounter, (v) => { zirveIdCounter = v; }).then(function(zirveId){
   state.zirveRegistrations.push({id: zirveId, club, org, contact, contactEmail, contactPhone, area, reason, fileName: selectedFile ? selectedFile.name : document.getElementById('pzFileName').textContent, fileUrl: null, students, status:'incelemede', date: new Date().toLocaleDateString('tr-TR'), checkInCode: null, checkedIn: false, checkedInAt: null});
-  this.reset();
+  formEl.reset();
   resetRecaptcha('zirve');
   document.getElementById('pzFileName').textContent = 'Dosya seçilmedi';
   renderStudentRows();
@@ -2045,6 +2116,7 @@ document.getElementById('pubZirveForm').addEventListener('submit', function(e){
     to_email: ADMIN_NOTIFY_EMAIL, to_name: 'Admin',
     subject_line: 'Yeni Zirve Kaydı',
     message_body: `${club} kulübü (temsilci: ${contact}, ${contactEmail}) FinTeClub Zirve'ye kayıt oldu. Admin panelinden inceleyebilirsin.`
+  });
   });
 });
 
