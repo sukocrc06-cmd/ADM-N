@@ -1059,6 +1059,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
       <li><button class="nav-item" data-page="page-kullanicilar">Kullanıcı Veritabanı</button></li>
       <li><button class="nav-item" data-page="page-canli">Canlı İzleme</button></li>
       <li><button class="nav-item" data-page="page-portfoy">Kullanıcı Portföyleri</button></li>
+      <li><button class="nav-item" data-page="page-anomali">Şüpheli İşlem Tespiti<span class="nav-badge" id="navBadgeAnomali"></span></button></li>
       <li><button class="nav-item" data-page="page-sonuclar">Yarışma Sonuçları</button></li>
       <li><button class="nav-item" data-page="page-gecmis">Yarışma Geçmişi</button></li>
       <li><button class="nav-item" data-page="page-zirve">Zirve Kayıtları<span class="nav-badge" id="navBadgeZirve"></span></button></li>
@@ -1476,6 +1477,38 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           <p class="section-desc">En son gerçekleşen alım/satım/kapama işlemleri.</p>
           <div id="portfoyRecentTradesBox"><div class="empty-state" style="padding:20px 0;"><span>Henüz işlem yok.</span></div></div>
         </div>
+      </div>
+    </section>
+
+    <!-- ============ PAGE: ŞÜPHELİ İŞLEM TESPİTİ ============ -->
+    <!-- (10 Ağustos 2026 — VİOP kaldıraç suistimali sonrası eklendi) Bu sayfa
+         hiçbir para hareketine/işlem motoruna DOKUNMUYOR — sadece
+         oplab_user_portfolios'taki (her kullanıcının TAM VİOP işlem geçmişi)
+         veriyi okuyup, "çok kısa tutma süresi + çok yüksek kazanma oranı"
+         deseni gösteren hesapları işaretliyor. bkz. renderAnomaliTespiti(). -->
+    <section id="page-anomali" class="page">
+      <div class="card" style="margin-bottom:24px;">
+        <p class="section-desc" style="margin:0 0 14px;">Bu tarama, her yarışmacının VİOP işlem geçmişini (aç-kapa süresi ve kazanma oranı) inceleyip, rastgele bir piyasada istatistiksel olarak beklenmeyecek kadar kısa tutma süresi + yüksek kazanma oranı gösteren hesapları işaretler. İşaretlenen bir hesap otomatik olarak diskalifiye EDİLMEZ — sadece manuel incelemeniz için öne çıkarılır.</p>
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+          <button class="btn btn-blue" id="anomaliScanBtn">ŞİMDİ TARA</button>
+          <span class="stat-sub" id="anomaliLastScan">Henüz taranmadı.</span>
+        </div>
+      </div>
+
+      <div class="grid-4">
+        <div class="stat-card"><div class="stat-label">TARANAN HESAP</div><div class="stat-value gray" id="anomaliTaranan">--</div><div class="stat-sub">Yeterli VİOP verisi olan</div></div>
+        <div class="stat-card"><div class="stat-label">İŞARETLENEN</div><div class="stat-value gray" id="anomaliIsaretlenen">--</div><div class="stat-sub">İncelemeniz önerilir</div></div>
+        <div class="stat-card"><div class="stat-label">EŞİK</div><div class="stat-value gray" style="font-size:20px;">≤20sn · ≥%90</div><div class="stat-sub">Ort. tutma / kazanma oranı</div></div>
+        <div class="stat-card"><div class="stat-label">ASGARİ ÖRNEKLEM</div><div class="stat-value gray">5 işlem</div><div class="stat-sub">Daha azı değerlendirilmez</div></div>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">Sonuçlar</h3>
+        <p class="section-desc">İşaretlenen hesaplar en üstte listelenir.</p>
+        <table>
+          <thead><tr><th>YARIŞMACI</th><th>SEMBOL(LER)</th><th>VİOP İŞLEM</th><th>ORT. TUTMA SÜRESİ</th><th>KAZANMA ORANI</th><th>DURUM</th></tr></thead>
+          <tbody id="anomaliTableBody"><tr><td colspan="6"><div class="empty-state" style="padding:22px 0;">Taramak için "ŞİMDİ TARA"ya basın.</div></td></tr></tbody>
+        </table>
       </div>
     </section>
 
@@ -1920,6 +1953,7 @@ let fsSharedDoc = null;
 let fsActivityDoc = null;
 let fsPortfolioDoc = null;
 let fsBalanceCommandsDoc = null;
+let fsUserPortfoliosDoc = null;
 if(FIREBASE_ENABLED){
   try{
     firebase.initializeApp(FIREBASE_CONFIG);
@@ -1938,6 +1972,14 @@ if(FIREBASE_ENABLED){
     // OptiPulseLab tarafı (finteclubBridge.js) bunu gerçek zamanlı dinleyip
     // uygular ve appliedAt ile geri onaylar (bkz. setCompetitorBalance()).
     fsBalanceCommandsDoc = firebase.firestore().collection('finteclub').doc('oplab_balance_commands');
+    // (10 Ağustos 2026 — "Şüpheli İşlem Tespiti" sayfası) oplab_live_portfolio
+    // sadece SON 10 (karma normal+VİOP) işlemi tutuyor ve yarışmacı sekmesi
+    // kapalıysa güncellenmiyor — güvenilir bir anomali taraması için TAM
+    // işlem geçmişini (her kullanıcı için son 50 VİOP kaydı) her zaman
+    // içeren oplab_user_portfolios'u AYRICA okuyoruz. Burada da SADECE
+    // OKUYORUZ — pushFullPortfolioToCloud() (finteclubBridge.js) zaten her
+    // işlemden hemen sonra bu belgeyi güncelliyor.
+    fsUserPortfoliosDoc = firebase.firestore().collection('finteclub').doc('oplab_user_portfolios');
   }catch(e){ console.warn('Firebase başlatılamadı, tarayıcı-içi modda devam ediliyor.', e); }
 }
 
@@ -2609,6 +2651,7 @@ const PAGES = {
   'page-kullanicilar': {title:'KULLANICI VERİTABANI', sub:'Kayıtlı tüm kullanıcıları (ad, e-posta, kurum, durum) tek tabloda görüntüleyin.'},
   'page-canli': {title:'CANLI YARIŞMA İZLEME', sub:'Yarışmacı portföylerini, anlık sıralamayı ve işlem hareketlerini canlı olarak takip edin.'},
   'page-portfoy': {title:'KULLANICI PORTFÖY DETAYI', sub:'Seçili yarışmacının portföy değerini, varlık dağılımını ve işlem geçmişini inceleyin.'},
+  'page-anomali': {title:'ŞÜPHELİ İŞLEM TESPİTİ', sub:'VİOP işlem geçmişini tarayıp anormal (çok kısa tutma süresi + çok yüksek kazanma oranı) desen gösteren hesapları otomatik işaretler.'},
   'page-sonuclar': {title:'YARIŞMA SONUÇLARI', sub:'FinteLig yarışmasının final sıralamasını, kazananlarını ve sonuç yayın durumunu yönetin.'},
   'page-gecmis': {title:'YARIŞMA GEÇMİŞİ', sub:'Süresi dolan veya erken bitirilen geçmiş yarışmaların arşivlenmiş sonuçları.'},
   'page-zirve': {title:'ZİRVE KAYIT YÖNETİMİ', sub:'FinTeClub Zirve kayıt başvurularını, uygunluk durumlarını ve katılımcı listesini yönetin.'},
@@ -2634,6 +2677,7 @@ function navigateTo(pageId){
   if(pageId === 'page-oplab'){ syncOplabSettingsUI(); renderOplabVisitorList(); }
   if(pageId === 'page-canli') renderCanliIzleme();
   if(pageId === 'page-portfoy') renderKullaniciPortfoyleri();
+  if(pageId === 'page-anomali') renderAnomaliTespiti();
   if(pageId === 'page-sonuclar') renderSonuclar();
   if(pageId === 'page-gecmis') renderYarismaGecmisi();
 }
@@ -4188,6 +4232,97 @@ function renderKullaniciPortfoyleri(){
   renderPortfoyPendingOrders(c);
   renderPortfoyRecentTrades(c);
 }
+
+/* ============ ŞÜPHELİ İŞLEM TESPİTİ (10 Ağustos 2026) ============ */
+// (VİOP kaldıraç suistimali sonrası eklendi) SADECE OKUMA yapar — hiçbir
+// bakiye/pozisyon/emir verisine dokunmaz, para hareketi yaratmaz. Firestore'un
+// oplab_user_portfolios belgesindeki (her kullanıcı için TAM VİOP işlem
+// geçmişi, son 50 kayıt — bkz. finteclubBridge.js pushFullPortfolioToCloud)
+// veriyi okuyup "çok kısa tutma süresi + çok yüksek kazanma oranı" deseni
+// (bkz. Edanur/Mehmet Ali vakası, 10 Ağustos 2026) gösteren hesapları
+// işaretler. Otomatik diskalifiye ETMEZ, sadece admin'in manuel incelemesi
+// için öne çıkarır.
+const ANOMALI_MIN_TRADES = 5;       // bundan az kapanmış VİOP işlemi olan hesaplar değerlendirmeye alınmaz (örneklem çok küçük)
+const ANOMALI_MAX_AVG_HOLD_SEC = 20; // ortalama tutma süresi bu değerin ALTINDAYSA şüpheli
+const ANOMALI_MIN_WIN_RATE_PCT = 90; // kazanma oranı bu değerin ÜSTÜNDEYSE (ve tutma süresi de kısaysa) şüpheli
+
+function computeAnomaliStatsForUser(portfolioDoc){
+  const pf = (portfolioDoc && portfolioDoc.portfolio) || {};
+  const viopHist = (pf.viopHistory || []).slice().sort((a,b)=> (a.ts||0) - (b.ts||0));
+  const closes = viopHist.filter(h => h.type === 'CLOSE');
+  if(closes.length < ANOMALI_MIN_TRADES) return null;
+
+  const wins = closes.filter(h => (h.pnl||0) > 0).length;
+  const winRatePct = closes.length ? (wins / closes.length * 100) : 0;
+
+  const holdDurations = [];
+  for(let i = 0; i < viopHist.length - 1; i++){
+    if(viopHist[i].type === 'OPEN' && viopHist[i+1].type === 'CLOSE'){
+      holdDurations.push((viopHist[i+1].ts - viopHist[i].ts) / 1000);
+    }
+  }
+  const avgHoldSec = holdDurations.length ? (holdDurations.reduce((a,b)=>a+b,0) / holdDurations.length) : null;
+  const symbols = [...new Set(viopHist.map(h => h.symbol))];
+
+  const flagged = (avgHoldSec !== null) && (avgHoldSec <= ANOMALI_MAX_AVG_HOLD_SEC) && (winRatePct >= ANOMALI_MIN_WIN_RATE_PCT);
+
+  return { tradeCount: closes.length, winRatePct, avgHoldSec, symbols, flagged };
+}
+
+async function renderAnomaliTespiti(){
+  const body = document.getElementById('anomaliTableBody');
+  if(!body) return;
+  if(!fsUserPortfoliosDoc){
+    body.innerHTML = `<tr><td colspan="6"><div class="empty-state" style="padding:22px 0;">Firebase bağlantısı yok — tarama yapılamıyor.</div></td></tr>`;
+    return;
+  }
+  body.innerHTML = `<tr><td colspan="6"><div class="empty-state" style="padding:22px 0;">Taranıyor…</div></td></tr>`;
+  let doc;
+  try{
+    doc = await fsUserPortfoliosDoc.get();
+  }catch(e){
+    console.warn('Şüpheli işlem taraması için oplab_user_portfolios okunamadı:', e);
+    body.innerHTML = `<tr><td colspan="6"><div class="empty-state" style="padding:22px 0;">Tarama başarısız — bağlantıyı kontrol edip tekrar deneyin.</div></td></tr>`;
+    return;
+  }
+  const users = (doc.exists ? (doc.data() || {}) : {}).users || {};
+
+  const results = [];
+  state.applications.forEach(app => {
+    const rec = users[String(app.id)];
+    if(!rec) return;
+    const stats = computeAnomaliStatsForUser(rec);
+    if(!stats) return;
+    results.push(Object.assign({ id: app.id, name: app.name || ('#' + app.id) }, stats));
+  });
+  results.sort((a,b) => (b.flagged - a.flagged) || (a.avgHoldSec - b.avgHoldSec));
+
+  document.getElementById('anomaliTaranan').textContent = String(results.length);
+  document.getElementById('anomaliIsaretlenen').textContent = String(results.filter(r=>r.flagged).length);
+  const lastScanEl = document.getElementById('anomaliLastScan');
+  if(lastScanEl) lastScanEl.textContent = 'Son tarama: ' + new Date().toLocaleTimeString('tr-TR');
+
+  if(!results.length){
+    body.innerHTML = `<tr><td colspan="6"><div class="empty-state" style="padding:22px 0;">Değerlendirilecek kadar (en az ${ANOMALI_MIN_TRADES} kapanmış işlem) VİOP verisi olan hesap yok.</div></td></tr>`;
+    return;
+  }
+
+  body.innerHTML = results.map(r => {
+    const statusHtml = r.flagged
+      ? `<span class="status-pill" style="background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.4);">🚩 İNCELENMELİ</span>`
+      : `<span class="status-pill" style="background:rgba(34,197,94,0.12);color:var(--green);border:1px solid rgba(34,197,94,0.3);">✓ NORMAL</span>`;
+    return `<tr>
+      <td>${escapeHtml(r.name)}</td>
+      <td>${r.symbols.map(escapeHtml).join(', ')}</td>
+      <td>${r.tradeCount}</td>
+      <td>${r.avgHoldSec !== null ? r.avgHoldSec.toFixed(1) + ' sn' : '--'}</td>
+      <td>%${r.winRatePct.toFixed(1)}</td>
+      <td>${statusHtml}</td>
+    </tr>`;
+  }).join('');
+}
+document.getElementById('anomaliScanBtn')?.addEventListener('click', renderAnomaliTespiti);
+
 document.getElementById('portfoySelect').addEventListener('change', function(){
   selectedPortfoyAppId = this.value;
   renderKullaniciPortfoyleri();
