@@ -583,8 +583,9 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 .stat-hero-card{
   background:var(--card-bg);border:1px solid var(--border-strong);border-radius:26px;
   padding:34px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;
-  min-height:320px;
+  min-height:320px;cursor:pointer;transition:border-color .18s ease,transform .15s ease;
 }
+.stat-hero-card:hover{border-color:var(--blue);transform:translateY(-2px);}
 .stat-hero-card .live-label{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-dim);font-weight:700;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:22px;}
 .stat-hero-card .live-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px var(--green-glow);flex-shrink:0;}
 .stat-hero-card .stat-num{font-family:'Oswald',sans-serif;font-size:52px;font-weight:700;line-height:1;color:var(--text);}
@@ -740,7 +741,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           <button class="btn btn-go" data-pubnav="pub-zirve">ZİRVE</button>
         </div>
       </div>
-      <div class="stat-hero-card">
+      <div class="stat-hero-card" data-pubnav="pub-basvuru" role="button" tabindex="0" aria-label="FinteLig başvuru sayfasına git">
         <div class="live-label"><span class="live-dot"></span> CANLI KAYIT</div>
         <div class="stat-num" id="ecoUserCount">0</div>
         <div class="stat-sub-label">Kayıtlı kullanıcı</div>
@@ -1632,6 +1633,18 @@ document.getElementById('ecoTopluluk').addEventListener('click', ()=>{
   navigatePublic('pub-ekosistem');
   setTimeout(()=>window.scrollTo({top:0,behavior:'smooth'}), 60);
 });
+// (11 Ağustos 2026) "CANLI KAYIT" kartı artık tıklanabilir — data-pubnav
+// niteliği sayesinde aşağıdaki genel [data-pubnav] tıklama dinleyicisi
+// üzerinden doğrudan FinteLig başvuru sayfasına (pub-basvuru) gidiyor. Bu
+// kart bir <button> değil <div> olduğu için klavye erişilebilirliği (Enter/
+// Boşluk) için ayrıca burada ekleniyor.
+(function(){
+  var statCard = document.querySelector('.stat-hero-card[data-pubnav]');
+  if(!statCard) return;
+  statCard.addEventListener('keydown', function(e){
+    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); statCard.click(); }
+  });
+})();
 document.querySelectorAll('[data-hubnav]').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     closeMobilePubNav();
