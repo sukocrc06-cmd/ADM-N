@@ -1162,7 +1162,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 
     <!-- ============ PAGE: FINTELIG YARIŞMASI ============ -->
     <section id="page-yarisma" class="page">
-      <div class="grid-3">
+      <div class="grid-4">
         <div class="stat-card">
           <div class="stat-label">YARIŞMA DURUMU</div>
           <div class="stat-value gray" id="ylYarismaDurumu">PASİF</div>
@@ -1177,6 +1177,11 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           <div class="stat-label">BAŞLANGIÇ BAKİYESİ</div>
           <div class="stat-value blue" id="ylBaslangicBakiyesi">100.000 TL</div>
           <div class="stat-sub">Demo portföy limiti</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">GÜNCEL HAFTA / KOTA</div>
+          <div class="stat-value blue" id="ylGuncelHafta">Hafta 1</div>
+          <div class="stat-sub" id="ylGuncelHaftaSub">0/5 onaylı bu hafta</div>
         </div>
       </div>
 
@@ -1211,6 +1216,17 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
               </div>
             </div>
           </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Haftalık Kota (0 = sınırsız)</label>
+              <input type="number" id="inpWeeklyQuota" min="0" step="1" placeholder="5">
+            </div>
+            <div class="field">
+              <label>Hafta Süresi (gün)</label>
+              <input type="number" id="inpCohortDays" min="1" step="1" placeholder="7">
+            </div>
+          </div>
+          <p class="section-desc" style="margin-top:-4px;" id="cohortDurum"></p>
           <div class="field">
             <label>Yarışma Durumu</label>
             <div class="toggle-group" id="toggleYarisma">
@@ -1229,10 +1245,12 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
             <li><span class="dot"></span> Katılım admin onayına bağlıdır.</li>
             <li><span class="dot"></span> Sıralama portföy getirisine göre oluşur.</li>
             <li><span class="dot"></span> Yarışma sonunda sonuç ekranı yayınlanır.</li>
+            <li><span class="dot"></span> Her hafta sınırlı sayıda yarışmacı kabul edilir; hafta bitince otomatik geçmişe alınır.</li>
           </ul>
           <div class="btn-row" style="flex-direction:column;">
             <button class="btn btn-blue btn-block" data-nav="page-canli">CANLI İZLE</button>
             <button class="btn btn-block" data-nav="page-sonuclar">SONUÇLARI GÖR</button>
+            <button class="btn btn-block" data-nav="page-gecmis">YARIŞMA GEÇMİŞİ</button>
           </div>
         </div>
       </div>
@@ -1247,10 +1265,11 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 
     <!-- ============ PAGE: BAŞVURU ONAYLARI ============ -->
     <section id="page-basvuru" class="page">
-      <div class="grid-3">
+      <div class="grid-4">
         <div class="stat-card"><div class="stat-label">BEKLEYEN BAŞVURU</div><div class="stat-value yellow" id="bsBekleyenCount">0</div><div class="stat-sub">Admin onayı bekliyor</div></div>
         <div class="stat-card"><div class="stat-label">ONAYLANAN</div><div class="stat-value green" id="bsOnayliCount">0</div><div class="stat-sub">Yarışmaya erişebilir</div></div>
         <div class="stat-card"><div class="stat-label">REDDEDİLEN</div><div class="stat-value" style="color:#fca5a5;" id="bsReddedilenCount">0</div><div class="stat-sub">Erişim verilmedi</div></div>
+        <div class="stat-card"><div class="stat-label">BU HAFTA KOTA</div><div class="stat-value blue" id="bsKotaDurum">0/5</div><div class="stat-sub" id="bsKotaDurumSub">Hafta 1</div></div>
       </div>
 
       <div class="grid-2">
@@ -1263,6 +1282,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           <div class="tab-row" id="basvuruTabs">
             <button class="tab-btn active" data-tab="bekleyen">Bekleyen</button>
             <button class="tab-btn" data-tab="onayli">Onaylı</button>
+            <button class="tab-btn" data-tab="gecmis_yarismaci">Geçmiş Yarışmacı</button>
             <button class="tab-btn" data-tab="reddedilen">Reddedilen</button>
             <button class="tab-btn" data-tab="tumu">Tümü</button>
           </div>
@@ -1560,6 +1580,13 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
          olarak buraya kaydedilir (bkz. finishCompetition()). Bu sayfa
          SADECE geçmişi gösterir — üzerinden hiçbir şey değiştirilemez. -->
     <section id="page-gecmis" class="page">
+      <div class="card" style="margin-bottom:20px;">
+        <h3 class="section-title">Haftalık Yarışmacı Geçmişi</h3>
+        <p class="section-desc">Haftalık kota dolup süresi bitince o haftanın yarışmacıları otomatik olarak buraya, "geçmiş yarışmacı" statüsüyle arşivlenir — yerlerini bir sonraki haftanın onaylanan yarışmacıları alır.</p>
+        <div id="cohortHistoryList">
+          <div class="empty-state"><div class="icon">—</div><strong>Henüz tamamlanmış hafta yok</strong><span>Bir haftanın kotası/süresi dolduğunda o haftanın yarışmacıları burada listelenecek.</span></div>
+        </div>
+      </div>
       <div class="card">
         <h3 class="section-title">Geçmiş Yarışmalar</h3>
         <p class="section-desc">Süresi dolan veya erken bitirilen her yarışmanın final sıralaması otomatik olarak burada arşivlenir.</p>
@@ -1872,6 +1899,25 @@ const state = {
   // listesindeki bir kaydı yine de istediği an elle onaylayabilir (bkz.
   // approveZirveBtn handler'ındaki kontenjan kontrolü).
   zirveKontenjan: 0,
+  // (11 Ağustos 2026 — Madde #130: haftalık kota/kohort sistemi) FinteLig'e
+  // aynı anda kabul edilebilecek AKTİF yarışmacı sayısını hafta bazlı
+  // sınırlamak için: weeklyQuota kadar kişi ONAYLANABİLİR (0 = sınırsız —
+  // Zirve kontenjanıyla AYNI konvansiyon). Bu sınıra ulaşınca "ONAYLA"
+  // engellenir — bekleyen 20 başvurudan fazlası aynı hafta içeri giremez.
+  // Bir "hafta" (kohort), o kohorta ONAYLANAN İLK kişiyle başlar
+  // (cohortStartedAt o an damgalanır — kimse onaylanmadan saat işlemez) ve
+  // cohortDurationDays gün sonra OTOMATİK olarak biter: o kohorttaki tüm
+  // onaylı yarışmacılar `pastCompetitor:true` ile "geçmiş yarışmacı"ya
+  // düşürülür (bkz. rotateCohort()), kota tekrar sıfırdan açılır ve
+  // currentCohortId bir artar — admin bir dahaki 5 kişiyi onaylayabilir.
+  // status alanı BİLEREK 'onayli' olarak KALIR (disqualified bayrağıyla
+  // AYNI desen) — sadece EK bir bayrak eklenir, mevcut onaylı/bekleyen/
+  // reddedilen sayaçları/filtreleri bozulmaz.
+  weeklyQuota: 5,
+  cohortDurationDays: 7,
+  currentCohortId: 1,
+  cohortStartedAt: null,
+  cohortHistory: [],
   // (Yarışma süresi + otomatik bitiş + geçmiş arşivi) YARIŞMAYI BAŞLAT'a
   // basıldığında competitionEndsAt = o an + [Yarışma Adayları'nda girilen
   // Başlangıç/Bitiş Tarihi farkı, girilmemişse 2 saat] olarak ayarlanır
@@ -2136,7 +2182,12 @@ function saveShared(){
     zirveIdCounter: zirveIdCounter,
     competitionEndsAt: state.competitionEndsAt,
     competitionTotalMs: state.competitionTotalMs,
-    competitionHistory: state.competitionHistory
+    competitionHistory: state.competitionHistory,
+    weeklyQuota: state.weeklyQuota,
+    cohortDurationDays: state.cohortDurationDays,
+    currentCohortId: state.currentCohortId,
+    cohortStartedAt: state.cohortStartedAt,
+    cohortHistory: state.cohortHistory
   };
   // (Düzeltme) index.html ve admin.html'in `state` şemaları birebir aynı
   // değil — ör. `balance`/`viewMode`/`resultsPublished` yalnızca admin.html'de
@@ -2243,6 +2294,11 @@ function hydrateFromShared(){
   state.competitionEndsAt = shared.competitionEndsAt ?? state.competitionEndsAt;
   state.competitionTotalMs = shared.competitionTotalMs ?? state.competitionTotalMs;
   state.competitionHistory = shared.competitionHistory ?? state.competitionHistory;
+  state.weeklyQuota = shared.weeklyQuota ?? state.weeklyQuota;
+  state.cohortDurationDays = shared.cohortDurationDays ?? state.cohortDurationDays;
+  state.currentCohortId = shared.currentCohortId ?? state.currentCohortId;
+  state.cohortStartedAt = shared.cohortStartedAt ?? state.cohortStartedAt;
+  state.cohortHistory = shared.cohortHistory ?? state.cohortHistory;
   if(shared.appIdCounter) appIdCounter = shared.appIdCounter;
   if(shared.zirveIdCounter) zirveIdCounter = shared.zirveIdCounter;
 }
@@ -2255,6 +2311,7 @@ function onSharedDataUpdated(){
   syncOplabSettingsUI();
   syncYayinUI();
   renderActivityLog();
+  renderCohortHistory();
 }
 window.addEventListener('storage', (e)=>{
   if(e.key === SHARED_KEY) onSharedDataUpdated();
@@ -2679,7 +2736,7 @@ function navigateTo(pageId){
   if(pageId === 'page-portfoy') renderKullaniciPortfoyleri();
   if(pageId === 'page-anomali') renderAnomaliTespiti();
   if(pageId === 'page-sonuclar') renderSonuclar();
-  if(pageId === 'page-gecmis') renderYarismaGecmisi();
+  if(pageId === 'page-gecmis'){ renderYarismaGecmisi(); renderCohortHistory(); }
 }
 
 document.querySelectorAll('.nav-item').forEach(btn=>{
@@ -2730,6 +2787,10 @@ function syncYarismaSettingsUI(){
   if(startEl && document.activeElement !== startEl) startEl.value = state.startDate || '';
   if(endEl && document.activeElement !== endEl) endEl.value = state.endDate || '';
   if(balanceEl && document.activeElement !== balanceEl) balanceEl.value = state.balance || 100000;
+  const quotaEl = document.getElementById('inpWeeklyQuota');
+  const cohortDaysEl = document.getElementById('inpCohortDays');
+  if(quotaEl && document.activeElement !== quotaEl) quotaEl.value = state.weeklyQuota ?? 5;
+  if(cohortDaysEl && document.activeElement !== cohortDaysEl) cohortDaysEl.value = state.cohortDurationDays || 7;
 
   const katilimGroup = document.getElementById('toggleKatilim');
   if(katilimGroup){
@@ -2754,6 +2815,26 @@ function syncYarismaSettingsUI(){
   document.getElementById('ylTarihAraligi').className = 'stat-value ' + (hasDateRange ? 'blue' : 'gray');
   document.getElementById('ylTarihAraligiSub').textContent = hasDateRange ? formatDurationHuman(getConfiguredCompetitionDurationMs()) + ' sürecek' : 'Tarih ayarlanmadı';
   document.getElementById('ylBaslangicBakiyesi').textContent = (state.balance || 0).toLocaleString('tr-TR') + ' TL';
+
+  // (11 Ağustos 2026 — Madde #130: haftalık kota/kohort sistemi)
+  const cohortId = state.currentCohortId || 1;
+  const quota = state.weeklyQuota || 0;
+  const activeInCohort = state.applications.filter(a => a.status==='onayli' && !a.pastCompetitor && a.cohortId===cohortId).length;
+  const guncelHaftaEl = document.getElementById('ylGuncelHafta');
+  const guncelHaftaSubEl = document.getElementById('ylGuncelHaftaSub');
+  if(guncelHaftaEl) guncelHaftaEl.textContent = `Hafta ${cohortId}`;
+  if(guncelHaftaSubEl) guncelHaftaSubEl.textContent = quota > 0 ? `${activeInCohort}/${quota} onaylı bu hafta` : `${activeInCohort} onaylı (kota sınırsız)`;
+  const cohortDurumEl = document.getElementById('cohortDurum');
+  if(cohortDurumEl){
+    if(!state.cohortStartedAt){
+      cohortDurumEl.textContent = `Hafta ${cohortId} henüz başlamadı — bu haftaya ilk kişi onaylandığında ${state.cohortDurationDays || 7} günlük süre başlayacak.`;
+    } else {
+      const elapsedMs = Date.now() - new Date(state.cohortStartedAt).getTime();
+      const totalMs = (state.cohortDurationDays || 7) * 86400000;
+      const remainMs = Math.max(0, totalMs - elapsedMs);
+      cohortDurumEl.textContent = `Hafta ${cohortId} başladı (${fmtDate(state.cohortStartedAt.slice(0,10))}) — ${formatDurationHuman(remainMs)} sonra otomatik arşivlenecek.`;
+    }
+  }
 }
 
 document.getElementById('saveSettingsBtn').addEventListener('click', function(){
@@ -2761,6 +2842,10 @@ document.getElementById('saveSettingsBtn').addEventListener('click', function(){
   state.startDate = document.getElementById('inpStart').value;
   state.endDate = document.getElementById('inpEnd').value;
   state.balance = Number(document.getElementById('inpBalance').value) || 0;
+  const quotaRaw = parseInt(document.getElementById('inpWeeklyQuota').value, 10);
+  state.weeklyQuota = (isNaN(quotaRaw) || quotaRaw < 0) ? 0 : quotaRaw;
+  const cohortDaysRaw = parseInt(document.getElementById('inpCohortDays').value, 10);
+  state.cohortDurationDays = (isNaN(cohortDaysRaw) || cohortDaysRaw < 1) ? 7 : cohortDaysRaw;
   const katilim = document.querySelector('#toggleKatilim .toggle-opt.active').dataset.value;
   const yarisma = document.querySelector('#toggleYarisma .toggle-opt.active').dataset.value;
   state.applicationsOpen = katilim === 'acik';
@@ -3074,7 +3159,8 @@ function syncGlobalStatus(){
 /* ============ BAŞVURU ONAYLARI (data-driven) ============ */
 const basvuruEmptyMsgs = {
   bekleyen: {icon:'—', title:'Bekleyen başvuru yok', desc:'FinteLig başvuruları geldiğinde yeni kayıtlar burada görünecek.'},
-  onayli: {icon:'✓', title:'Onaylı başvuru yok', desc:'Onaylanan yarışmacılar burada listelenecek.'},
+  onayli: {icon:'✓', title:'Aktif onaylı yarışmacı yok', desc:'Bu haftaya onaylanan yarışmacılar burada listelenecek.'},
+  gecmis_yarismaci: {icon:'—', title:'Geçmiş yarışmacı yok', desc:'Bir haftanın süresi/kotası dolup arşivlendiğinde o haftanın yarışmacıları burada listelenecek.'},
   reddedilen: {icon:'✕', title:'Reddedilen başvuru yok', desc:'Reddedilen başvurular burada listelenecek.'},
   tumu: {icon:'—', title:'Hiç başvuru yok', desc:'FinteLig başvuruları geldiğinde tüm kayıtlar burada listelenecek.'}
 };
@@ -3146,15 +3232,30 @@ document.getElementById('kullaniciSearch').addEventListener('input', renderKulla
 
 function renderBasvuruList(){
   const bekleyen = state.applications.filter(a=>a.status==='bekliyor');
-  const onayli = state.applications.filter(a=>a.status==='onayli');
+  // (11 Ağustos 2026 — Madde #130: haftalık kota/kohort) "Onaylı" artık
+  // SADECE o hafta hâlâ AKTİF olan onaylı yarışmacıları sayar/listeler —
+  // hafta bitip pastCompetitor=true olanlar ayrı bir "Geçmiş Yarışmacı"
+  // sekmesine taşındı (status kendisi 'onayli' olarak KALIYOR, bkz.
+  // rotateCohort() yorumu — disqualified bayrağıyla aynı desen).
+  const onayliAktif = state.applications.filter(a=>a.status==='onayli' && !a.pastCompetitor);
+  const gecmisYarismaci = state.applications.filter(a=>a.status==='onayli' && a.pastCompetitor);
   const reddedilen = state.applications.filter(a=>a.status==='reddedildi');
   document.getElementById('bsBekleyenCount').textContent = bekleyen.length;
-  document.getElementById('bsOnayliCount').textContent = onayli.length;
+  document.getElementById('bsOnayliCount').textContent = onayliAktif.length;
   document.getElementById('bsReddedilenCount').textContent = reddedilen.length;
+  const kotaEl = document.getElementById('bsKotaDurum');
+  const kotaSubEl = document.getElementById('bsKotaDurumSub');
+  if(kotaEl){
+    const quota = state.weeklyQuota || 0;
+    kotaEl.textContent = quota > 0 ? `${onayliAktif.length}/${quota}` : `${onayliAktif.length}/∞`;
+    kotaEl.className = 'stat-value ' + (quota > 0 && onayliAktif.length >= quota ? '' : 'blue');
+    if(kotaSubEl) kotaSubEl.textContent = `Hafta ${state.currentCohortId || 1}${quota > 0 && onayliAktif.length >= quota ? ' — kota dolu' : ''}`;
+  }
 
   let list;
   if(currentBasvuruFilter==='bekleyen') list = bekleyen;
-  else if(currentBasvuruFilter==='onayli') list = onayli;
+  else if(currentBasvuruFilter==='onayli') list = onayliAktif;
+  else if(currentBasvuruFilter==='gecmis_yarismaci') list = gecmisYarismaci;
   else if(currentBasvuruFilter==='reddedilen') list = reddedilen;
   else list = state.applications;
 
@@ -3181,7 +3282,7 @@ function renderBasvuruList(){
           <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${escapeHtml(a.email)} • ${escapeHtml(a.level)}</div>
         </div>
       </div>
-      <span class="status-pill ${a.status==='onayli'?'green':a.status==='reddedildi'?'red':'yellow'}">${a.status==='onayli'?'ONAYLI':a.status==='reddedildi'?'REDDEDİLDİ':'BEKLİYOR'}</span>
+      <span class="status-pill ${a.status==='onayli'?(a.pastCompetitor?'':'green'):a.status==='reddedildi'?'red':'yellow'}" ${a.status==='onayli'&&a.pastCompetitor?'style="background:rgba(255,255,255,0.08);color:var(--text-dim);"':''}>${a.status==='onayli'?(a.pastCompetitor?'GEÇMİŞ YARIŞMACI':'ONAYLI'):a.status==='reddedildi'?'REDDEDİLDİ':'BEKLİYOR'}</span>
     </div>`).join('');
   container.querySelectorAll('[data-app-id].list-item').forEach(el=>{
     el.addEventListener('click', ()=>{ selectedAppId = Number(el.dataset.appId); renderBasvuruList(); renderBasvuruDetail(); });
@@ -3388,29 +3489,54 @@ function renderBasvuruDetail(){
   el.innerHTML = `
     <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;">
       <div class="avatar-circle" style="width:44px;height:44px;font-size:15px;">${escapeHtml(initials(app.name))}</div>
-      <div><div style="font-weight:600;font-size:15px;">${escapeHtml(app.name)} ${app.disqualified ? '<span class="status-pill red" style="margin-left:6px;">DİSKALİFİYE</span>' : ''}</div><div style="color:var(--text-dim);font-size:12px;">${escapeHtml(app.level)}</div></div>
+      <div><div style="font-weight:600;font-size:15px;">${escapeHtml(app.name)} ${app.disqualified ? '<span class="status-pill red" style="margin-left:6px;">DİSKALİFİYE</span>' : ''} ${app.status==='onayli'&&app.pastCompetitor ? '<span class="status-pill" style="margin-left:6px;background:rgba(255,255,255,0.08);color:var(--text-dim);">GEÇMİŞ YARIŞMACI</span>' : ''}</div><div style="color:var(--text-dim);font-size:12px;">${escapeHtml(app.level)}</div></div>
     </div>
     <div style="margin-bottom:14px;"><div class="field-label">E-POSTA</div><div style="font-size:13.5px;">${escapeHtml(app.email)}</div></div>
     <div style="margin-bottom:14px;"><div class="field-label">ÜNİVERSİTE / KURUM</div><div style="font-size:13.5px;">${escapeHtml(app.org)}</div></div>
     <div style="margin-bottom:18px;"><div class="field-label">MOTİVASYON</div><div style="font-size:13.5px;color:var(--text-dim);line-height:1.6;">${escapeHtml(app.motivation) || '—'}</div></div>
+    ${app.status==='onayli' && app.cohortId ? `<div style="margin-bottom:14px;"><div class="field-label">HAFTA</div><div style="font-size:13.5px;">Hafta ${app.cohortId}${app.pastCompetitor ? ' — sona erdi' : ' — aktif'}</div></div>` : ''}
     <div class="btn-row">
       <button class="btn btn-green" style="flex:1;" id="approveAppBtn" ${app.status==='onayli'?'disabled':''}>ONAYLA</button>
       <button class="btn btn-red" style="flex:1;" id="rejectAppBtn" ${app.status==='reddedildi'?'disabled':''}>REDDET</button>
     </div>
-    ${app.status==='onayli' ? `<p style="font-size:11px;color:var(--text-dimmer);margin-top:8px;">OPLab girişi: başvuru sırasında belirlediği e-posta ve şifresiyle kendisi giriş yapar.</p>` : ''}
-    ${app.status==='onayli' ? `
+    ${app.status==='onayli' && !app.pastCompetitor ? `<p style="font-size:11px;color:var(--text-dimmer);margin-top:8px;">OPLab girişi: başvuru sırasında belirlediği e-posta ve şifresiyle kendisi giriş yapar.</p>` : ''}
+    ${app.status==='onayli' && app.pastCompetitor ? `
+    <button class="btn" style="width:100%;margin-top:10px;background:transparent;border:1px solid var(--blue);color:var(--blue);" id="reactivateAppBtn">AKTİFE DÖNDÜR</button>
+    <p style="font-size:11px;color:var(--text-dimmer);margin-top:6px;">Bu yarışmacının haftası sona erdi (geçmiş yarışmacı). Bir hata olduysa aynı haftaya aktif olarak geri alabilirsiniz — bu, o haftanın kotasını yeniden dolduracaktır.</p>
+    ` : ''}
+    ${app.status==='onayli' && !app.pastCompetitor ? `
     <button class="btn" style="width:100%;margin-top:10px;background:transparent;border:1px solid ${app.disqualified?'var(--green)':'#fca5a5'};color:${app.disqualified?'var(--green)':'#fca5a5'};" id="toggleDisqualifyBtn">${app.disqualified ? 'DİSKALİFİYEYİ KALDIR' : 'DİSKALİFİYE ET'}</button>
     <p style="font-size:11px;color:var(--text-dimmer);margin-top:6px;">Diskalifiye edilen yarışmacı sıralamada/işlem akışında GÖRÜNMEYE devam eder (şeffaflık için) ama İLK 3 / dereceye giremez.</p>
     ` : ''}
     <button class="btn" style="width:100%;margin-top:10px;background:transparent;border:1px solid #fca5a5;color:#fca5a5;" id="deleteAppBtn">SİSTEMDEN SİL</button>`;
   document.getElementById('approveAppBtn')?.addEventListener('click', ()=>{
+    // (11 Ağustos 2026 — Madde #130: haftalık kota/kohort) Bu haftanın
+    // (state.currentCohortId) AKTİF onaylı yarışmacı sayısı zaten kotayı
+    // doldurduysa onay engellenir — "yarışırken başkaları bu yere giremez"
+    // tam olarak burada uygulanıyor. 0 = sınırsız (Zirve kontenjanıyla aynı
+    // konvansiyon).
+    const quota = state.weeklyQuota || 0;
+    const activeInCohort = state.applications.filter(x => x.status==='onayli' && !x.pastCompetitor && x.cohortId===state.currentCohortId).length;
+    if(quota > 0 && activeInCohort >= quota){
+      showToast(`Hafta ${state.currentCohortId} için kota doldu (${activeInCohort}/${quota}). Bu haftanın süresi dolup otomatik arşivlenince yeni onaylar açılır.`, 'error');
+      return;
+    }
     app.status='onayli'; app.approvedDate = new Date().toLocaleDateString('tr-TR');
-    showToast(app.name+' başvurusu onaylandı.','success');
-    addActivity(`${app.name} başvurusu ONAYLANDI.`);
-    renderBasvuruList(); renderBasvuruDetail(); renderDashboardDynamic(); renderKullaniciVeritabani(); saveShared();
+    app.cohortId = state.currentCohortId; app.pastCompetitor = false; app.pastCompetitorAt = null;
+    // Haftanın saati, o haftaya onaylanan İLK kişiyle başlar.
+    if(!state.cohortStartedAt) state.cohortStartedAt = new Date().toISOString();
+    showToast(app.name+' başvurusu onaylandı (Hafta '+state.currentCohortId+').','success');
+    addActivity(`${app.name} başvurusu ONAYLANDI (Hafta ${state.currentCohortId}).`);
+    renderBasvuruList(); renderBasvuruDetail(); renderDashboardDynamic(); renderKullaniciVeritabani(); syncYarismaSettingsUI(); saveShared();
     sendApplicationDecisionEmail(app, 'onayli').then(function(ok){
       showToast(ok ? ('Bilgilendirme e-postası ' + app.email + ' adresine gönderildi.') : ('E-posta gönderilemedi (' + app.email + ') — ayrıntı için tarayıcı konsolunu (F12) kontrol edin.'), ok ? 'success' : 'warn');
     });
+  });
+  document.getElementById('reactivateAppBtn')?.addEventListener('click', ()=>{
+    app.pastCompetitor = false; app.pastCompetitorAt = null;
+    showToast(app.name+' yeniden aktif yarışmacı yapıldı.', 'success');
+    addActivity(`${app.name} GEÇMİŞ YARIŞMACI durumundan AKTİFE döndürüldü.`);
+    renderBasvuruList(); renderBasvuruDetail(); renderDashboardDynamic(); renderKullaniciVeritabani(); syncYarismaSettingsUI(); saveShared();
   });
   document.getElementById('rejectAppBtn')?.addEventListener('click', ()=>{
     app.status='reddedildi';
@@ -4492,6 +4618,7 @@ function checkCompetitionTimer(){
   if(state.competitionActive && state.competitionEndsAt && Date.now() >= state.competitionEndsAt){
     finishCompetition('süre doldu');
   }
+  checkCohortRotation();
   const sub = document.getElementById('yayinYarismaSub');
   if(sub && state.competitionActive && state.competitionEndsAt){
     sub.textContent = formatCountdown(state.competitionEndsAt - Date.now());
@@ -4502,6 +4629,99 @@ function checkCompetitionTimer(){
   renderStageTicker();
 }
 setInterval(checkCompetitionTimer, 5000);
+
+// (11 Ağustos 2026 — Madde #130: haftalık kota/kohort sistemi) Her ~5
+// saniyede (checkCompetitionTimer ile AYNI zamanlayıcı — finishCompetition
+// ile AYNI istemci-taraflı kısıt: SADECE bir admin sekmesi açıkken kontrol
+// edilebilir) o haftanın süresi dolup dolmadığına bakar. Süre, o haftaya
+// ONAYLANAN İLK kişiyle başlar (cohortStartedAt) — kimse onaylanmadıysa
+// saat hiç işlemez, "boşa geçen hafta" riski yok.
+function checkCohortRotation(){
+  if(!state.cohortStartedAt) return;
+  const elapsedMs = Date.now() - new Date(state.cohortStartedAt).getTime();
+  const totalMs = (state.cohortDurationDays || 7) * 86400000;
+  if(elapsedMs >= totalMs){
+    rotateCohort('hafta süresi doldu');
+  }
+}
+
+// O haftanın (state.currentCohortId) hâlâ AKTİF onaylı yarışmacılarını
+// `pastCompetitor:true` ile geçmişe alır, mümkünse (oplabPortfolioData'dan)
+// o haftanın final sıralamasını Yarışma Geçmişi'ne (cohortHistory) kalıcı
+// olarak kaydeder ve YENİ bir hafta açar (currentCohortId++, kota sıfırdan
+// dolmaya başlar). state.competitionActive/oplabEnabled'a KASITLI OLARAK
+// dokunmuyor — bu, TÜM FinteLig sezonunun (finishCompetition) AYRI ve daha
+// büyük bir anahtarı; haftalık rotasyon site açıkken KESİNTİSİZ devam eder.
+function rotateCohort(reason){
+  const cohortId = state.currentCohortId || 1;
+  const affected = state.applications.filter(a => a.status==='onayli' && !a.pastCompetitor && a.cohortId===cohortId);
+  if(affected.length === 0){
+    // Kimse onaylanmamışsa arşivlenecek bir şey yok — yine de yeni haftaya
+    // geç (aksi halde saat hep aynı dolu süreyle tetiklenip dururdu).
+    state.currentCohortId = cohortId + 1;
+    state.cohortStartedAt = null;
+    saveShared();
+    return;
+  }
+  const perfById = {};
+  (oplabPortfolioData || []).forEach(c => { perfById[String(c.id)] = c; });
+  const nowIso = new Date().toISOString();
+  affected.forEach(a => { a.pastCompetitor = true; a.pastCompetitorAt = nowIso; });
+  const nextHistId = state.cohortHistory.reduce((max,h)=>Math.max(max, h.id||0), 0) + 1;
+  const record = {
+    id: nextHistId,
+    cohortId: cohortId,
+    weekLabel: `Hafta ${cohortId}`,
+    quota: state.weeklyQuota || 0,
+    startedAt: state.cohortStartedAt,
+    endedAt: new Date().toLocaleString('tr-TR'),
+    endReason: reason,
+    competitors: affected.map(a => {
+      const perf = perfById[String(a.id)];
+      const equity = perf ? (perf.equity || 0) : null;
+      return { id: a.id, name: a.name || 'İsimsiz', email: a.email || '', approvedDate: a.approvedDate || '', equity: equity, pct: (equity !== null) ? pctReturn(equity) : null };
+    }).sort((x,y) => (y.equity||0) - (x.equity||0))
+  };
+  state.cohortHistory = [record, ...state.cohortHistory];
+  state.currentCohortId = cohortId + 1;
+  state.cohortStartedAt = null;
+  renderBasvuruList();
+  renderBasvuruDetail();
+  renderCohortHistory();
+  syncYarismaSettingsUI();
+  renderKullaniciVeritabani();
+  renderDashboardDynamic();
+  addActivity(`Hafta ${cohortId} sona erdi (${reason}) — ${affected.length} yarışmacı geçmiş yarışmacı statüsüne alındı, Hafta ${cohortId+1} için kota açıldı.`);
+  showToast(`Hafta ${cohortId} sona erdi — ${affected.length} yarışmacı arşivlendi, yeni hafta başladı.`, 'success');
+  saveShared();
+}
+
+function renderCohortHistory(){
+  const list = document.getElementById('cohortHistoryList');
+  if(!list) return;
+  const history = state.cohortHistory || [];
+  if(!history.length){
+    list.innerHTML = `<div class="empty-state"><div class="icon">—</div><strong>Henüz tamamlanmış hafta yok</strong><span>Bir haftanın kotası/süresi dolduğunda o haftanın yarışmacıları burada listelenecek.</span></div>`;
+    return;
+  }
+  list.innerHTML = history.map(rec => {
+    const rows = (rec.competitors || []).map((c,i) => `
+      <tr><td>${i+1}</td><td>${escapeHtml(c.name)}</td><td>${c.equity!==null ? fmtTRY(c.equity) : '—'}</td><td style="color:${(c.pct||0)>=0?'var(--green)':'#fca5a5'};">${c.pct!==null ? ((c.pct>=0?'+':'')+c.pct.toFixed(2)+'%') : '—'}</td></tr>`).join('');
+    return `<div class="card" style="background:var(--card-bg-2);margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+        <div>
+          <div style="font-family:'Oswald',sans-serif;font-size:17px;">${escapeHtml(rec.weekLabel)}</div>
+          <div style="color:var(--text-dim);font-size:12.5px;margin-top:2px;">${rec.competitors.length} yarışmacı${rec.quota ? ` (kota: ${rec.quota})` : ' (kota: sınırsız)'} • Bitiş: ${escapeHtml(rec.endedAt)}</div>
+        </div>
+        <span class="status-pill" style="background:rgba(255,255,255,0.05);">${escapeHtml(rec.endReason) || ''}</span>
+      </div>
+      <table style="width:100%;font-size:12.5px;border-collapse:collapse;">
+        <thead><tr style="color:var(--text-dim);text-align:left;"><th style="padding:4px 6px;">#</th><th style="padding:4px 6px;">Ad</th><th style="padding:4px 6px;">Özkaynak</th><th style="padding:4px 6px;">Getiri</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+}
 
 // (6 Ağustos 2026 — Başlık & Düzen Cilası) Düz metin geri sayım yerine
 // animasyonlu halka: dolgu oranı state.competitionTotalMs'e göre azalıyor,
@@ -5011,6 +5231,8 @@ renderCanliIzleme();
 renderKullaniciPortfoyleri();
 renderSonuclar();
 renderActivityLog();
+renderYarismaGecmisi();
+renderCohortHistory();
 showScreen('login');
 </script>
 

@@ -2158,14 +2158,22 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
     // artık başvuru anında belirlenen e-posta+şifre — bu ekranda gösterilecek
     // veya e-posta ile "teslim edilecek" ayrı bir kod/token kalmadı. Kullanıcı
     // zaten kendi şifresini biliyor; sadece OPLab'a gidip giriş yapması yeterli.
-    const s = appStatusMap[app.status] || {label:app.status, cls:''};
+    // (11 Ağustos 2026 — Madde #130: haftalık kota/kohort sistemi) Haftası
+    // sona eren bir yarışmacı için status hâlâ 'onayli' ama pastCompetitor
+    // true — bu ekranda hâlâ "ONAYLANDI, girişe hazırsın" mesajı görürse
+    // yanıltıcı olur, o yüzden ayrı bir etiket/mesaj gösteriliyor.
+    const isPastCompetitor = app.status === 'onayli' && app.pastCompetitor;
+    const s = isPastCompetitor ? {label:'HAFTASI TAMAMLANDI', cls:''} : (appStatusMap[app.status] || {label:app.status, cls:''});
     html += `<div class="card" style="margin-bottom:16px;">
       <div class="field-label" style="margin-bottom:8px;">FINTELIG BAŞVURUSU</div>
       <div style="font-family:'Oswald',sans-serif;font-size:20px;margin-bottom:10px;">${escapeHtml(app.name)}</div>
-      <span class="status-pill ${s.cls}">${escapeHtml(s.label)}</span>
+      <span class="status-pill ${s.cls}" ${isPastCompetitor?'style="background:rgba(255,255,255,0.08);color:var(--text-dim);"':''}>${escapeHtml(s.label)}</span>
       <p style="color:var(--text-dimmer);font-size:12.5px;margin-top:12px;">Başvuru tarihi: ${escapeHtml(app.date)}</p>
-      ${app.status === 'onayli' ? `
+      ${app.status === 'onayli' && !isPastCompetitor ? `
         <p style="color:var(--text-dim);font-size:12.5px;margin-top:14px;">✓ Başvurun onaylandı! OPLab'a git, kayıt olurken belirlediğin e-posta ve şifreyle giriş yap — doğrudan alım-satım ekranına yönlendirileceksin.</p>
+      ` : ''}
+      ${isPastCompetitor ? `
+        <p style="color:var(--text-dim);font-size:12.5px;margin-top:14px;">Yarışma haftan sona erdi, bu dönem için teşekkürler — sonuçları Yarışma Geçmişi'nden takip edebilirsin.</p>
       ` : ''}
     </div>`;
   }
