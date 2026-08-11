@@ -736,7 +736,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
         <h1 style="font-size:44px;">FİNANS VE TEKNOLOJİ TOPLULUĞUNUN<br><span class="accent">MERKEZİ</span></h1>
         <p>FinTeClub; finansal okuryazarlık, piyasa deneyimi, yarışma kültürü ve etkinlik ekosistemini bir araya getiren premium bir finans-teknoloji topluluk yapısıdır.</p>
         <div class="pub-hero-actions">
-          <button class="btn" id="ecoDemoBtn" disabled title="Admin paneli artık ayrı bir dosyada">DEMOYA DÖN</button>
+          <button class="btn" id="ecoDemoBtn" title="OPLab alım-satım sitesine git">DEMOYA DÖN</button>
           <button class="btn btn-go" data-pubnav="pub-home">FinTeLig</button>
           <button class="btn btn-go" data-pubnav="pub-zirve">ZİRVE</button>
         </div>
@@ -1627,6 +1627,7 @@ function openOplab(){
 }
 document.getElementById('oplabBtn').addEventListener('click', ()=> openOplab());
 document.getElementById('ftcLogoLink').addEventListener('click', ()=> window.open(FINTECLUB_URL, '_blank', 'noopener'));
+document.getElementById('ecoDemoBtn').addEventListener('click', ()=> openOplab());
 
 /* ============ FINTECLUB EKOSİSTEM: navigation ============ */
 document.getElementById('ecoTopluluk').addEventListener('click', ()=>{
