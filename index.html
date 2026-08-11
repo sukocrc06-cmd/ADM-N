@@ -705,13 +705,13 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
     </div>
     <div class="pub-nav-links" id="pubNavLinksHub" style="display:none;">
       <button data-hubnav="nedir">NEDİR</button>
-      <button data-hubnav="demo" disabled title="Admin paneli artık ayrı bir dosyada">DEMO</button>
+      <button data-hubnav="demo" title="OPLab alım-satım sitesine git">DEMO</button>
       <button data-hubnav="fintelig">FİNTELİG</button>
       <button data-hubnav="zirve">ZİRVE</button>
       <button data-hubnav="iletisim">İLETİŞİM</button>
     </div>
     <div class="pub-nav-right">
-      <button class="btn demo-btn-pill" id="demoBtn" disabled title="Admin paneli artık ayrı bir dosyada">DEMO</button>
+      <button class="btn demo-btn-pill" id="demoBtn" title="OPLab alım-satım sitesine git">DEMO</button>
       <div class="pub-nav-right-pill">
         <button class="icon-toggle active" id="themeToggleDark" title="Koyu tema">🌙</button>
         <button class="icon-toggle" id="themeToggleLight" title="Açık tema">☀</button>
@@ -1663,8 +1663,10 @@ document.querySelectorAll('[data-hubnav]').forEach(btn=>{
       return;
     }
     if(target === 'oplab'){ openOplab(); return; }
+    if(target === 'demo'){ openOplab(); return; }
   });
 });
+document.getElementById('demoBtn').addEventListener('click', ()=> openOplab());
 
 // (Düzeltme) Tema seçimi önceden hiç kaydedilmiyordu — sayfa her
 // yenilendiğinde koyu temaya dönüyordu, kullanıcının açık tema tercihi
