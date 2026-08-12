@@ -1227,6 +1227,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
             </div>
           </div>
           <p class="section-desc" style="margin-top:-4px;" id="cohortDurum"></p>
+          <button type="button" class="btn" id="endCohortNowBtn" style="margin-bottom:14px;width:100%;border-color:var(--yellow);color:var(--yellow);">HAFTAYI ŞİMDİ BİTİR</button>
           <div class="field">
             <label>Yarışma Durumu</label>
             <div class="toggle-group" id="toggleYarisma">
@@ -1394,6 +1395,30 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           <h3 class="section-title">Seçili Portföy</h3>
           <div id="canliSeciliPortfoy"><div class="empty-state"><div class="icon">◔</div><span>Bir yarışmacı seçilmedi.</span></div></div>
           <button class="btn btn-blue btn-block" id="canliPortfoyuAcBtn" disabled style="margin-top:10px;">PORTFÖYÜ AÇ</button>
+        </div>
+      </div>
+
+      <!-- (11 Ağustos 2026 — Madde #132: admin canlı izleme/iptal köprüsü)
+           Soldaki liderlik tablosundan bir yarışmacı seçildiğinde (selectedCanliAppId),
+           OPLab'ın zaten Firestore'a gönderdiği (ama şimdiye kadar hiç
+           gösterilmeyen) açık pozisyon / bekleyen emir / son işlem detayını
+           burada gösteriyoruz — "anlık ne yapıyor" sorusunun cevabı. Pozisyon
+           ve emir satırlarındaki aksiyon butonları oplab_action_commands
+           kanalına yazar (bkz. cancelCompetitorOrder/closeCompetitorPosition). -->
+      <div class="card">
+        <h3 class="section-title">Yarışmacı Detayı — Anlık İşlemler</h3>
+        <p class="section-desc" id="canliDetayAltyazi">Soldaki liderlik tablosundan bir yarışmacı seçin.</p>
+        <div style="margin-bottom:18px;">
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text-dim);">AÇIK POZİSYONLAR</div>
+          <div id="canliDetayPozisyonlar"><div class="empty-state" style="padding:14px 0;"><span>—</span></div></div>
+        </div>
+        <div style="margin-bottom:18px;">
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text-dim);">BEKLEYEN EMİRLER (OCO)</div>
+          <div id="canliDetayEmirler"><div class="empty-state" style="padding:14px 0;"><span>—</span></div></div>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text-dim);">SON İŞLEMLER</div>
+          <div id="canliDetaySonIslemler"><div class="empty-state" style="padding:14px 0;"><span>—</span></div></div>
         </div>
       </div>
     </section>
@@ -1580,6 +1605,13 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
          olarak buraya kaydedilir (bkz. finishCompetition()). Bu sayfa
          SADECE geçmişi gösterir — üzerinden hiçbir şey değiştirilemez. -->
     <section id="page-gecmis" class="page">
+      <div class="card" style="margin-bottom:20px;">
+        <h3 class="section-title">Genel Sıralama (Tüm Haftalar)</h3>
+        <p class="section-desc">Tamamlanan tüm haftaların yarışmacılarını getirisine göre birleştirir — sekiz haftanın en iyilerini görüp doğrudan Zirve'ye yükseltebilirsiniz. Bir kişi zaten yükseltildiyse tekrar yükseltilemez.</p>
+        <div id="genelSiralamaList">
+          <div class="empty-state"><div class="icon">—</div><strong>Henüz veri yok</strong><span>Bir hafta tamamlandığında genel sıralama burada oluşacak.</span></div>
+        </div>
+      </div>
       <div class="card" style="margin-bottom:20px;">
         <h3 class="section-title">Haftalık Yarışmacı Geçmişi</h3>
         <p class="section-desc">Haftalık kota dolup süresi bitince o haftanın yarışmacıları otomatik olarak buraya, "geçmiş yarışmacı" statüsüyle arşivlenir — yerlerini bir sonraki haftanın onaylanan yarışmacıları alır.</p>
@@ -1918,6 +1950,12 @@ const state = {
   currentCohortId: 1,
   cohortStartedAt: null,
   cohortHistory: [],
+  // (11 Ağustos 2026 — Madde #131: Zirve'ye yükseltme) 8 haftanın tamamını
+  // birleştiren Genel Sıralama'dan bir yarışmacı "Zirve'ye Yükselt" ile
+  // Zirve Kayıt Yönetimi'ne aktarıldığında, aynı kişinin yanlışlıkla ikinci
+  // kez yükseltilip birden fazla Zirve kaydı açmasını önlemek için başvuru
+  // id'sine göre işaretlenir: { [applicationId]: zirveRegistrationId }.
+  zirvePromotedAppIds: {},
   // (Yarışma süresi + otomatik bitiş + geçmiş arşivi) YARIŞMAYI BAŞLAT'a
   // basıldığında competitionEndsAt = o an + [Yarışma Adayları'nda girilen
   // Başlangıç/Bitiş Tarihi farkı, girilmemişse 2 saat] olarak ayarlanır
@@ -1999,6 +2037,7 @@ let fsSharedDoc = null;
 let fsActivityDoc = null;
 let fsPortfolioDoc = null;
 let fsBalanceCommandsDoc = null;
+let fsActionCommandsDoc = null;
 let fsUserPortfoliosDoc = null;
 if(FIREBASE_ENABLED){
   try{
@@ -2018,6 +2057,13 @@ if(FIREBASE_ENABLED){
     // OptiPulseLab tarafı (finteclubBridge.js) bunu gerçek zamanlı dinleyip
     // uygular ve appliedAt ile geri onaylar (bkz. setCompetitorBalance()).
     fsBalanceCommandsDoc = firebase.firestore().collection('finteclub').doc('oplab_balance_commands');
+    // (11 Ağustos 2026 — Madde #132: admin canlı izleme/iptal köprüsü) fsBalanceCommandsDoc'tan
+    // BİLEREK AYRI bir belge — bir yarışmacının bekleyen OCO emrini iptal
+    // etmek veya açık pozisyonunu kapatmak için: {commands:{<id>:{type:
+    // 'cancelOco'|'closePosition', orderId?, symbol?, market?, requestedAt}}}.
+    // OptiPulseLab tarafı (finteclubBridge.js) bunu gerçek zamanlı dinler
+    // (bkz. listenForActionCommands) ve appliedAt ile geri onaylar.
+    fsActionCommandsDoc = firebase.firestore().collection('finteclub').doc('oplab_action_commands');
     // (10 Ağustos 2026 — "Şüpheli İşlem Tespiti" sayfası) oplab_live_portfolio
     // sadece SON 10 (karma normal+VİOP) işlemi tutuyor ve yarışmacı sekmesi
     // kapalıysa güncellenmiyor — güvenilir bir anomali taraması için TAM
@@ -2187,7 +2233,8 @@ function saveShared(){
     cohortDurationDays: state.cohortDurationDays,
     currentCohortId: state.currentCohortId,
     cohortStartedAt: state.cohortStartedAt,
-    cohortHistory: state.cohortHistory
+    cohortHistory: state.cohortHistory,
+    zirvePromotedAppIds: state.zirvePromotedAppIds
   };
   // (Düzeltme) index.html ve admin.html'in `state` şemaları birebir aynı
   // değil — ör. `balance`/`viewMode`/`resultsPublished` yalnızca admin.html'de
@@ -2299,6 +2346,7 @@ function hydrateFromShared(){
   state.currentCohortId = shared.currentCohortId ?? state.currentCohortId;
   state.cohortStartedAt = shared.cohortStartedAt ?? state.cohortStartedAt;
   state.cohortHistory = shared.cohortHistory ?? state.cohortHistory;
+  state.zirvePromotedAppIds = shared.zirvePromotedAppIds ?? state.zirvePromotedAppIds;
   if(shared.appIdCounter) appIdCounter = shared.appIdCounter;
   if(shared.zirveIdCounter) zirveIdCounter = shared.zirveIdCounter;
 }
@@ -2312,6 +2360,7 @@ function onSharedDataUpdated(){
   syncYayinUI();
   renderActivityLog();
   renderCohortHistory();
+  renderGenelSiralama();
 }
 window.addEventListener('storage', (e)=>{
   if(e.key === SHARED_KEY) onSharedDataUpdated();
@@ -2539,6 +2588,65 @@ function resetCompetitorPortfolio(appId){
     .catch(e=>{ console.warn('Sıfırlama komutu yazılamadı:', e); showToast('Sıfırlama gönderilemedi — bağlantı sorunu olabilir.', 'error'); });
 }
 
+// (11 Ağustos 2026 — Madde #132: admin canlı izleme/iptal köprüsü)
+// setCompetitorBalance/resetCompetitorPortfolio İLE AYNI desen (ayrı bir
+// komut belgesi — fsActionCommandsDoc — üzerinden), ama BİLEREK ayrı bir
+// belgeye yazıyor: bkz. fsActionCommandsDoc tanımındaki yorum — aynı komut
+// nesnesini paylaşmak, eski bir bakiye komutunun stale alanlarının yanlışlıkla
+// tekrar uygulanmasına yol açabilirdi. Optimistik güncelleme burada YOK —
+// pozisyon/emir listesi zaten OPLab'dan gelen bir sonraki anlık görüntüyle
+// (pushPortfolioSnapshot, komut uygulanır uygulanmaz tetiklenir) kendiliğinden
+// güncellenecek; yanlış bir optimistik tahminle admin'i yanıltmamak için
+// beklemeyi tercih ettim.
+function cancelCompetitorOrder(appId, orderId, market){
+  if(!fsActionCommandsDoc){
+    showToast('Emir iptali için Firebase bağlantısı gerekli — şu an yerel modda çalışıyorsunuz.', 'error');
+    return;
+  }
+  const c = oplabPortfolioData.find(x => x.id === appId);
+  const label = c ? (c.name || 'İsimsiz') : appId;
+  const ok = confirm(`"${label}" adlı yarışmacının bekleyen emri iptal edilsin mi?\n\nYarışmacı o an sitedeyse ANINDA uygulanır ve kendisine bilgilendirme gösterilir.`);
+  if(!ok) return;
+  const payload = { commands: {} };
+  payload.commands[String(appId)] = {
+    type: 'cancelOco',
+    orderId: orderId,
+    market: market || 'NORMAL',
+    requestedAt: new Date().toISOString(),
+    requestedByAdmin: true
+  };
+  fsActionCommandsDoc.set(payload, {merge:true})
+    .then(()=>{
+      showToast('İptal komutu gönderildi.', 'success');
+      addActivity(`${(c && c.name) || ('#'+appId)} için bir bekleyen emir yönetici tarafından İPTAL EDİLDİ.`);
+    })
+    .catch(e=>{ console.warn('İptal komutu yazılamadı:', e); showToast('İptal gönderilemedi — bağlantı sorunu olabilir.', 'error'); });
+}
+function closeCompetitorPosition(appId, symbol, market){
+  if(!fsActionCommandsDoc){
+    showToast('Pozisyon kapatma için Firebase bağlantısı gerekli — şu an yerel modda çalışıyorsunuz.', 'error');
+    return;
+  }
+  const c = oplabPortfolioData.find(x => x.id === appId);
+  const label = c ? (c.name || 'İsimsiz') : appId;
+  const ok = confirm(`"${label}" adlı yarışmacının ${symbol} pozisyonu güncel piyasa fiyatından kapatılsın mı?\n\nYarışmacı o an sitedeyse ANINDA uygulanır ve kendisine bilgilendirme gösterilir. Bu, gerçek bir kapanış işlemi olarak işlem geçmişine yazılır.`);
+  if(!ok) return;
+  const payload = { commands: {} };
+  payload.commands[String(appId)] = {
+    type: 'closePosition',
+    symbol: symbol,
+    market: market || 'NORMAL',
+    requestedAt: new Date().toISOString(),
+    requestedByAdmin: true
+  };
+  fsActionCommandsDoc.set(payload, {merge:true})
+    .then(()=>{
+      showToast('Pozisyon kapatma komutu gönderildi.', 'success');
+      addActivity(`${(c && c.name) || ('#'+appId)} — ${symbol} pozisyonu yönetici tarafından KAPATILDI.`);
+    })
+    .catch(e=>{ console.warn('Kapatma komutu yazılamadı:', e); showToast('Kapatma gönderilemedi — bağlantı sorunu olabilir.', 'error'); });
+}
+
 /* ============ MOBİL YAN MENÜ (off-canvas sidebar) ============ */
 const adminSidebar = document.getElementById('adminSidebar');
 const sidebarBackdrop = document.getElementById('sidebarBackdrop');
@@ -2736,7 +2844,7 @@ function navigateTo(pageId){
   if(pageId === 'page-portfoy') renderKullaniciPortfoyleri();
   if(pageId === 'page-anomali') renderAnomaliTespiti();
   if(pageId === 'page-sonuclar') renderSonuclar();
-  if(pageId === 'page-gecmis'){ renderYarismaGecmisi(); renderCohortHistory(); }
+  if(pageId === 'page-gecmis'){ renderYarismaGecmisi(); renderCohortHistory(); renderGenelSiralama(); }
 }
 
 document.querySelectorAll('.nav-item').forEach(btn=>{
@@ -2835,6 +2943,14 @@ function syncYarismaSettingsUI(){
       cohortDurumEl.textContent = `Hafta ${cohortId} başladı (${fmtDate(state.cohortStartedAt.slice(0,10))}) — ${formatDurationHuman(remainMs)} sonra otomatik arşivlenecek.`;
     }
   }
+  // (11 Ağustos 2026 — Madde #131: manuel hafta bitirme) Otomatik
+  // cohortDurationDays zamanlayıcısı takvimde net bir gün (örn. "5-9 Ekim")
+  // hedeflemez — sadece "ilk onaydan N gün sonra" çalışır. Admin'in belirli
+  // bir takvim gününde haftayı elle bitirebilmesi için buton eklendi; bu
+  // haftaya henüz kimse onaylanmadıysa (cohortStartedAt yok) bitirilecek
+  // bir şey olmadığından buton devre dışı kalır.
+  const endCohortBtn = document.getElementById('endCohortNowBtn');
+  if(endCohortBtn) endCohortBtn.disabled = !state.cohortStartedAt;
 }
 
 document.getElementById('saveSettingsBtn').addEventListener('click', function(){
@@ -4216,6 +4332,7 @@ function updateCanliSeciliPortfoy(){
   if(!c){
     el.innerHTML = `<div class="empty-state"><div class="icon">◔</div><span>Bir yarışmacı seçilmedi.</span></div>`;
     btn.disabled = true;
+    renderCanliDetay();
     return;
   }
   const pct = pctReturn(c.equity||0);
@@ -4226,12 +4343,89 @@ function updateCanliSeciliPortfoy(){
     </div>
     <div style="color:${pct>=0?'var(--green)':'#fca5a5'};font-weight:700;font-size:14px;">${pct>=0?'+':''}${pct.toFixed(2)}%</div>`;
   btn.disabled = false;
+  renderCanliDetay();
 }
 document.getElementById('canliPortfoyuAcBtn').addEventListener('click', ()=>{
   if(!selectedCanliAppId) return;
   selectedPortfoyAppId = selectedCanliAppId;
   navigateTo('page-portfoy');
 });
+
+// (11 Ağustos 2026 — Madde #132: admin canlı izleme/iptal köprüsü) OPLab'ın
+// zaten gönderdiği ama şimdiye kadar HİÇ gösterilmeyen açık pozisyon/bekleyen
+// emir/son işlem detayını, seçili yarışmacı için burada tablo olarak
+// gösteriyoruz — "yarışmacılar anlık ne yapıyor" ihtiyacının cevabı.
+function fmtPx(n){ return (typeof n === 'number' ? n : 0).toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function renderCanliDetay(){
+  const altyaziEl = document.getElementById('canliDetayAltyazi');
+  const posEl = document.getElementById('canliDetayPozisyonlar');
+  const emirEl = document.getElementById('canliDetayEmirler');
+  const islemEl = document.getElementById('canliDetaySonIslemler');
+  if(!posEl || !emirEl || !islemEl) return;
+  const c = oplabPortfolioData.find(x=>x.id===selectedCanliAppId);
+  if(!c){
+    if(altyaziEl) altyaziEl.textContent = 'Soldaki liderlik tablosundan bir yarışmacı seçin.';
+    const empty = `<div class="empty-state" style="padding:14px 0;"><span>—</span></div>`;
+    posEl.innerHTML = empty; emirEl.innerHTML = empty; islemEl.innerHTML = empty;
+    return;
+  }
+  if(altyaziEl) altyaziEl.textContent = `${c.name || 'İsimsiz'} — ${timeAgoTr(c.updatedAt)} güncellendi.`;
+
+  const positions = c.positions || [];
+  posEl.innerHTML = !positions.length
+    ? `<div class="empty-state" style="padding:14px 0;"><span>Açık pozisyon yok.</span></div>`
+    : `<table style="width:100%;font-size:12.5px;border-collapse:collapse;">
+        <thead><tr style="color:var(--text-dim);text-align:left;"><th style="padding:4px 6px;">Sembol</th><th style="padding:4px 6px;">Piyasa</th><th style="padding:4px 6px;">Yön</th><th style="padding:4px 6px;">Adet</th><th style="padding:4px 6px;">Ortalama</th><th style="padding:4px 6px;">Güncel</th><th style="padding:4px 6px;">K/Z</th><th style="padding:4px 6px;"></th></tr></thead>
+        <tbody>${positions.map(p => `<tr>
+          <td style="padding:6px 6px;font-weight:600;">${escapeHtml(p.symbol)}</td>
+          <td style="padding:6px 6px;color:var(--text-dim);">${p.market==='VIOP'?'VİOP':'Spot'}</td>
+          <td style="padding:6px 6px;">${p.side==='LONG'?'AL':'AÇIĞA SAT'}</td>
+          <td style="padding:6px 6px;">${p.qty}</td>
+          <td style="padding:6px 6px;">₺${fmtPx(p.avgPrice)}</td>
+          <td style="padding:6px 6px;">₺${fmtPx(p.currentPrice)}</td>
+          <td style="padding:6px 6px;color:${(p.pnl||0)>=0?'var(--green)':'#fca5a5'};">${(p.pnl||0)>=0?'+':''}${fmtTRY(p.pnl||0)}</td>
+          <td style="padding:6px 6px;text-align:right;"><button type="button" class="btn btn-red" style="padding:6px 10px;font-size:11px;" data-close-symbol="${escapeAttr(p.symbol)}" data-close-market="${escapeAttr(p.market)}">POZİSYONU KAPAT</button></td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+
+  const orders = c.pendingOrders || [];
+  emirEl.innerHTML = !orders.length
+    ? `<div class="empty-state" style="padding:14px 0;"><span>Bekleyen emir yok.</span></div>`
+    : `<table style="width:100%;font-size:12.5px;border-collapse:collapse;">
+        <thead><tr style="color:var(--text-dim);text-align:left;"><th style="padding:4px 6px;">Sembol</th><th style="padding:4px 6px;">Piyasa</th><th style="padding:4px 6px;">Adet</th><th style="padding:4px 6px;">Üst Tetik</th><th style="padding:4px 6px;">Alt Tetik</th><th style="padding:4px 6px;"></th></tr></thead>
+        <tbody>${orders.map(o => `<tr>
+          <td style="padding:6px 6px;font-weight:600;">${escapeHtml(o.symbol)}</td>
+          <td style="padding:6px 6px;color:var(--text-dim);">${o.market==='VIOP'?'VİOP':'Spot'}</td>
+          <td style="padding:6px 6px;">${o.qty}</td>
+          <td style="padding:6px 6px;">${(o.upper!==null && o.upper!==undefined) ? '₺'+fmtPx(o.upper) : '—'}</td>
+          <td style="padding:6px 6px;">${(o.lower!==null && o.lower!==undefined) ? '₺'+fmtPx(o.lower) : '—'}</td>
+          <td style="padding:6px 6px;text-align:right;">${o.id ? `<button type="button" class="btn" style="padding:6px 10px;font-size:11px;" data-cancel-order="${escapeAttr(o.id)}" data-cancel-market="${escapeAttr(o.market)}">İPTAL ET</button>` : `<span style="color:var(--text-dimmer);font-size:11px;">eski veri — yenilenince iptal edilebilir</span>`}</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+
+  const trades = c.recentTrades || [];
+  islemEl.innerHTML = !trades.length
+    ? `<div class="empty-state" style="padding:14px 0;"><span>Henüz işlem yok.</span></div>`
+    : `<table style="width:100%;font-size:12.5px;border-collapse:collapse;">
+        <thead><tr style="color:var(--text-dim);text-align:left;"><th style="padding:4px 6px;">Zaman</th><th style="padding:4px 6px;">Sembol</th><th style="padding:4px 6px;">Piyasa</th><th style="padding:4px 6px;">Yön</th><th style="padding:4px 6px;">Adet</th><th style="padding:4px 6px;">Fiyat</th><th style="padding:4px 6px;">K/Z</th></tr></thead>
+        <tbody>${trades.map(t => `<tr>
+          <td style="padding:6px 6px;color:var(--text-dim);">${t.ts ? timeAgoTr(new Date(t.ts).toISOString()) : '—'}</td>
+          <td style="padding:6px 6px;font-weight:600;">${escapeHtml(t.symbol)}</td>
+          <td style="padding:6px 6px;color:var(--text-dim);">${t.market==='VIOP'?'VİOP':'Spot'}</td>
+          <td style="padding:6px 6px;">${escapeHtml(t.side)||'—'}</td>
+          <td style="padding:6px 6px;">${t.qty}</td>
+          <td style="padding:6px 6px;">₺${fmtPx(t.price)}</td>
+          <td style="padding:6px 6px;color:${(t.pnl||0)>=0?'var(--green)':'#fca5a5'};">${(t.pnl!==null && t.pnl!==undefined) ? ((t.pnl>=0?'+':'')+fmtTRY(t.pnl)) : '—'}</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+
+  posEl.querySelectorAll('[data-close-symbol]').forEach(btn=>{
+    btn.addEventListener('click', ()=> closeCompetitorPosition(c.id, btn.dataset.closeSymbol, btn.dataset.closeMarket));
+  });
+  emirEl.querySelectorAll('[data-cancel-order]').forEach(btn=>{
+    btn.addEventListener('click', ()=> cancelCompetitorOrder(c.id, btn.dataset.cancelOrder, btn.dataset.cancelMarket));
+  });
+}
 
 function populatePortfoySelect(){
   const select = document.getElementById('portfoySelect');
@@ -4688,11 +4882,120 @@ function rotateCohort(reason){
   renderBasvuruList();
   renderBasvuruDetail();
   renderCohortHistory();
+  renderGenelSiralama();
   syncYarismaSettingsUI();
   renderKullaniciVeritabani();
   renderDashboardDynamic();
   addActivity(`Hafta ${cohortId} sona erdi (${reason}) — ${affected.length} yarışmacı geçmiş yarışmacı statüsüne alındı, Hafta ${cohortId+1} için kota açıldı.`);
   showToast(`Hafta ${cohortId} sona erdi — ${affected.length} yarışmacı arşivlendi, yeni hafta başladı.`, 'success');
+  saveShared();
+}
+
+// (11 Ağustos 2026 — Madde #131: manuel hafta bitirme) Otomatik zamanlayıcı
+// sadece "ilk onaydan N gün sonra" mantığıyla çalışır; takvimde net bir gün
+// hedeflemek isteyen admin için (örn. ilk hafta 5-9 Ekim gibi kısa/özel bir
+// pencere olacaksa) haftayı elle, süresi dolmadan bitirebilme imkânı.
+document.getElementById('endCohortNowBtn')?.addEventListener('click', function(){
+  if(!state.cohortStartedAt) return;
+  const cohortId = state.currentCohortId || 1;
+  const activeCount = state.applications.filter(a => a.status==='onayli' && !a.pastCompetitor && a.cohortId===cohortId).length;
+  const ok = confirm(`Hafta ${cohortId} şimdi bitirilsin mi?\n\nBu haftanın ${activeCount} onaylı yarışmacısı hemen "geçmiş yarışmacı" statüsüne alınır, performansları Yarışma Geçmişi'ne kaydedilir ve Hafta ${cohortId+1} için kota anında açılır. Bu işlem geri alınamaz.`);
+  if(!ok) return;
+  rotateCohort('admin tarafından elle bitirildi');
+});
+
+// (11 Ağustos 2026 — Madde #131: Genel Sıralama + Zirve'ye Yükseltme)
+// state.cohortHistory zaten her haftayı KENDİ İÇİNDE getiriye göre sıralı
+// tutuyor (bkz. rotateCohort). Bu fonksiyon tüm haftaların yarışmacılarını
+// TEK bir diziye düzleştirip getiriye (pct) göre yeniden sıralar — "8
+// haftanın en iyisi kim" sorusunun cevabı budur.
+function getGenelSiralama(){
+  const rows = [];
+  (state.cohortHistory || []).forEach(rec => {
+    (rec.competitors || []).forEach(c => {
+      rows.push(Object.assign({}, c, { weekLabel: rec.weekLabel, cohortId: rec.cohortId }));
+    });
+  });
+  rows.sort((a,b) => (b.pct===null||b.pct===undefined ? -Infinity : b.pct) - (a.pct===null||a.pct===undefined ? -Infinity : a.pct));
+  return rows;
+}
+
+function renderGenelSiralama(){
+  const list = document.getElementById('genelSiralamaList');
+  if(!list) return;
+  const rows = getGenelSiralama();
+  if(!rows.length){
+    list.innerHTML = `<div class="empty-state"><div class="icon">—</div><strong>Henüz veri yok</strong><span>Bir hafta tamamlandığında genel sıralama burada oluşacak.</span></div>`;
+    return;
+  }
+  list.innerHTML = `<table style="width:100%;font-size:12.5px;border-collapse:collapse;">
+    <thead><tr style="color:var(--text-dim);text-align:left;"><th style="padding:4px 6px;">#</th><th style="padding:4px 6px;">Ad</th><th style="padding:4px 6px;">Hafta</th><th style="padding:4px 6px;">Özkaynak</th><th style="padding:4px 6px;">Getiri</th><th style="padding:4px 6px;"></th></tr></thead>
+    <tbody>${rows.map((c,i) => {
+      const promoted = !!(state.zirvePromotedAppIds && state.zirvePromotedAppIds[c.id]);
+      return `<tr>
+        <td style="padding:6px 6px;">${i+1}</td>
+        <td style="padding:6px 6px;">${escapeHtml(c.name)}</td>
+        <td style="padding:6px 6px;color:var(--text-dim);">${escapeHtml(c.weekLabel)}</td>
+        <td style="padding:6px 6px;">${c.equity!==null && c.equity!==undefined ? fmtTRY(c.equity) : '—'}</td>
+        <td style="padding:6px 6px;color:${(c.pct||0)>=0?'var(--green)':'#fca5a5'};">${c.pct!==null && c.pct!==undefined ? ((c.pct>=0?'+':'')+c.pct.toFixed(2)+'%') : '—'}</td>
+        <td style="padding:6px 6px;text-align:right;">${promoted
+          ? `<span class="status-pill green">ZİRVE'DE ✓</span>`
+          : `<button type="button" class="btn" style="padding:6px 10px;font-size:11.5px;" data-promote-id="${c.id}">ZİRVE'YE YÜKSELT</button>`}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+  list.querySelectorAll('[data-promote-id]').forEach(btn=>{
+    btn.addEventListener('click', ()=> promoteToZirve(Number(btn.dataset.promoteId)));
+  });
+}
+
+// FinteLig'deki bir yarışmacıyı Zirve Kayıt Yönetimi'ne aktarır. Kullanıcı
+// tercihi: Zirve'nin KENDİ kontenjanına dahil olsun — yani approveZirveBtn
+// handler'ındaki AYNI kontenjan/bekleme-listesi kuralı burada da uygulanır
+// (kontenjan doluysa yeni kayıt 'listede'ye düşer, admin isterse Zirve
+// Kayıt Yönetimi'nden elle onaylayabilir).
+function promoteToZirve(appId){
+  const app = state.applications.find(a => a.id === appId);
+  if(!app){ showToast('Yarışmacı bulunamadı.', 'error'); return; }
+  if(state.zirvePromotedAppIds && state.zirvePromotedAppIds[appId]){
+    showToast(app.name+' zaten Zirve kaydına yükseltilmiş.', 'warn');
+    return;
+  }
+  const ok = confirm(`${app.name}, FinteLig performansıyla Zirve Kayıt Yönetimi'ne yükseltilsin mi?\n\nOtomatik bir Zirve kaydı açılır ve Zirve'nin kendi kontenjanına dahil olur (kontenjan doluysa bekleme listesine alınır).`);
+  if(!ok) return;
+  const newId = Math.max(zirveIdCounter, 0, ...state.zirveRegistrations.map(z=>z.id||0)) + 1;
+  zirveIdCounter = newId + 1;
+  const kontenjan = state.zirveKontenjan || 0;
+  const onayliSayisi = state.zirveRegistrations.filter(x => x.status==='onayli').length;
+  const willWaitlist = kontenjan > 0 && onayliSayisi >= kontenjan;
+  const rec = {
+    id: newId,
+    club: `${app.name} — FinteLig Finalisti`,
+    org: app.org || '',
+    contact: app.name || '',
+    contactEmail: app.email || '',
+    contactPhone: '',
+    area: 'FinteLig Finalisti',
+    reason: 'FinteLig haftalık yarışma performansıyla Zirve\'ye yükseltildi.',
+    fileName: 'Dosya seçilmedi',
+    fileUrl: null,
+    students: [{ name: app.name || '', phone: '', email: app.email || '' }],
+    status: willWaitlist ? 'listede' : 'onayli',
+    date: new Date().toLocaleDateString('tr-TR'),
+    approvedDate: willWaitlist ? null : new Date().toLocaleDateString('tr-TR'),
+    checkInCode: willWaitlist ? null : generateCheckInCode(),
+    checkedIn: false,
+    checkedInAt: null,
+    fromFinteligAppId: appId
+  };
+  state.zirveRegistrations = [rec, ...state.zirveRegistrations];
+  if(!state.zirvePromotedAppIds) state.zirvePromotedAppIds = {};
+  state.zirvePromotedAppIds[appId] = newId;
+  showToast(willWaitlist ? `${app.name} Zirve'ye eklendi — kontenjan dolu, bekleme listesinde.` : `${app.name} Zirve'ye yükseltildi ve onaylandı.`, willWaitlist ? 'warn' : 'success');
+  addActivity(`${app.name} FinteLig performansıyla Zirve'ye yükseltildi${willWaitlist ? ' (kontenjan dolu — bekleme listesinde)' : ' (onaylı)'}.`);
+  renderGenelSiralama();
+  renderZirveList();
+  renderDashboardDynamic();
   saveShared();
 }
 
@@ -5233,6 +5536,7 @@ renderSonuclar();
 renderActivityLog();
 renderYarismaGecmisi();
 renderCohortHistory();
+renderGenelSiralama();
 showScreen('login');
 </script>
 
