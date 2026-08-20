@@ -2213,7 +2213,7 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
       sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
         to_email: email, to_name: name,
         subject_line: 'FinteLig Başvurun Alındı',
-        message_body: `Merhaba ${name}, FinteLig yarışması başvurun alındı. E-postanı doğrulamak için: ${verifyUrl} Admin, yüklediğin öğrenci belgesini inceledikten sonra başvurunu onaylayacak; onaydan sonra belirlediğin e-posta ve şifreyle OPLab (alım-satım platformu) üzerinde FinteLig Yarışmacısı olarak giriş yapabileceksin.`
+        message_body: `Merhaba ${name}, FinteLig yarışması başvurun alındı. E-postanı doğrulamak için lütfen şu bağlantıya tıkla: <a href="${verifyUrl}" target="_blank" rel="noopener" style="color:#facc15;text-decoration:underline;font-weight:600;">E-postamı Doğrula</a><br>(Bağlantı çalışmazsa şu adresi tarayıcına kopyala: ${verifyUrl})<br><br>Admin, yüklediğin öğrenci belgesini inceledikten sonra başvurunu onaylayacak; onaydan sonra belirlediğin e-posta ve şifreyle OPLab (alım-satım platformu) üzerinde FinteLig Yarışmacısı olarak giriş yapabileceksin.`
       });
       sendNotificationEmail(EMAILJS_TEMPLATE_ADMIN, {
         to_email: ADMIN_NOTIFY_EMAIL, to_name: 'Admin',
@@ -2459,7 +2459,7 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
     sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
       to_email: app.email, to_name: app.name,
       subject_line: 'FinteLig — E-posta Doğrulama Bağlantın',
-      message_body: `Merhaba ${app.name}, e-postanı doğrulamak için: ${verifyUrl}`
+      message_body: `Merhaba ${app.name}, e-postanı doğrulamak için lütfen şu bağlantıya tıkla: <a href="${verifyUrl}" target="_blank" rel="noopener" style="color:#facc15;text-decoration:underline;font-weight:600;">E-postamı Doğrula</a><br>(Bağlantı çalışmazsa şu adresi tarayıcına kopyala: ${verifyUrl})`
     }).then(function(ok){
       showToast(ok ? 'Doğrulama bağlantısı tekrar gönderildi, gelen kutunu (ve spam klasörünü) kontrol et.' : 'Gönderilemedi, tekrar dener misin?', ok ? 'success' : 'error');
     }).finally(function(){
