@@ -910,7 +910,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           <form id="pubBasvuruForm">
             <div class="field-row">
               <div class="field"><label>Ad Soyad</label><input type="text" id="pbName" placeholder="Adınızı ve soyadınızı yazın"></div>
-              <div class="field"><label>Üniversite E-postası (.edu.tr)</label><input type="email" id="pbEmail" placeholder="ornek@ogrenci.universite.edu.tr" autocomplete="username"></div>
+              <div class="field"><label>E-posta</label><input type="email" id="pbEmail" placeholder="mail@ornek.com" autocomplete="username"></div>
             </div>
             <div class="field-row">
               <div class="field"><label>Şifre Belirle</label><input type="password" id="pbPassword" placeholder="En az 6 karakter" autocomplete="new-password"></div>
@@ -920,7 +920,16 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
               <div class="field"><label>Deneyim Seviyesi</label><input type="text" id="pbLevel" placeholder="Başlangıç / Orta / İleri"></div>
               <div class="field"><label>Öğrenci Numarası</label><input type="text" id="pbStudentNumber" placeholder="Öğrenci numaranızı yazın" autocomplete="off"></div>
             </div>
-            <p style="color:var(--text-dimmer);font-size:11.5px;margin:-4px 0 14px;line-height:1.6;">Bu şifreyle, başvurun onaylandıktan sonra OPLab (alım-satım platformu) üzerinde FinteLig Yarışmacısı olarak giriş yapacaksın. Ayrıca üniversite e-postana bir doğrulama bağlantısı göndereceğiz — öğrenci numaranın gerçekten sana ait olduğunu bu şekilde teyit ediyoruz.</p>
+            <p style="color:var(--text-dimmer);font-size:11.5px;margin:-4px 0 14px;line-height:1.6;">Bu şifreyle, başvurun onaylandıktan sonra OPLab (alım-satım platformu) üzerinde FinteLig Yarışmacısı olarak giriş yapacaksın. Ayrıca e-postana bir doğrulama bağlantısı göndereceğiz.</p>
+            <div class="field">
+              <label>Öğrenci Belgesi / Öğrenci Kimlik Kartı Fotoğrafı</label>
+              <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+                <button type="button" class="btn btn-blue" id="pbDocBtn" style="padding:10px 18px;font-size:12.5px;">DOSYA SEÇ</button>
+                <span id="pbDocFileName" style="color:var(--text-dim);font-size:12.5px;">Dosya seçilmedi</span>
+                <input type="file" id="pbDocFileInput" class="hidden" accept="image/*,.pdf">
+              </div>
+              <p style="color:var(--text-dimmer);font-size:11.5px;margin-top:6px;line-height:1.6;">Öğrenci numaranın gerçekten sana ait olduğunu teyit etmek için zorunludur — e-Devlet'ten alınan öğrenci belgesi ya da öğrenci kimlik kartının net bir fotoğrafı yeterli. Admin onaylamadan önce bunu inceleyecek.</p>
+            </div>
             <div class="field"><label>Kısa Motivasyon</label><textarea id="pbMotivation" rows="3" placeholder="Fintelig yarışmasına neden katılmak istediğinizi kısaca yazın."></textarea></div>
             <div class="g-recaptcha-slot" data-form-id="basvuru" style="margin:14px 0;"></div>
             <button type="submit" class="btn btn-blue" id="pbSubmitBtn">KAYIT OL</button>
@@ -950,7 +959,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           <button type="button" class="btn" id="pbRefreshVerifyBtn" style="width:100%;margin-bottom:20px;display:none;">DOĞRULAMA DURUMUNU YENİLE</button>
           <div class="card" style="background:var(--card-bg-2);padding:16px 18px;">
             <ol style="padding-left:18px;font-size:13px;color:var(--text-dim);line-height:2;">
-              <li>Başvuru gönder</li><li>Üniversite e-postanı doğrula</li><li>Admin onayı bekle</li><li>Yarışma paneline eriş</li>
+              <li>Başvuru gönder</li><li>E-postanı doğrula</li><li>Admin, öğrenci belgeni inceleyip onaylasın</li><li>Yarışma paneline eriş</li>
             </ol>
           </div>
         </div>
@@ -1209,7 +1218,7 @@ if(AUTH_ENABLED){
   try{ fbAuth = firebase.auth(); }catch(e){ console.warn('Firebase Auth başlatılamadı.', e); }
 }
 
-// (Öğrenci numarası doğrulama — üniversite e-postası) Bir başvurunun
+// (Öğrenci numarası doğrulama — e-posta doğrulama) Bir başvurunun
 // e-postası gerçekten o kişiye/kutuya ait mi diye kontrol etmenin güvenli
 // yolu, Firebase Authentication'ın kendi sendEmailVerification()/emailVerified
 // alanını kullanmak — kod istemci JS'inde üretilip saklanmadığı için
@@ -1970,6 +1979,11 @@ function updatePublicZirveAvailability(){
   document.querySelectorAll('#pubZirveForm input, #pubZirveForm textarea').forEach(el => el.disabled = !open);
 }
 
+document.getElementById('pbDocBtn').addEventListener('click', ()=>document.getElementById('pbDocFileInput').click());
+document.getElementById('pbDocFileInput').addEventListener('change', function(){
+  document.getElementById('pbDocFileName').textContent = this.files[0] ? this.files[0].name : 'Dosya seçilmedi';
+});
+
 /* ============ PUBLIC: BAŞVURU FORMU ============ */
 document.getElementById('pubBasvuruForm').addEventListener('submit', function(e){
   e.preventDefault();
@@ -1983,15 +1997,16 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
   const studentNumber = document.getElementById('pbStudentNumber').value.trim();
   const motivation = document.getElementById('pbMotivation').value.trim();
   if(!name || !email || !org || !studentNumber){ showToast('Lütfen zorunlu alanları (ad soyad, e-posta, kurum, öğrenci numarası) doldurun.', 'error'); return; }
-  // (Öğrenci numarası doğrulama — üniversite e-postası zorunluluğu) Öğrenci
-  // numarasının gerçek bir öğrenciye ait olduğunu kanıtlamanın pratik yolu:
-  // giriş e-postasının üniversitenin resmi (.edu.tr) e-postası olmasını
-  // zorunlu kılmak ve aşağıda Firebase Authentication'ın kendi
-  // sendEmailVerification() mekanizmasıyla o kutuya gerçekten erişimi
-  // olduğunu doğrulamak. Rastgele/sahte bir öğrenci numarası + kişisel bir
-  // e-posta ile başvuru artık mümkün değil.
-  if(!/^[^\s@]+@[^\s@]+\.edu\.tr$/i.test(email)){
-    showToast('Lütfen üniversitenin sana verdiği resmi (.edu.tr uzantılı) e-posta adresini kullan — kişisel e-posta (gmail, hotmail vb.) kabul edilmiyor.', 'error');
+  // (Öğrenci numarası doğrulama — belge/kimlik fotoğrafı zorunluluğu) Her
+  // öğrencinin .edu.tr uzantılı bir e-postası olmayabildiğinden (bkz. kod
+  // yorumu geçmişi — önce e-posta domain kontrolü denenmiş, gerçek
+  // kullanıcılardan geri bildirim üzerine kaldırılmıştır), öğrenci
+  // numarasının gerçekliği artık öğrenci belgesi/kimlik kartı fotoğrafı
+  // yüklemesiyle ve admin'in onay sırasında bu görseli öğrenci numarasıyla
+  // karşılaştırmasıyla teyit ediliyor (aşağıdaki dosya yükleme alanı).
+  const studentDocFile = (document.getElementById('pbDocFileInput').files || [])[0] || null;
+  if(!studentDocFile){
+    showToast('Lütfen öğrenci numaranı teyit etmek için öğrenci belgeni veya öğrenci kimlik kartı fotoğrafını yükle.', 'error');
     return;
   }
   if(!password || password.length < 6){ showToast('Lütfen en az 6 karakterli bir şifre belirle. Bu şifreyle OPLab\'a giriş yapacaksın.', 'error'); return; }
@@ -2016,7 +2031,7 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
 
   function finishApplication(){
     hideReapplyNotice();
-    // (Üniversite e-postası doğrulama) AUTH_ENABLED değilse (Firebase Auth
+    // (E-posta doğrulama) AUTH_ENABLED değilse (Firebase Auth
     // yapılandırılmamış, tarayıcı-içi/test modu) gerçek doğrulama e-postası
     // hiç gönderilemez — bu durumda emailVerified'i baştan true bırakıyoruz
     // ki admin panelinde gereksiz/karşılanamaz bir "doğrulanmadı" uyarısı
@@ -2039,18 +2054,39 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
     // henüz state.applications'a eklenmemiş bir başvuruyla aynı e-postanın
     // yerel yinelenen-başvuru kontrolünü atlatabilirdi).
     return reserveNextId('appIdCounter', () => appIdCounter, (v) => { appIdCounter = v; }).then(function(newId){
-      state.applications.push({id: newId, name, email, org, level: level || 'Belirtilmedi', studentNumber, motivation, status:'bekliyor', date: new Date().toLocaleDateString('tr-TR'), emailVerified: initialEmailVerified});
+      state.applications.push({id: newId, name, email, org, level: level || 'Belirtilmedi', studentNumber, motivation, status:'bekliyor', date: new Date().toLocaleDateString('tr-TR'), emailVerified: initialEmailVerified, studentDocFileName: studentDocFile.name, studentDocUrl: null});
       form.reset();
       resetRecaptcha('basvuru');
+      document.getElementById('pbDocFileName').textContent = 'Dosya seçilmedi';
       document.getElementById('pubBasvuruDurum').textContent = 'ONAY BEKLİYOR';
       document.getElementById('pubBasvuruDurum').style.color = 'var(--yellow)';
       updateEmailVerifyStatusUI();
-      showToast(initialEmailVerified ? `Başvurunuz alındı, ${name}! Admin onayını bekleyin.` : `Başvurunuz alındı, ${name}! Üniversite e-postana gönderdiğimiz doğrulama bağlantısına tıkla, sonra admin onayını bekle.`, 'success');
+      showToast(initialEmailVerified ? `Başvurunuz alındı, ${name}! Admin onayını bekleyin.` : `Başvurunuz alındı, ${name}! E-postana gönderdiğimiz doğrulama bağlantısına tıkla, sonra admin onayını bekle.`, 'success');
       saveShared();
+      // (Öğrenci belgesi/kimlik fotoğrafı gerçekten Firebase Storage'a
+      // yükleniyor — Zirve CV yüklemesiyle aynı desen, bkz. o bloktaki yorum.
+      // Yükleme kayıt zaten gönderildikten SONRA arka planda yapılıyor;
+      // Storage kuralları henüz yayınlanmadıysa/ağ sorunu olursa BU ADIM
+      // SESSİZCE BAŞARISIZ OLUR — başvuru zaten (dosya adıyla) gönderilmiş
+      // olduğundan hiçbir şey bozulmaz, admin panelinde sadece dosya linki
+      // görünmez, sadece dosya adı görünür.
+      if(studentDocFile && fbStorage){
+        const safeName = studentDocFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const path = `basvuru-belge/${newId}_${Date.now()}_${safeName}`;
+        fbStorage.ref(path).put(studentDocFile).then(function(snapshot){
+          return snapshot.ref.getDownloadURL();
+        }).then(function(url){
+          const appRec = state.applications.find(a => a.id === newId);
+          if(appRec) appRec.studentDocUrl = url;
+          saveShared();
+        }).catch(function(e){
+          console.warn('[Öğrenci Belgesi] Dosya yüklenemedi (Storage kuralları henüz yayınlanmamış olabilir):', e);
+        });
+      }
       sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
         to_email: email, to_name: name,
         subject_line: 'FinteLig Başvurun Alındı',
-        message_body: `Merhaba ${name}, FinteLig yarışması başvurun alındı. Ayrıca üniversite e-postana Firebase üzerinden bir doğrulama bağlantısı gönderdik — lütfen ona tıklayarak e-postanı doğrula. Admin onayından sonra, belirlediğin e-posta ve şifreyle OPLab (alım-satım platformu) üzerinde FinteLig Yarışmacısı olarak giriş yapabileceksin.`
+        message_body: `Merhaba ${name}, FinteLig yarışması başvurun alındı. E-postana bir doğrulama bağlantısı gönderdik — lütfen ona tıklayarak e-postanı doğrula. Admin, yüklediğin öğrenci belgesini inceledikten sonra başvurunu onaylayacak; onaydan sonra belirlediğin e-posta ve şifreyle OPLab (alım-satım platformu) üzerinde FinteLig Yarışmacısı olarak giriş yapabileceksin.`
       });
       sendNotificationEmail(EMAILJS_TEMPLATE_ADMIN, {
         to_email: ADMIN_NOTIFY_EMAIL, to_name: 'Admin',
@@ -2071,7 +2107,7 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
     submitBtn.disabled = true;
     submitBtn.textContent = 'GÖNDERİLİYOR...';
     fbAuth.createUserWithEmailAndPassword(email, password).then(function(userCredential){
-      // (Üniversite e-postası doğrulama) Hesap oluşur oluşmaz Firebase'in
+      // (E-posta doğrulama) Hesap oluşur oluşmaz Firebase'in
       // kendi sendEmailVerification() mekanizmasıyla o kutuya gerçek bir
       // doğrulama bağlantısı gönderiliyor — bu bağlantı yalnızca Firebase'in
       // kendi sunucusunda üretilip doğrulandığından, istemci tarafındaki
@@ -2298,7 +2334,7 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
           <span class="status-pill ${app.emailVerified ? 'green' : 'yellow'}">${app.emailVerified ? 'E-POSTA DOĞRULANDI' : 'E-POSTA DOĞRULANMADI'}</span>
           ${!app.emailVerified && AUTH_ENABLED && fbAuth && fbAuth.currentUser && (fbAuth.currentUser.email||'').toLowerCase() === email ? `<button type="button" class="btn" id="statusRefreshVerifyBtn" style="padding:6px 12px;font-size:11px;">YENİLE</button>` : ''}
         </div>
-        ${!app.emailVerified ? `<p style="color:var(--text-dimmer);font-size:11.5px;margin-top:8px;line-height:1.6;">Üniversite e-postana gönderdiğimiz bağlantıya tıklamadıysan, gelen kutunu (ve spam klasörünü) kontrol et.</p>` : ''}
+        ${!app.emailVerified ? `<p style="color:var(--text-dimmer);font-size:11.5px;margin-top:8px;line-height:1.6;">E-postana gönderdiğimiz bağlantıya tıklamadıysan, gelen kutunu (ve spam klasörünü) kontrol et.</p>` : ''}
       ` : ''}
       ${app.status === 'onayli' && !isPastCompetitor ? `
         <p style="color:var(--text-dim);font-size:12.5px;margin-top:14px;">✓ Başvurun onaylandı! OPLab'a git, kayıt olurken belirlediğin e-posta ve şifreyle giriş yap — doğrudan alım-satım ekranına yönlendirileceksin.</p>
