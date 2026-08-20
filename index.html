@@ -962,7 +962,6 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
             <div style="display:flex;justify-content:space-between;"><span class="field-label" style="margin:0;">KATILIM</span><span id="pubKatilimDurum" style="color:#fca5a5;font-weight:700;font-size:12.5px;">KAPALI</span></div>
             <div style="display:flex;justify-content:space-between;"><span class="field-label" style="margin:0;">SÜREÇ</span><span style="color:#8fb0ff;font-weight:700;font-size:12.5px;">ADMİN PANEL</span></div>
           </div>
-          <button type="button" class="btn" id="pbRefreshVerifyBtn" style="width:100%;margin-bottom:20px;display:none;">DOĞRULAMA DURUMUNU YENİLE</button>
           <div class="card" style="background:var(--card-bg-2);padding:16px 18px;">
             <ol style="padding-left:18px;font-size:13px;color:var(--text-dim);line-height:2;">
               <li>Başvuru gönder</li><li>E-postanı doğrula</li><li>Admin, öğrenci belgeni inceleyip onaylasın</li><li>Yarışma paneline eriş</li>
@@ -1007,6 +1006,25 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
       <div class="pub-section-label">ZİRVE GİRİŞ</div>
       <h1 style="font-size:40px;">CHECK-IN</h1>
       <div id="checkinResultArea" class="card" style="margin-top:20px;"></div>
+    </div>
+  </section>
+
+  <!-- ============ PUBLIC: E-POSTA DOĞRULAMA ============ -->
+  <!-- (Öğrenci numarası doğrulama — kendi e-posta doğrulama linkimiz)
+       Firebase'in kendi sendEmailVerification() e-postası bazı kullanıcılara
+       hiç ulaşmadığından (muhtemelen teslim/spam sorunu), bu linki artık biz
+       kendimiz üretip zaten güvenilir şekilde çalışan "başvurunuz alındı"
+       EmailJS mailinin içine gömüyoruz — ?verifyemail=<id>.<kod>
+       parametresiyle buraya yönlendiriyor, tıpkı Zirve check-in'deki
+       ?checkin=<id>.<kod> deseni gibi. Sayfa yüklendiğinde JS bu parametreyi
+       okuyup eşleşen başvuruyu arıyor; kullanıcı ONAYLA'ya basınca
+       emailVerified=true olarak kaydediliyor. -->
+  <section id="pub-emailverify" class="pub-page">
+    <div class="pub-page-inner" style="max-width:640px;">
+      <button class="pub-back-pill" data-pubnav="pub-home" style="margin-bottom:22px;">← Ana Sayfaya Dön</button>
+      <div class="pub-section-label">E-POSTA DOĞRULAMA</div>
+      <h1 style="font-size:40px;">E-POSTANI<br><span class="accent">DOĞRULA</span></h1>
+      <div id="emailVerifyResultArea" class="card" style="margin-top:20px;"></div>
     </div>
   </section>
 
@@ -1230,58 +1248,86 @@ if(AUTH_ENABLED){
   try{ fbAuth = firebase.auth(); }catch(e){ console.warn('Firebase Auth başlatılamadı.', e); }
 }
 
-// (Öğrenci numarası doğrulama — e-posta doğrulama) Bir başvurunun
-// e-postası gerçekten o kişiye/kutuya ait mi diye kontrol etmenin güvenli
-// yolu, Firebase Authentication'ın kendi sendEmailVerification()/emailVerified
-// alanını kullanmak — kod istemci JS'inde üretilip saklanmadığı için
-// tarayıcı konsolundan okunup atlatılamaz. fbAuth.currentUser sadece BU
-// tarayıcı/cihazda giriş yapmış kullanıcıyı bilir (Firebase Auth varsayılan
-// olarak oturumu cihazda kalıcı tutar — bkz. Firebase "LOCAL persistence"),
-// bu yüzden başvuru sahibinin aynı cihaza dönmesi yeterli, şifreyi tekrar
-// girmesine gerek kalmaz.
+// (Öğrenci numarası doğrulama — kendi e-posta doğrulama linkimiz) Firebase
+// Authentication'ın kendi sendEmailVerification() e-postası bazı
+// kullanıcılara hiç ulaşmadığından (teslim/spam sorunu — gerçek kullanıcı
+// geri bildirimi üzerine tespit edildi), bu artık Firebase'e değil, zaten
+// güvenilir şekilde çalıştığı doğrulanmış olan EmailJS "başvurunuz alındı"
+// mailinin İÇİNE gömülen kendi ürettiğimiz bir bağlantıya dayanıyor — bkz.
+// generateVerifyToken() ve aşağıdaki pub-emailverify bölümü/
+// processEmailVerifyParam(). Doğrulama durumu artık tamamen
+// state.applications[].emailVerified alanında tutuluyor ve Firestore'un
+// gerçek zamanlı dinleyicisi (onSharedDataUpdated) sayesinde AÇIK
+// SEKMELERDE bile otomatik güncelleniyor — ayrı bir "yenile" düğmesine
+// gerek kalmadı.
 let lastAppliedEmail = null;
 function findAppByEmail(email){
   if(!email) return null;
   return state.applications.find(a => (a.email||'').toLowerCase() === email.toLowerCase());
 }
+function generateVerifyToken(){
+  return Math.random().toString(36).slice(2, 8).toUpperCase() + Date.now().toString(36).slice(-4).toUpperCase();
+}
 function updateEmailVerifyStatusUI(){
   const el = document.getElementById('pubEmailVerifyDurum');
-  const btn = document.getElementById('pbRefreshVerifyBtn');
   if(!el) return;
-  const email = (fbAuth && fbAuth.currentUser && fbAuth.currentUser.email) || lastAppliedEmail;
-  const app = findAppByEmail(email);
+  const app = findAppByEmail(lastAppliedEmail);
   if(!app || app.emailVerified === undefined){
     el.textContent = '-'; el.style.color = 'var(--text-dim)';
-    if(btn) btn.style.display = 'none';
     return;
   }
   if(app.emailVerified){
     el.textContent = 'DOĞRULANDI'; el.style.color = 'var(--green)';
-    if(btn) btn.style.display = 'none';
   } else {
     el.textContent = 'BEKLİYOR'; el.style.color = 'var(--yellow)';
-    if(btn) btn.style.display = 'block';
   }
 }
-function refreshEmailVerificationStatus(){
-  if(!AUTH_ENABLED || !fbAuth || !fbAuth.currentUser) return Promise.resolve(false);
-  return fbAuth.currentUser.reload().then(function(){
-    const u = fbAuth.currentUser;
-    if(!u) return false;
-    const app = findAppByEmail(u.email);
-    if(app && u.emailVerified && !app.emailVerified){
-      app.emailVerified = true;
-      saveShared();
-    }
+
+/* ============ E-POSTA DOĞRULAMA (?verifyemail=<id>.<kod>) ============ */
+// Zirve check-in'deki processCheckinParam() ile birebir aynı desen — bkz. o
+// fonksiyonun yorumu.
+let emailVerifyProcessed = false;
+function processEmailVerifyParam(){
+  if(emailVerifyProcessed) return;
+  const params = new URLSearchParams(location.search);
+  const raw = params.get('verifyemail');
+  if(!raw) return;
+  if(!state.applications || !state.applications.length) return;
+  emailVerifyProcessed = true;
+  navigatePublic('pub-emailverify');
+  const area = document.getElementById('emailVerifyResultArea');
+  if(!area) return;
+  function showState(icon, title, desc, color, showBtn){
+    area.innerHTML = `<div style="text-align:center;padding:10px 6px;">
+      <div style="font-size:44px;margin-bottom:10px;">${icon}</div>
+      <div style="font-weight:700;font-size:18px;color:${color};margin-bottom:8px;">${escapeHtml(title)}</div>
+      <div style="color:var(--text-dim);font-size:13.5px;line-height:1.7;margin-bottom:${showBtn?'18px':'0'};">${escapeHtml(desc)}</div>
+      ${showBtn ? `<button type="button" class="btn btn-blue" id="emailVerifyConfirmBtn" style="width:100%;">E-POSTAMI DOĞRULA</button>` : ''}
+    </div>`;
+  }
+  const dotIdx = raw.indexOf('.');
+  const idPart = dotIdx >= 0 ? raw.slice(0, dotIdx) : raw;
+  const codePart = dotIdx >= 0 ? raw.slice(dotIdx + 1) : '';
+  const appId = Number(idPart);
+  const app = state.applications.find(a => a.id === appId);
+  if(!app || !codePart || app.emailVerifyToken !== codePart){
+    showState('✕', 'BAĞLANTI GEÇERSİZ', 'Bu doğrulama bağlantısı geçerli bir başvuruya ait değil. E-postandaki bağlantıyı tekrar kontrol et.', '#fca5a5', false);
+    return;
+  }
+  if(app.emailVerified){
+    showState('✓', 'ZATEN DOĞRULANMIŞ', `Merhaba ${app.name}, e-postan zaten doğrulanmış. Admin onayını bekleyebilirsin.`, 'var(--green)', false);
+    return;
+  }
+  showState('✉', `Merhaba ${app.name}`, 'FinteLig başvurunda kullandığın e-postanın gerçekten sana ait olduğunu teyit etmek için aşağıdaki butona bas.', 'var(--text)', true);
+  document.getElementById('emailVerifyConfirmBtn')?.addEventListener('click', function(){
+    const btn = this;
+    btn.disabled = true;
+    btn.textContent = 'ONAYLANIYOR...';
+    app.emailVerified = true;
+    saveShared();
     updateEmailVerifyStatusUI();
-    return !!(u.emailVerified);
-  }).catch(function(e){ console.warn('Doğrulama durumu kontrol edilemedi.', e); return false; });
-}
-if(AUTH_ENABLED && fbAuth){
-  // Sayfa her açıldığında (aynı cihazda daha önce oturum açılmışsa) otomatik
-  // olarak doğrulama durumunu tazele — kullanıcı hiçbir şeye tıklamadan bile
-  // linke tıklayıp geri döndüğünde durum güncellenmiş olur.
-  fbAuth.onAuthStateChanged(function(user){ if(user) refreshEmailVerificationStatus(); });
+    showState('✓', 'DOĞRULANDI', `Teşekkürler ${app.name}! E-postan doğrulandı. Admin, yüklediğin öğrenci belgesini inceledikten sonra başvurunu onaylayacak.`, 'var(--green)', false);
+  });
 }
 
 // (9 Ağustos 2026) Paylaşılan/genel escapeHtml — önceden sadece durum
@@ -1537,6 +1583,8 @@ function onSharedDataUpdated(){
   hydrateFromShared();
   syncGlobalStatus();
   processCheckinParam();
+  processEmailVerifyParam();
+  updateEmailVerifyStatusUI();
 }
 window.addEventListener('storage', (e)=>{
   if(e.key === SHARED_KEY) onSharedDataUpdated();
@@ -2096,13 +2144,12 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
 
   function finishApplication(){
     hideReapplyNotice();
-    // (E-posta doğrulama) AUTH_ENABLED değilse (Firebase Auth
-    // yapılandırılmamış, tarayıcı-içi/test modu) gerçek doğrulama e-postası
-    // hiç gönderilemez — bu durumda emailVerified'i baştan true bırakıyoruz
-    // ki admin panelinde gereksiz/karşılanamaz bir "doğrulanmadı" uyarısı
-    // görünmesin ("hiçbir şey bozulmaz" prensibi, kod tabanının geri kalanıyla
-    // tutarlı).
-    const initialEmailVerified = !(AUTH_ENABLED && fbAuth);
+    // (E-posta doğrulama — kendi linkimiz) Her yeni başvuru emailVerified:
+    // false ile başlar; kullanıcı aşağıda kendisine gönderilen "başvurunuz
+    // alındı" mailindeki doğrulama linkine tıklayıp ONAYLA'ya basınca
+    // processEmailVerifyParam() bunu true'ya çeviriyor. emailVerifyToken,
+    // o linkin tahmin edilemeyecek şekilde bu başvuruya özel olmasını sağlar.
+    const emailVerifyToken = generateVerifyToken();
     lastAppliedEmail = email;
     // (10 Ağustos 2026 — "yarışmacı id çakışması" kök neden düzeltmesi) id
     // artık `appIdCounter++` ile senkron/yerel DEĞİL, reserveNextId() ile
@@ -2119,7 +2166,7 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
     // henüz state.applications'a eklenmemiş bir başvuruyla aynı e-postanın
     // yerel yinelenen-başvuru kontrolünü atlatabilirdi).
     return reserveNextId('appIdCounter', () => appIdCounter, (v) => { appIdCounter = v; }).then(function(newId){
-      state.applications.push({id: newId, name, email, org, level: level || 'Belirtilmedi', studentNumber, motivation, status:'bekliyor', date: new Date().toLocaleDateString('tr-TR'), emailVerified: initialEmailVerified, studentDocFileName: studentDocFile.name, studentDocUrl: null, ocrMatch: ocrMatch});
+      state.applications.push({id: newId, name, email, org, level: level || 'Belirtilmedi', studentNumber, motivation, status:'bekliyor', date: new Date().toLocaleDateString('tr-TR'), emailVerified: false, emailVerifyToken, studentDocFileName: studentDocFile.name, studentDocUrl: null, ocrMatch: ocrMatch});
       form.reset();
       resetRecaptcha('basvuru');
       document.getElementById('pbDocFileName').textContent = 'Dosya seçilmedi';
@@ -2129,7 +2176,7 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
       document.getElementById('pubBasvuruDurum').textContent = 'ONAY BEKLİYOR';
       document.getElementById('pubBasvuruDurum').style.color = 'var(--yellow)';
       updateEmailVerifyStatusUI();
-      showToast(initialEmailVerified ? `Başvurunuz alındı, ${name}! Admin onayını bekleyin.` : `Başvurunuz alındı, ${name}! E-postana gönderdiğimiz doğrulama bağlantısına tıkla, sonra admin onayını bekle.`, 'success');
+      showToast(`Başvurunuz alındı, ${name}! E-postana gönderdiğimiz doğrulama bağlantısına tıkla, sonra admin onayını bekle.`, 'success');
       saveShared();
       // (Öğrenci belgesi/kimlik fotoğrafı — imgbb'ye yükleme) Firebase
       // Storage bu projede hiç kurulmadığı (bucket yok) ve kurmak ücretli
@@ -2156,10 +2203,17 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
             console.warn('[Öğrenci Belgesi] Dosya yüklenemedi:', e);
           });
       }
+      // (E-posta doğrulama linki) location.origin + location.pathname
+      // kullanılıyor ki site hangi Vercel domaininde yayınlanırsa
+      // yayınlansın (adm-n-one.vercel.app ya da ileride başka bir domain)
+      // link her zaman doğru adrese işaret etsin — admin.html'deki sabit
+      // PUBLIC_SITE_URL'nin elle güncel tutulması gerektiği bilinen
+      // kısıtından kaçınıyoruz.
+      const verifyUrl = location.origin + location.pathname + '?verifyemail=' + newId + '.' + emailVerifyToken;
       sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
         to_email: email, to_name: name,
         subject_line: 'FinteLig Başvurun Alındı',
-        message_body: `Merhaba ${name}, FinteLig yarışması başvurun alındı. E-postana bir doğrulama bağlantısı gönderdik — lütfen ona tıklayarak e-postanı doğrula. Admin, yüklediğin öğrenci belgesini inceledikten sonra başvurunu onaylayacak; onaydan sonra belirlediğin e-posta ve şifreyle OPLab (alım-satım platformu) üzerinde FinteLig Yarışmacısı olarak giriş yapabileceksin.`
+        message_body: `Merhaba ${name}, FinteLig yarışması başvurun alındı. E-postanı doğrulamak için: ${verifyUrl} Admin, yüklediğin öğrenci belgesini inceledikten sonra başvurunu onaylayacak; onaydan sonra belirlediğin e-posta ve şifreyle OPLab (alım-satım platformu) üzerinde FinteLig Yarışmacısı olarak giriş yapabileceksin.`
       });
       sendNotificationEmail(EMAILJS_TEMPLATE_ADMIN, {
         to_email: ADMIN_NOTIFY_EMAIL, to_name: 'Admin',
@@ -2180,17 +2234,6 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
     submitBtn.disabled = true;
     submitBtn.textContent = 'GÖNDERİLİYOR...';
     fbAuth.createUserWithEmailAndPassword(email, password).then(function(userCredential){
-      // (E-posta doğrulama) Hesap oluşur oluşmaz Firebase'in
-      // kendi sendEmailVerification() mekanizmasıyla o kutuya gerçek bir
-      // doğrulama bağlantısı gönderiliyor — bu bağlantı yalnızca Firebase'in
-      // kendi sunucusunda üretilip doğrulandığından, istemci tarafındaki
-      // JS'ten okunup atlatılamaz (basit bir "kodu üret/karşılaştır"
-      // yönteminden farkı budur). E-posta gönderimi başarısız olsa bile
-      // (ör. Firebase geçici hata verirse) başvuru sürecini durdurmuyoruz —
-      // admin panelinden "doğrulanmadı" uyarısı görünmeye devam eder.
-      if(userCredential && userCredential.user){
-        userCredential.user.sendEmailVerification().catch(function(e){ console.warn('Doğrulama e-postası gönderilemedi.', e); });
-      }
       return finishApplication();
     }).then(resetSubmitBtn).catch(function(err){
       // (Silinen başvuru sonrası "hiç olmamış gibi" yeniden başvurabilme)
@@ -2207,12 +2250,6 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
       // sunuyoruz (aşağıdaki ŞİFREMİ SIFIRLA butonu).
       if(err && err.code === 'auth/email-already-in-use'){
         fbAuth.signInWithEmailAndPassword(email, password).then(function(userCredential){
-          // Bu (eski) hesap için de aynı doğrulama e-postasını göndermeyi
-          // deniyoruz — zaten doğrulanmışsa Firebase bunu no-op'a yakın
-          // işler, doğrulanmamışsa yeniden bir link gönderilmiş olur.
-          if(userCredential && userCredential.user && !userCredential.user.emailVerified){
-            userCredential.user.sendEmailVerification().catch(function(e){ console.warn('Doğrulama e-postası gönderilemedi.', e); });
-          }
           return finishApplication();
         }).catch(function(){
           showReapplyNotice();
@@ -2228,22 +2265,6 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
     // atlanır, başvuru eskisi gibi kaydedilir — "hiçbir şey bozulmaz".
     finishApplication();
   }
-});
-
-document.getElementById('pbRefreshVerifyBtn')?.addEventListener('click', function(){
-  if(!AUTH_ENABLED || !fbAuth || !fbAuth.currentUser){
-    showToast('Doğrulama durumu bu cihazda kontrol edilemiyor — başvuru yaptığın tarayıcıyı/cihazı kullandığından emin ol.', 'error');
-    return;
-  }
-  const btn = this;
-  btn.disabled = true;
-  btn.textContent = 'KONTROL EDİLİYOR...';
-  refreshEmailVerificationStatus().then(function(verified){
-    showToast(verified ? 'E-posta doğrulaman onaylandı!' : 'Henüz doğrulanmamış görünüyor — bağlantıya tıkladıktan sonra tekrar dene (spam klasörünü de kontrol et).', verified ? 'success' : 'warn');
-  }).finally(function(){
-    btn.disabled = false;
-    btn.textContent = 'DOĞRULAMA DURUMUNU YENİLE';
-  });
 });
 
 document.getElementById('pbResetPasswordBtn')?.addEventListener('click', function(){
@@ -2403,11 +2424,11 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
       <span class="status-pill ${s.cls}" ${isPastCompetitor?'style="background:rgba(255,255,255,0.08);color:var(--text-dim);"':''}>${escapeHtml(s.label)}</span>
       <p style="color:var(--text-dimmer);font-size:12.5px;margin-top:12px;">Başvuru tarihi: ${escapeHtml(app.date)}</p>
       ${app.emailVerified !== undefined ? `
-        <div style="margin-top:12px;display:flex;align-items:center;gap:8px;">
+        <div style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <span class="status-pill ${app.emailVerified ? 'green' : 'yellow'}">${app.emailVerified ? 'E-POSTA DOĞRULANDI' : 'E-POSTA DOĞRULANMADI'}</span>
-          ${!app.emailVerified && AUTH_ENABLED && fbAuth && fbAuth.currentUser && (fbAuth.currentUser.email||'').toLowerCase() === email ? `<button type="button" class="btn" id="statusRefreshVerifyBtn" style="padding:6px 12px;font-size:11px;">YENİLE</button>` : ''}
+          ${!app.emailVerified && app.emailVerifyToken ? `<button type="button" class="btn" id="statusResendVerifyBtn" style="padding:6px 12px;font-size:11px;">DOĞRULAMA BAĞLANTISINI TEKRAR GÖNDER</button>` : ''}
         </div>
-        ${!app.emailVerified ? `<p style="color:var(--text-dimmer);font-size:11.5px;margin-top:8px;line-height:1.6;">E-postana gönderdiğimiz bağlantıya tıklamadıysan, gelen kutunu (ve spam klasörünü) kontrol et.</p>` : ''}
+        ${!app.emailVerified ? `<p style="color:var(--text-dimmer);font-size:11.5px;margin-top:8px;line-height:1.6;">E-postana gönderdiğimiz bağlantıya tıklamadıysan, gelen kutunu (ve spam klasörünü) kontrol et — ya da yukarıdaki butonla bağlantıyı tekrar isteyebilirsin.</p>` : ''}
       ` : ''}
       ${app.status === 'onayli' && !isPastCompetitor ? `
         <p style="color:var(--text-dim);font-size:12.5px;margin-top:14px;">✓ Başvurun onaylandı! OPLab'a git, kayıt olurken belirlediğin e-posta ve şifreyle giriş yap — doğrudan alım-satım ekranına yönlendirileceksin.</p>
@@ -2429,15 +2450,21 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
   resultArea.innerHTML = html;
   // (statusOplabBtn artık DOM'da yok — OPLab giriş kodu bu sayfada hiçbir
   // zaman gösterilmiyor/tıklanılabilir olmuyor, bkz. yukarıdaki yorum.)
-  document.getElementById('statusRefreshVerifyBtn')?.addEventListener('click', function(){
+  document.getElementById('statusResendVerifyBtn')?.addEventListener('click', function(){
+    if(!app) return;
     const btn = this;
     btn.disabled = true;
-    btn.textContent = '...';
-    refreshEmailVerificationStatus().then(function(verified){
-      showToast(verified ? 'E-posta doğrulaman onaylandı!' : 'Henüz doğrulanmamış görünüyor.', verified ? 'success' : 'warn');
-      document.getElementById('statusQueryBtn').click();
+    btn.textContent = 'GÖNDERİLİYOR...';
+    const verifyUrl = location.origin + location.pathname + '?verifyemail=' + app.id + '.' + app.emailVerifyToken;
+    sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
+      to_email: app.email, to_name: app.name,
+      subject_line: 'FinteLig — E-posta Doğrulama Bağlantın',
+      message_body: `Merhaba ${app.name}, e-postanı doğrulamak için: ${verifyUrl}`
+    }).then(function(ok){
+      showToast(ok ? 'Doğrulama bağlantısı tekrar gönderildi, gelen kutunu (ve spam klasörünü) kontrol et.' : 'Gönderilemedi, tekrar dener misin?', ok ? 'success' : 'error');
     }).finally(function(){
-      if(btn){ btn.disabled = false; btn.textContent = 'YENİLE'; }
+      btn.disabled = false;
+      btn.textContent = 'DOĞRULAMA BAĞLANTISINI TEKRAR GÖNDER';
     });
   });
 });
@@ -2451,6 +2478,7 @@ renderStudentRows();
 syncGlobalStatus();
 navigatePublic('pub-ekosistem');
 processCheckinParam();
+processEmailVerifyParam();
 </script>
 
 </body>
