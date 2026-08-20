@@ -926,9 +926,9 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
               <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
                 <button type="button" class="btn btn-blue" id="pbDocBtn" style="padding:10px 18px;font-size:12.5px;">DOSYA SEÇ</button>
                 <span id="pbDocFileName" style="color:var(--text-dim);font-size:12.5px;">Dosya seçilmedi</span>
-                <input type="file" id="pbDocFileInput" class="hidden" accept="image/*,.pdf">
+                <input type="file" id="pbDocFileInput" class="hidden" accept="image/*">
               </div>
-              <p style="color:var(--text-dimmer);font-size:11.5px;margin-top:6px;line-height:1.6;">Öğrenci numaranın gerçekten sana ait olduğunu teyit etmek için zorunludur — e-Devlet'ten alınan öğrenci belgesi ya da öğrenci kimlik kartının net bir fotoğrafı yeterli. Admin onaylamadan önce bunu inceleyecek.</p>
+              <p style="color:var(--text-dimmer);font-size:11.5px;margin-top:6px;line-height:1.6;">Öğrenci numaranın gerçekten sana ait olduğunu teyit etmek için zorunludur — e-Devlet'ten alınan öğrenci belgesi ya da öğrenci kimlik kartının net bir fotoğrafı yeterli (yalnızca fotoğraf/resim dosyası, PDF değil — PDF'in varsa ekran görüntüsünü yükleyebilirsin). Admin onaylamadan önce bunu inceleyecek.</p>
             </div>
             <div class="field"><label>Kısa Motivasyon</label><textarea id="pbMotivation" rows="3" placeholder="Fintelig yarışmasına neden katılmak istediğinizi kısaca yazın."></textarea></div>
             <div class="g-recaptcha-slot" data-form-id="basvuru" style="margin:14px 0;"></div>
@@ -1188,6 +1188,12 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "267255127844",
   appId: "1:267255127844:web:9d8a65057cc822375b9db1"
 };
+// (Öğrenci belgesi/kimlik fotoğrafı yükleme — ücretsiz, kart gerektirmeyen
+// imgbb API'si) Firebase Storage için bu projede hiç bucket oluşturulmamış
+// ve etkinleştirmek Blaze (ücretli) plana geçmeyi gerektirdiğinden, öğrenci
+// belgesi fotoğrafları imgbb'ye yükleniyor — tek bir API anahtarıyla,
+// sunucu/SDK gerektirmeden doğrudan tarayıcıdan fetch() ile çalışır.
+const IMGBB_API_KEY = '0752ffff82ad1d892001bcf2e66a5b26';
 const FIREBASE_ENABLED = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY' && typeof firebase !== 'undefined';
 let fsSharedDoc = null;
 let fbAuth = null;
@@ -2063,25 +2069,30 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
       updateEmailVerifyStatusUI();
       showToast(initialEmailVerified ? `Başvurunuz alındı, ${name}! Admin onayını bekleyin.` : `Başvurunuz alındı, ${name}! E-postana gönderdiğimiz doğrulama bağlantısına tıkla, sonra admin onayını bekle.`, 'success');
       saveShared();
-      // (Öğrenci belgesi/kimlik fotoğrafı gerçekten Firebase Storage'a
-      // yükleniyor — Zirve CV yüklemesiyle aynı desen, bkz. o bloktaki yorum.
-      // Yükleme kayıt zaten gönderildikten SONRA arka planda yapılıyor;
-      // Storage kuralları henüz yayınlanmadıysa/ağ sorunu olursa BU ADIM
-      // SESSİZCE BAŞARISIZ OLUR — başvuru zaten (dosya adıyla) gönderilmiş
-      // olduğundan hiçbir şey bozulmaz, admin panelinde sadece dosya linki
-      // görünmez, sadece dosya adı görünür.
-      if(studentDocFile && fbStorage){
-        const safeName = studentDocFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const path = `basvuru-belge/${newId}_${Date.now()}_${safeName}`;
-        fbStorage.ref(path).put(studentDocFile).then(function(snapshot){
-          return snapshot.ref.getDownloadURL();
-        }).then(function(url){
-          const appRec = state.applications.find(a => a.id === newId);
-          if(appRec) appRec.studentDocUrl = url;
-          saveShared();
-        }).catch(function(e){
-          console.warn('[Öğrenci Belgesi] Dosya yüklenemedi (Storage kuralları henüz yayınlanmamış olabilir):', e);
-        });
+      // (Öğrenci belgesi/kimlik fotoğrafı — imgbb'ye yükleme) Firebase
+      // Storage bu projede hiç kurulmadığı (bucket yok) ve kurmak ücretli
+      // Blaze plana geçmeyi gerektirdiği için, belge fotoğrafı ücretsiz/kart
+      // istemeyen imgbb API'sine yükleniyor. Yükleme kayıt zaten
+      // gönderildikten SONRA arka planda yapılıyor; ağ sorunu ya da imgbb
+      // tarafında bir hata olursa BU ADIM SESSİZCE BAŞARISIZ OLUR — başvuru
+      // zaten (dosya adıyla) gönderilmiş olduğundan hiçbir şey bozulmaz,
+      // admin panelinde sadece dosya linki görünmez, sadece dosya adı görünür.
+      if(studentDocFile){
+        const imgbbForm = new FormData();
+        imgbbForm.append('image', studentDocFile);
+        fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: 'POST', body: imgbbForm })
+          .then(function(res){ return res.json(); })
+          .then(function(json){
+            if(json && json.success && json.data && json.data.url){
+              const appRec = state.applications.find(a => a.id === newId);
+              if(appRec) appRec.studentDocUrl = json.data.url;
+              saveShared();
+            } else {
+              console.warn('[Öğrenci Belgesi] imgbb yükleme başarısız:', json);
+            }
+          }).catch(function(e){
+            console.warn('[Öğrenci Belgesi] Dosya yüklenemedi:', e);
+          });
       }
       sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
         to_email: email, to_name: name,
