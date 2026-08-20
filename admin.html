@@ -1340,9 +1340,9 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
         </div>
         <div style="overflow-x:auto;">
           <table>
-            <thead><tr><th>AD SOYAD</th><th>E-POSTA</th><th>ÜNİVERSİTE / BÖLÜM</th><th>SEVİYE</th><th>DURUM</th><th>BAŞVURU TARİHİ</th><th>ONAY TARİHİ</th></tr></thead>
+            <thead><tr><th>AD SOYAD</th><th>E-POSTA</th><th>ÖĞRENCİ NO</th><th>ÜNİVERSİTE / BÖLÜM</th><th>SEVİYE</th><th>DURUM</th><th>BAŞVURU TARİHİ</th><th>ONAY TARİHİ</th></tr></thead>
             <tbody id="kullaniciTable">
-              <tr><td colspan="7"><div class="empty-state" style="padding:26px 0;"><div class="icon">—</div><span>Henüz kayıtlı kullanıcı yok.</span></div></td></tr>
+              <tr><td colspan="8"><div class="empty-state" style="padding:26px 0;"><div class="icon">—</div><span>Henüz kayıtlı kullanıcı yok.</span></div></td></tr>
             </tbody>
           </table>
         </div>
@@ -3322,13 +3322,14 @@ function renderKullaniciVeritabani(){
     rows = rows.filter(a =>
       (a.name||'').toLowerCase().includes(q) ||
       (a.email||'').toLowerCase().includes(q) ||
-      (a.org||'').toLowerCase().includes(q)
+      (a.org||'').toLowerCase().includes(q) ||
+      (a.studentNumber||'').toLowerCase().includes(q)
     );
   }
 
   const tbody = document.getElementById('kullaniciTable');
   if(rows.length === 0){
-    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state" style="padding:26px 0;"><div class="icon">—</div><span>${q ? 'Aramanızla eşleşen kullanıcı bulunamadı.' : 'Henüz kayıtlı kullanıcı yok.'}</span></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state" style="padding:26px 0;"><div class="icon">—</div><span>${q ? 'Aramanızla eşleşen kullanıcı bulunamadı.' : 'Henüz kayıtlı kullanıcı yok.'}</span></div></td></tr>`;
     return;
   }
   tbody.innerHTML = rows.map(a => {
@@ -3336,6 +3337,7 @@ function renderKullaniciVeritabani(){
     return `<tr>
       <td>${escapeHtml(a.name)}</td>
       <td>${escapeHtml(a.email)}</td>
+      <td>${escapeHtml(a.studentNumber) || '—'}</td>
       <td>${escapeHtml(a.org) || '—'}</td>
       <td>${escapeHtml(a.level) || '—'}</td>
       <td><span class="status-pill ${s.cls}">${escapeHtml(s.label)}</span>${a.disqualified ? ' <span class="status-pill red">DİSKALİFİYE</span>' : ''}</td>
@@ -3376,7 +3378,7 @@ function renderBasvuruList(){
   else list = state.applications;
 
   const term = (document.getElementById('basvuruSearch').value || '').toLowerCase().trim();
-  if(term) list = list.filter(a => (a.name+' '+a.email+' '+a.org).toLowerCase().includes(term));
+  if(term) list = list.filter(a => (a.name+' '+a.email+' '+a.org+' '+(a.studentNumber||'')).toLowerCase().includes(term));
 
   // Silinen/gizlenen kayıtları seçim setinden temizle (görünmeyen kayıt seçili kalmasın).
   const visibleIds = new Set(list.map(a=>a.id));
@@ -3395,7 +3397,7 @@ function renderBasvuruList(){
         <input type="checkbox" class="bs-row-check" data-app-id="${a.id}" ${bulkDeleteSelection.has(a.id) ? 'checked' : ''} onclick="event.stopPropagation();">
         <div>
           <div style="font-weight:600;font-size:14px;">${escapeHtml(a.name)}${a.disqualified ? ' <span class="status-pill red" style="font-size:9.5px;padding:2px 6px;">DİSKALİFİYE</span>' : ''}</div>
-          <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${escapeHtml(a.email)} • ${escapeHtml(a.level)}</div>
+          <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${escapeHtml(a.email)} • ${escapeHtml(a.level)}${a.studentNumber ? ' • Öğr.No: '+escapeHtml(a.studentNumber) : ''}${a.emailVerified === false ? ' • <span style="color:var(--yellow);">e-posta doğrulanmadı</span>' : ''}</div>
         </div>
       </div>
       <span class="status-pill ${a.status==='onayli'?(a.pastCompetitor?'':'green'):a.status==='reddedildi'?'red':'yellow'}" ${a.status==='onayli'&&a.pastCompetitor?'style="background:rgba(255,255,255,0.08);color:var(--text-dim);"':''}>${a.status==='onayli'?(a.pastCompetitor?'GEÇMİŞ YARIŞMACI':'ONAYLI'):a.status==='reddedildi'?'REDDEDİLDİ':'BEKLİYOR'}</span>
@@ -3607,10 +3609,12 @@ function renderBasvuruDetail(){
       <div class="avatar-circle" style="width:44px;height:44px;font-size:15px;">${escapeHtml(initials(app.name))}</div>
       <div><div style="font-weight:600;font-size:15px;">${escapeHtml(app.name)} ${app.disqualified ? '<span class="status-pill red" style="margin-left:6px;">DİSKALİFİYE</span>' : ''} ${app.status==='onayli'&&app.pastCompetitor ? '<span class="status-pill" style="margin-left:6px;background:rgba(255,255,255,0.08);color:var(--text-dim);">GEÇMİŞ YARIŞMACI</span>' : ''}</div><div style="color:var(--text-dim);font-size:12px;">${escapeHtml(app.level)}</div></div>
     </div>
-    <div style="margin-bottom:14px;"><div class="field-label">E-POSTA</div><div style="font-size:13.5px;">${escapeHtml(app.email)}</div></div>
+    <div style="margin-bottom:14px;"><div class="field-label">E-POSTA</div><div style="font-size:13.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${escapeHtml(app.email)}${app.emailVerified === true ? '<span class="status-pill green" style="font-size:9.5px;padding:2px 6px;">DOĞRULANDI</span>' : (app.emailVerified === false ? '<span class="status-pill yellow" style="font-size:9.5px;padding:2px 6px;">DOĞRULANMADI</span>' : '')}</div></div>
+    <div style="margin-bottom:14px;"><div class="field-label">ÖĞRENCİ NUMARASI</div><div style="font-size:13.5px;">${escapeHtml(app.studentNumber) || '—'}</div></div>
     <div style="margin-bottom:14px;"><div class="field-label">ÜNİVERSİTE / KURUM</div><div style="font-size:13.5px;">${escapeHtml(app.org)}</div></div>
     <div style="margin-bottom:18px;"><div class="field-label">MOTİVASYON</div><div style="font-size:13.5px;color:var(--text-dim);line-height:1.6;">${escapeHtml(app.motivation) || '—'}</div></div>
     ${app.status==='onayli' && app.cohortId ? `<div style="margin-bottom:14px;"><div class="field-label">HAFTA</div><div style="font-size:13.5px;">Hafta ${app.cohortId}${app.pastCompetitor ? ' — sona erdi' : ' — aktif'}</div></div>` : ''}
+    ${app.emailVerified === false && app.status !== 'onayli' ? `<p style="font-size:11px;color:var(--yellow);margin-bottom:10px;line-height:1.6;">⚠ Bu başvuru sahibi üniversite e-postasını henüz doğrulamadı — öğrenci numarasının gerçekliği teyit edilmemiş olabilir. Yine de onaylayabilirsin, karar sana ait.</p>` : ''}
     <div class="btn-row">
       <button class="btn btn-green" style="flex:1;" id="approveAppBtn" ${app.status==='onayli'?'disabled':''}>ONAYLA</button>
       <button class="btn btn-red" style="flex:1;" id="rejectAppBtn" ${app.status==='reddedildi'?'disabled':''}>REDDET</button>
