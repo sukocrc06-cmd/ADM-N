@@ -14,6 +14,11 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 <!-- EmailJS (opsiyonel e-posta bildirimi — EMAILJS_PUBLIC_KEY doldurulmadan hiçbir şeyi etkilemez) -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<!-- (Öğrenci belgesi OCR ön-kontrolü) Tesseract.js — tamamen tarayıcıda
+     çalışır, ücretsiz/API anahtarı gerektirmez. Yüklenemezse (ağ sorunu vb.)
+     `Tesseract` global'i tanımsız kalır, OCR kontrolü sessizce atlanır —
+     başvuru süreci hiçbir şekilde bundan etkilenmez. -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <!-- reCAPTCHA (opsiyonel spam/bot koruması — RECAPTCHA_SITE_KEY doldurulmadan hiçbir şeyi etkilemez) -->
 <script src="https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit" async defer></script>
 <style>
@@ -928,6 +933,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
                 <span id="pbDocFileName" style="color:var(--text-dim);font-size:12.5px;">Dosya seçilmedi</span>
                 <input type="file" id="pbDocFileInput" class="hidden" accept="image/*">
               </div>
+              <div id="pbDocOcrStatus" style="font-size:11.5px;margin-top:6px;min-height:14px;"></div>
               <p style="color:var(--text-dimmer);font-size:11.5px;margin-top:6px;line-height:1.6;">Öğrenci numaranın gerçekten sana ait olduğunu teyit etmek için zorunludur — e-Devlet'ten alınan öğrenci belgesi ya da öğrenci kimlik kartının net bir fotoğrafı yeterli (yalnızca fotoğraf/resim dosyası, PDF değil — PDF'in varsa ekran görüntüsünü yükleyebilirsin). Admin onaylamadan önce bunu inceleyecek.</p>
             </div>
             <div class="field"><label>Kısa Motivasyon</label><textarea id="pbMotivation" rows="3" placeholder="Fintelig yarışmasına neden katılmak istediğinizi kısaca yazın."></textarea></div>
@@ -1986,8 +1992,55 @@ function updatePublicZirveAvailability(){
 }
 
 document.getElementById('pbDocBtn').addEventListener('click', ()=>document.getElementById('pbDocFileInput').click());
+
+// (Öğrenci belgesi OCR ön-kontrolü) Bu SADECE bir ipucu/uyarı katmanıdır —
+// admin'in son onay kararının yerine GEÇMEZ. OCR'ın "eşleşiyor" demesi,
+// belgenin sahte olmadığını KANITLAMAZ (biri doğru numarayı yazan sahte bir
+// belge de üretebilir) — sadece bariz hataları (yanlış fotoğraf, yanlış
+// yazılmış numara) başvuru anında yakalayıp başvurana ve admin'e bir sinyal
+// vermek için var. Bu yüzden eşleşme bulunamasa bile başvuru ENGELLENMEZ.
+let lastOcrText = null; // son taranan belgenin ham metni (öğrenci no değişse bile yeniden OCR çalıştırmadan tekrar kontrol edebilmek için)
+let lastOcrRanForFile = null;
+function normalizeDigits(s){ return (s || '').replace(/[^0-9]/g, ''); }
+function checkOcrMatch(){
+  const statusEl = document.getElementById('pbDocOcrStatus');
+  if(!statusEl) return;
+  const studentNumber = normalizeDigits(document.getElementById('pbStudentNumber').value);
+  if(lastOcrText === null){ statusEl.textContent = ''; return; }
+  if(!studentNumber){
+    statusEl.textContent = '';
+    return;
+  }
+  const found = normalizeDigits(lastOcrText).includes(studentNumber);
+  if(found){
+    statusEl.innerHTML = '<span style="color:var(--green);">✓ Öğrenci numaranı belgede bulduk.</span>';
+  } else {
+    statusEl.innerHTML = '<span style="color:var(--yellow);">⚠ Numarayı belgede bulamadık — yine de gönderebilirsin, admin elle kontrol edecek. Net bir fotoğraf yüklediğinden emin ol.</span>';
+  }
+}
+document.getElementById('pbStudentNumber').addEventListener('input', checkOcrMatch);
 document.getElementById('pbDocFileInput').addEventListener('change', function(){
-  document.getElementById('pbDocFileName').textContent = this.files[0] ? this.files[0].name : 'Dosya seçilmedi';
+  const file = this.files[0] || null;
+  document.getElementById('pbDocFileName').textContent = file ? file.name : 'Dosya seçilmedi';
+  const statusEl = document.getElementById('pbDocOcrStatus');
+  lastOcrText = null;
+  lastOcrRanForFile = null;
+  if(!file || typeof Tesseract === 'undefined'){
+    if(statusEl) statusEl.textContent = '';
+    return;
+  }
+  if(statusEl){ statusEl.innerHTML = '<span style="color:var(--text-dim);">Belge taranıyor, bir saniye...</span>'; }
+  Tesseract.recognize(file, 'eng').then(function(result){
+    // Kullanıcı bu sırada farklı bir dosya seçmiş olabilir — sonucu sadece
+    // hâlâ AYNI dosya seçiliyse uygula (yarış durumu koruması).
+    if(document.getElementById('pbDocFileInput').files[0] !== file) return;
+    lastOcrText = (result && result.data && result.data.text) || '';
+    lastOcrRanForFile = file;
+    checkOcrMatch();
+  }).catch(function(e){
+    console.warn('[Öğrenci Belgesi OCR] Taranamadı (bu bir hata değil, sadece ön-kontrol atlanıyor):', e);
+    if(statusEl) statusEl.textContent = '';
+  });
 });
 
 /* ============ PUBLIC: BAŞVURU FORMU ============ */
@@ -2011,6 +2064,12 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
   // yüklemesiyle ve admin'in onay sırasında bu görseli öğrenci numarasıyla
   // karşılaştırmasıyla teyit ediliyor (aşağıdaki dosya yükleme alanı).
   const studentDocFile = (document.getElementById('pbDocFileInput').files || [])[0] || null;
+  // (Öğrenci belgesi OCR ön-kontrolü) Bilgi amaçlı bir sinyal — admin'e
+  // "OCR bu numarayı belgede buldu mu" gösterir, ama başvuruyu ASLA
+  // engellemez (OCR çalışmadıysa/eşleşmediyse bile gönderim serbesttir).
+  const ocrMatch = (studentDocFile && lastOcrRanForFile === studentDocFile && lastOcrText !== null)
+    ? normalizeDigits(lastOcrText).includes(normalizeDigits(studentNumber))
+    : null;
   if(!studentDocFile){
     showToast('Lütfen öğrenci numaranı teyit etmek için öğrenci belgeni veya öğrenci kimlik kartı fotoğrafını yükle.', 'error');
     return;
@@ -2060,10 +2119,13 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
     // henüz state.applications'a eklenmemiş bir başvuruyla aynı e-postanın
     // yerel yinelenen-başvuru kontrolünü atlatabilirdi).
     return reserveNextId('appIdCounter', () => appIdCounter, (v) => { appIdCounter = v; }).then(function(newId){
-      state.applications.push({id: newId, name, email, org, level: level || 'Belirtilmedi', studentNumber, motivation, status:'bekliyor', date: new Date().toLocaleDateString('tr-TR'), emailVerified: initialEmailVerified, studentDocFileName: studentDocFile.name, studentDocUrl: null});
+      state.applications.push({id: newId, name, email, org, level: level || 'Belirtilmedi', studentNumber, motivation, status:'bekliyor', date: new Date().toLocaleDateString('tr-TR'), emailVerified: initialEmailVerified, studentDocFileName: studentDocFile.name, studentDocUrl: null, ocrMatch: ocrMatch});
       form.reset();
       resetRecaptcha('basvuru');
       document.getElementById('pbDocFileName').textContent = 'Dosya seçilmedi';
+      document.getElementById('pbDocOcrStatus').textContent = '';
+      lastOcrText = null;
+      lastOcrRanForFile = null;
       document.getElementById('pubBasvuruDurum').textContent = 'ONAY BEKLİYOR';
       document.getElementById('pubBasvuruDurum').style.color = 'var(--yellow)';
       updateEmailVerifyStatusUI();
