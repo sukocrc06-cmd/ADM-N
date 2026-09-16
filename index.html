@@ -599,6 +599,16 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 .stat-hero-card .stat-growth-pill .g-val{color:var(--text-dim);font-weight:700;font-size:14px;}
 .stat-hero-card .stat-growth-pill .g-sub{color:var(--text-dimmer);font-size:12px;margin-top:2px;}
 
+.live-strip{max-width:1440px;margin:0 auto 8px;padding:22px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;cursor:pointer;}
+.live-strip .live-left{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.live-strip .live-label{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-dim);font-weight:700;letter-spacing:0.06em;text-transform:uppercase;}
+.live-strip .live-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px var(--green-glow);flex-shrink:0;}
+.live-strip .stat-num{font-family:'Oswald',sans-serif;font-size:28px;font-weight:700;color:var(--text);}
+.live-strip .stat-sub-label{color:var(--text-dim);font-size:13.5px;}
+.live-strip .stat-growth-pill{padding:8px 16px;border-radius:12px;background:var(--card-bg-2);border:1px solid var(--border-strong);display:flex;align-items:center;gap:8px;}
+.live-strip .g-val{color:var(--text-dim);font-weight:700;font-size:13.5px;}
+.live-strip .g-sub{color:var(--text-dimmer);font-size:12px;}
+
 .eco-features{padding:70px 44px 0;max-width:1440px;margin:0 auto;}
 .eco-features h2{font-size:42px;margin-bottom:32px;}
 .eco-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
@@ -614,23 +624,23 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 .eco-wide-card button:hover{transform:scale(1.06);filter:brightness(1.2);}
 
 /* ============ GENEL KUTUCUK HOVER EFEKTİ ============ */
-.card,.eco-card,.eco-wide-card,.stat-hero-card,.rank-card,.step-card{
+.card,.eco-card,.eco-wide-card,.stat-hero-card,.rank-card,.step-card,.live-strip{
   position:relative;overflow:hidden;
   transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease,filter .22s ease;
 }
-.card::before,.eco-card::before,.eco-wide-card::before,.stat-hero-card::before,.rank-card::before,.step-card::before{
+.card::before,.eco-card::before,.eco-wide-card::before,.stat-hero-card::before,.rank-card::before,.step-card::before,.live-strip::before{
   content:'';position:absolute;top:0;left:0;height:3px;width:0;
   background:linear-gradient(90deg,var(--blue),#7ea3ff);
   transition:width .45s cubic-bezier(.4,0,.2,1);
   pointer-events:none;
 }
-.card:hover,.eco-card:hover,.eco-wide-card:hover,.stat-hero-card:hover,.rank-card:hover,.step-card:hover{
+.card:hover,.eco-card:hover,.eco-wide-card:hover,.stat-hero-card:hover,.rank-card:hover,.step-card:hover,.live-strip:hover{
   transform:translateY(-5px) scale(1.02);
   border-color:var(--blue);
   filter:brightness(1.09);
   box-shadow:0 18px 38px -14px rgba(0,0,0,0.55),0 0 0 1px rgba(61,111,238,0.3),0 0 26px -6px rgba(61,111,238,0.45);
 }
-.card:hover::before,.eco-card:hover::before,.eco-wide-card:hover::before,.stat-hero-card:hover::before,.rank-card:hover::before,.step-card:hover::before{
+.card:hover::before,.eco-card:hover::before,.eco-wide-card:hover::before,.stat-hero-card:hover::before,.rank-card:hover::before,.step-card:hover::before,.live-strip:hover::before{
   width:100%;
 }
 
@@ -662,7 +672,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
   .pub-hero{grid-template-columns:1fr;}
 }
 @media(max-width:900px){
-  .pub-page-inner,.pub-hero,.how-it-works{padding-left:22px;padding-right:22px;}
+  .pub-page-inner,.pub-hero,.how-it-works,.live-strip{padding-left:22px;padding-right:22px;}
   .pub-nav-toggle{display:flex;}
   .pub-nav-links,.pub-nav-right{
     display:none !important;width:100%;flex-direction:column;align-items:flex-start;gap:16px;
@@ -701,19 +711,11 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
     </div>
     <button class="pub-nav-toggle" id="pubNavToggle" aria-label="Menü">☰</button>
     <div class="pub-nav-links" id="pubNavLinks">
-      <button data-pubnav="pub-ekosistem">ANA SAYFA</button>
       <button data-pubnav="pub-home">YARIŞMA</button>
       <button data-pubnav="kurallar">KURALLAR</button>
       <button data-pubnav="pub-sonuclar">SONUÇLAR</button>
       <button data-pubnav="pub-zirve">ZİRVE</button>
       <button data-pubnav="iletisim">İLETİŞİM</button>
-    </div>
-    <div class="pub-nav-links" id="pubNavLinksHub" style="display:none;">
-      <button data-hubnav="nedir">NEDİR</button>
-      <button data-hubnav="demo" title="OPLab alım-satım sitesine git">DEMO</button>
-      <button data-hubnav="fintelig">FİNTELİG</button>
-      <button data-hubnav="zirve">ZİRVE</button>
-      <button data-hubnav="iletisim">İLETİŞİM</button>
     </div>
     <div class="pub-nav-right">
       <button class="btn demo-btn-pill" id="demoBtn" title="OPLab alım-satım sitesine git">DEMO</button>
@@ -732,64 +734,6 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
       </div>
     </div>
   </nav>
-
-  <!-- ============ PUBLIC: FINTECLUB EKOSİSTEM ============ -->
-  <section id="pub-ekosistem" class="pub-page active">
-    <div class="pub-hero">
-      <div>
-        <div class="pub-section-label">FinTeClub EKOSİSTEM</div>
-        <h1 style="font-size:44px;">FİNANS VE TEKNOLOJİ TOPLULUĞUNUN<br><span class="accent">MERKEZİ</span></h1>
-        <p>FinTeClub; finansal okuryazarlık, piyasa deneyimi, yarışma kültürü ve etkinlik ekosistemini bir araya getiren premium bir finans-teknoloji topluluk yapısıdır.</p>
-        <div class="pub-hero-actions">
-          <button class="btn" id="ecoDemoBtn" title="OPLab alım-satım sitesine git">DEMOYA DÖN</button>
-          <button class="btn btn-go" data-pubnav="pub-home">FinTeLig</button>
-          <button class="btn btn-go" data-pubnav="pub-zirve">ZİRVE</button>
-        </div>
-      </div>
-      <div class="stat-hero-card" data-pubnav="pub-basvuru" role="button" tabindex="0" aria-label="FinteLig başvuru sayfasına git">
-        <div class="live-label"><span class="live-dot"></span> CANLI KAYIT</div>
-        <div class="stat-num" id="ecoUserCount">0</div>
-        <div class="stat-sub-label">Kayıtlı kullanıcı</div>
-        <div class="stat-growth-pill">
-          <div class="g-val" id="ecoUserGrowth">+%0</div>
-          <div class="g-sub">Bu hafta</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="eco-features" id="ecoFeatures">
-      <div class="pub-section-label">ANA AKIŞLAR</div>
-      <h2>FinTeClub İÇİNDE NELER VAR?</h2>
-      <div class="eco-grid">
-        <div class="eco-card">
-          <h4>FinTeLig</h4>
-          <p>Finansal zeka, piyasa okuryazarlığı ve portföy yönetimi üzerine kurgulanan yarışma deneyimi.</p>
-          <button class="btn btn-go" data-pubnav="pub-home">YARIŞMAYA GİT</button>
-        </div>
-        <div class="eco-card">
-          <h4>FinTeClub ZİRVE</h4>
-          <p>FinteLig kullanıcılarına özel registration süreciyle finans-teknoloji etkinlik deneyimi.</p>
-          <button class="btn btn-go" data-pubnav="pub-zirve">ZİRVEYE GİT</button>
-        </div>
-      </div>
-      <div class="eco-wide-card">
-        <p>FinTeClub, OptiPulseLab ekosisteminden erişilen topluluk ve etkinlik kapısıdır. FinteLig yarışması ve FinTeClub Zirve deneyimi bu yapı üzerinden konumlandırılır.</p>
-        <button id="ecoTopluluk">TOPLULUK MERKEZİ</button>
-      </div>
-    </div>
-
-    <footer class="pub-footer" id="ecoFooter" style="margin-top:64px;">
-      <div>
-        <div style="font-family:'Oswald',sans-serif;font-weight:700;">FinTeClub</div>
-        <div style="font-size:12.5px;margin-top:2px;">connected with OptiPulseLab</div>
-      </div>
-      <div class="footer-links">
-        <button data-hubnav="oplab">OPLAB</button><span>/</span>
-        <button data-hubnav="fintelig">FİNTELİG</button><span>/</span>
-        <button data-hubnav="zirve">FinTeClub ZİRVE</button>
-      </div>
-    </footer>
-  </section>
 
   <!-- ============ PUBLIC: ANA SAYFA ============ -->
   <section id="pub-home" class="pub-page">
@@ -814,6 +758,18 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
         <h3 style="font-size:17px;margin-bottom:8px;">FinTeLig Tanıtım Videosu</h3>
         <p style="color:var(--text-dim);font-size:13px;line-height:1.55;margin-bottom:16px;text-transform:none;letter-spacing:0;font-weight:400;">Yarışma mantığını, katılım sürecini ve portföy deneyimini kısa videoyla keşfedin.</p>
         <span class="status-pill" id="heroStatusBadge">YARIŞMA BAŞLAMADI</span>
+      </div>
+    </div>
+
+    <div class="card live-strip" data-pubnav="pub-basvuru" role="button" tabindex="0" aria-label="FinteLig başvuru sayfasına git">
+      <div class="live-left">
+        <div class="live-label"><span class="live-dot"></span> CANLI KAYIT</div>
+        <div class="stat-num" id="ecoUserCount">0</div>
+        <div class="stat-sub-label">Kayıtlı kullanıcı</div>
+      </div>
+      <div class="stat-growth-pill">
+        <div class="g-val" id="ecoUserGrowth">+%0</div>
+        <div class="g-sub">Bu hafta</div>
       </div>
     </div>
 
@@ -1657,12 +1613,7 @@ function processCheckinParam(){
 function navigatePublic(pageId){
   document.querySelectorAll('.pub-page').forEach(p=>p.classList.remove('active'));
   document.getElementById(pageId).classList.add('active');
-  document.querySelectorAll('#pubNavLinks button').forEach(b=>b.classList.toggle('active', b.dataset.pubnav===pageId && pageId!=='pub-home'));
-  const isHub = pageId === 'pub-ekosistem';
-  document.getElementById('pubNavLinks').style.display = isHub ? 'none' : 'flex';
-  document.getElementById('pubNavLinksHub').style.display = isHub ? 'flex' : 'none';
-  document.getElementById('pubNavLinks').classList.toggle('nav-current', !isHub);
-  document.getElementById('pubNavLinksHub').classList.toggle('nav-current', isHub);
+  document.querySelectorAll('#pubNavLinks button').forEach(b=>b.classList.toggle('active', b.dataset.pubnav===pageId));
   window.scrollTo({top:0,behavior:'smooth'});
   closeMobilePubNav();
 }
@@ -1754,45 +1705,19 @@ function openOplab(){
 }
 document.getElementById('oplabBtn').addEventListener('click', ()=> openOplab());
 document.getElementById('ftcLogoLink').addEventListener('click', ()=> window.open(FINTECLUB_URL, '_blank', 'noopener'));
-document.getElementById('ecoDemoBtn').addEventListener('click', ()=> openOplab());
 
-/* ============ FINTECLUB EKOSİSTEM: navigation ============ */
-document.getElementById('ecoTopluluk').addEventListener('click', ()=>{
-  navigatePublic('pub-ekosistem');
-  setTimeout(()=>window.scrollTo({top:0,behavior:'smooth'}), 60);
-});
 // (11 Ağustos 2026) "CANLI KAYIT" kartı artık tıklanabilir — data-pubnav
 // niteliği sayesinde aşağıdaki genel [data-pubnav] tıklama dinleyicisi
 // üzerinden doğrudan FinteLig başvuru sayfasına (pub-basvuru) gidiyor. Bu
 // kart bir <button> değil <div> olduğu için klavye erişilebilirliği (Enter/
 // Boşluk) için ayrıca burada ekleniyor.
 (function(){
-  var statCard = document.querySelector('.stat-hero-card[data-pubnav]');
+  var statCard = document.querySelector('.live-strip[data-pubnav]');
   if(!statCard) return;
   statCard.addEventListener('keydown', function(e){
     if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); statCard.click(); }
   });
 })();
-document.querySelectorAll('[data-hubnav]').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    closeMobilePubNav();
-    const target = btn.dataset.hubnav;
-    if(target === 'nedir'){
-      navigatePublic('pub-ekosistem');
-      setTimeout(()=>document.getElementById('ecoFeatures').scrollIntoView({behavior:'smooth'}), 60);
-      return;
-    }
-    if(target === 'fintelig'){ navigatePublic('pub-home'); return; }
-    if(target === 'zirve'){ navigatePublic('pub-zirve'); return; }
-    if(target === 'iletisim'){
-      navigatePublic('pub-ekosistem');
-      setTimeout(()=>document.getElementById('ecoFooter').scrollIntoView({behavior:'smooth'}), 60);
-      return;
-    }
-    if(target === 'oplab'){ openOplab(); return; }
-    if(target === 'demo'){ openOplab(); return; }
-  });
-});
 document.getElementById('demoBtn').addEventListener('click', ()=> openOplab());
 
 // (Düzeltme) Tema seçimi önceden hiç kaydedilmiyordu — sayfa her
@@ -2476,7 +2401,7 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
 hydrateFromShared();
 renderStudentRows();
 syncGlobalStatus();
-navigatePublic('pub-ekosistem');
+navigatePublic('pub-home');
 processCheckinParam();
 processEmailVerifyParam();
 </script>
