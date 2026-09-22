@@ -14,11 +14,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 <!-- EmailJS (opsiyonel e-posta bildirimi — EMAILJS_PUBLIC_KEY doldurulmadan hiçbir şeyi etkilemez) -->
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-<!-- (Öğrenci belgesi OCR ön-kontrolü) Tesseract.js — tamamen tarayıcıda
-     çalışır, ücretsiz/API anahtarı gerektirmez. Yüklenemezse (ağ sorunu vb.)
-     `Tesseract` global'i tanımsız kalır, OCR kontrolü sessizce atlanır —
-     başvuru süreci hiçbir şekilde bundan etkilenmez. -->
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <!-- reCAPTCHA (opsiyonel spam/bot koruması — RECAPTCHA_SITE_KEY doldurulmadan hiçbir şeyi etkilemez) -->
 <script src="https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit" async defer></script>
 <style>
@@ -882,16 +877,6 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
               <div class="field"><label data-i18n="basvuru_field_studentnum">Öğrenci Numarası</label><input type="text" id="pbStudentNumber" data-i18n-placeholder="basvuru_ph_studentnum" placeholder="Öğrenci numaranızı yazın" autocomplete="off"></div>
             </div>
             <p style="color:var(--text-dimmer);font-size:11.5px;margin:-4px 0 14px;line-height:1.6;" data-i18n="basvuru_pw_note">Bu şifreyle, başvurun onaylandıktan sonra OPLab (alım-satım platformu) üzerinde FinteLig Yarışmacısı olarak giriş yapacaksın. Ayrıca e-postana bir doğrulama bağlantısı göndereceğiz.</p>
-            <div class="field">
-              <label data-i18n="basvuru_field_doc">Öğrenci Belgesi / Öğrenci Kimlik Kartı Fotoğrafı</label>
-              <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-                <button type="button" class="btn btn-blue" id="pbDocBtn" style="padding:10px 18px;font-size:12.5px;" data-i18n="basvuru_choose_file">DOSYA SEÇ</button>
-                <span id="pbDocFileName" style="color:var(--text-dim);font-size:12.5px;">Dosya seçilmedi</span>
-                <input type="file" id="pbDocFileInput" class="hidden" accept="image/*">
-              </div>
-              <div id="pbDocOcrStatus" style="font-size:11.5px;margin-top:6px;min-height:14px;"></div>
-              <p style="color:var(--text-dimmer);font-size:11.5px;margin-top:6px;line-height:1.6;" data-i18n="basvuru_doc_desc">Öğrenci numaranın gerçekten sana ait olduğunu teyit etmek için zorunludur — e-Devlet'ten alınan öğrenci belgesi ya da öğrenci kimlik kartının net bir fotoğrafı yeterli (yalnızca fotoğraf/resim dosyası, PDF değil — PDF'in varsa ekran görüntüsünü yükleyebilirsin). Admin onaylamadan önce bunu inceleyecek.</p>
-            </div>
             <div class="field"><label data-i18n="basvuru_field_motivation">Kısa Motivasyon</label><textarea id="pbMotivation" rows="3" data-i18n-placeholder="basvuru_ph_motivation" placeholder="Fintelig yarışmasına neden katılmak istediğinizi kısaca yazın."></textarea></div>
             <div class="g-recaptcha-slot" data-form-id="basvuru" style="margin:14px 0;"></div>
             <button type="submit" class="btn btn-blue" id="pbSubmitBtn" data-i18n="basvuru_submit">KAYIT OL</button>
@@ -920,7 +905,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           </div>
           <div class="card" style="background:var(--card-bg-2);padding:16px 18px;">
             <ol style="padding-left:18px;font-size:13px;color:var(--text-dim);line-height:2;">
-              <li data-i18n="basvuru_ol1">Başvuru gönder</li><li data-i18n="basvuru_ol2">E-postanı doğrula</li><li data-i18n="basvuru_ol3">Admin, öğrenci belgeni inceleyip onaylasın</li><li data-i18n="basvuru_ol4">Yarışma paneline eriş</li>
+              <li data-i18n="basvuru_ol1">Başvuru gönder</li><li data-i18n="basvuru_ol2">E-postanı doğrula</li><li data-i18n="basvuru_ol3">Admin, başvurunu inceleyip onaylasın</li><li data-i18n="basvuru_ol4">Yarışma paneline eriş</li>
             </ol>
           </div>
         </div>
@@ -1208,9 +1193,7 @@ const I18N_EN = {
   basvuru_field_studentnum: 'Student Number',
   basvuru_ph_studentnum: 'Enter your student number',
   basvuru_pw_note: 'With this password, once your application is approved you\'ll log in to OPLab (the trading platform) as a FinteLig Competitor. We will also send a verification link to your email.',
-  basvuru_field_doc: 'Student Document / Student ID Photo',
   basvuru_choose_file: 'CHOOSE FILE',
-  basvuru_doc_desc: 'Required to confirm that the student number really belongs to you — a clear photo of your official student document (from e-Devlet) or student ID card is enough (image files only, not PDF — if you only have a PDF, you can upload a screenshot of it). Admin will review this before approving.',
   basvuru_field_motivation: 'Short Motivation',
   basvuru_ph_motivation: 'Briefly explain why you want to join the FinteLig competition.',
   basvuru_submit: 'SIGN UP',
@@ -1227,7 +1210,7 @@ const I18N_EN = {
   basvuru_admin_panel: 'ADMIN PANEL',
   basvuru_ol1: 'Submit your application',
   basvuru_ol2: 'Verify your email',
-  basvuru_ol3: 'Admin reviews your student document and approves',
+  basvuru_ol3: 'Admin reviews and approves your application',
   basvuru_ol4: 'Get access to the competition panel',
   basvuru_footer_note: 'FinteLig applications are subject to admin approval. Unapproved users cannot access the competition panel or the Summit registration process.',
   basvuru_already_applied: 'I already applied, check my status →',
@@ -1381,13 +1364,8 @@ const T = {
   zform_toast_student_required: {tr:(i)=>`Lütfen ${i}. öğrenci bilgilerini eksiksiz doldurun.`, en:(i)=>`Please fill in student ${i}'s details completely.`},
   zform_toast_success: {tr:(club)=>`${club} için Zirve kaydı gönderildi.`, en:(club)=>`Summit registration submitted for ${club}.`},
 
-  ocr_match: {tr:'✓ Öğrenci numaranı belgede bulduk.', en:'✓ We found your student number in the document.'},
-  ocr_nomatch: {tr:'⚠ Numarayı belgede bulamadık — yine de gönderebilirsin, admin elle kontrol edecek. Net bir fotoğraf yüklediğinden emin ol.', en:'⚠ We couldn\'t find the number in the document — you can still submit, admin will check it manually. Make sure you uploaded a clear photo.'},
-  ocr_scanning: {tr:'Belge taranıyor, bir saniye...', en:'Scanning document, one second...'},
-
   basvuru_toast_closed: {tr:'Başvurular şu anda kapalı.', en:'Applications are currently closed.'},
   basvuru_toast_required: {tr:'Lütfen zorunlu alanları (ad soyad, e-posta, kurum, öğrenci numarası) doldurun.', en:'Please fill in the required fields (full name, email, institution, student number).'},
-  basvuru_toast_needdoc: {tr:'Lütfen öğrenci numaranı teyit etmek için öğrenci belgeni veya öğrenci kimlik kartı fotoğrafını yükle.', en:'Please upload your student document or student ID photo to confirm your student number.'},
   basvuru_toast_pwlen: {tr:'Lütfen en az 6 karakterli bir şifre belirle. Bu şifreyle OPLab\'a giriş yapacaksın.', en:'Please set a password of at least 6 characters. You\'ll use this password to log in to OPLab.'},
   basvuru_toast_dupemail: {tr:'Bu e-posta adresiyle daha önce başvuru yapılmış. Bir e-posta ile yalnızca bir kez başvurulabilir.', en:'An application has already been made with this email address. Only one application is allowed per email.'},
   basvuru_toast_dupstudent: {tr:'Bu öğrenci numarasıyla daha önce başvuru yapılmış. Bir öğrenci numarası ile yalnızca bir kez başvurulabilir.', en:'An application has already been made with this student number. Only one application is allowed per student number.'},
@@ -1411,7 +1389,7 @@ const T = {
   verify_hello_title: {tr:(name)=>`Merhaba ${name}`, en:(name)=>`Hi ${name}`},
   verify_hello_desc: {tr:'FinteLig başvurunda kullandığın e-postanın gerçekten sana ait olduğunu teyit etmek için aşağıdaki butona bas.', en:'Press the button below to confirm that the email you used in your FinteLig application really belongs to you.'},
   verify_success_title: {tr:'DOĞRULANDI', en:'VERIFIED'},
-  verify_success_desc: {tr:(name)=>`Teşekkürler ${name}! E-postan doğrulandı. Admin, yüklediğin öğrenci belgesini inceledikten sonra başvurunu onaylayacak.`, en:(name)=>`Thanks ${name}! Your email is verified. Admin will approve your application after reviewing the student document you uploaded.`},
+  verify_success_desc: {tr:(name)=>`Teşekkürler ${name}! E-postan doğrulandı. Admin, başvurunu inceledikten sonra onaylayacak.`, en:(name)=>`Thanks ${name}! Your email is verified. Admin will review and approve your application.`},
 
   auth_err_email_in_use: {tr:'Bu e-posta adresiyle zaten bir hesap var. Daha önce başvurduysan "Zaten başvurdum" bağlantısını kullan.', en:'An account already exists with this email address. If you applied before, use the "I already applied" link.'},
   auth_err_weak_password: {tr:'Şifre çok kısa. En az 6 karakter olmalı.', en:'Password is too short. It must be at least 6 characters.'},
@@ -1514,12 +1492,6 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "267255127844",
   appId: "1:267255127844:web:9d8a65057cc822375b9db1"
 };
-// (Öğrenci belgesi/kimlik fotoğrafı yükleme — ücretsiz, kart gerektirmeyen
-// imgbb API'si) Firebase Storage için bu projede hiç bucket oluşturulmamış
-// ve etkinleştirmek Blaze (ücretli) plana geçmeyi gerektirdiğinden, öğrenci
-// belgesi fotoğrafları imgbb'ye yükleniyor — tek bir API anahtarıyla,
-// sunucu/SDK gerektirmeden doğrudan tarayıcıdan fetch() ile çalışır.
-const IMGBB_API_KEY = '0752ffff82ad1d892001bcf2e66a5b26';
 const FIREBASE_ENABLED = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY' && typeof firebase !== 'undefined';
 let fsSharedDoc = null;
 let fbAuth = null;
@@ -2329,14 +2301,6 @@ function refreshDynamicPublicText(){
     }
   }
 
-  const pbFileInput = document.getElementById('pbDocFileInput');
-  const pbFileNameEl = document.getElementById('pbDocFileName');
-  if(pbFileInput && pbFileNameEl){
-    const f = pbFileInput.files && pbFileInput.files[0];
-    pbFileNameEl.textContent = f ? f.name : t('common_no_file');
-  }
-  if(typeof checkOcrMatch === 'function') checkOcrMatch();
-
   // Zirve öğrenci formu satırları yeniden oluşturulurken (placeholder'lar
   // yeni dilde), kullanıcının o ana kadar girdiği değerler kaybolmasın diye
   // önce mevcut değerler saklanır, satırlar yeniden çizilir, sonra geri
@@ -2379,58 +2343,6 @@ function refreshDynamicPublicText(){
   }
 }
 
-document.getElementById('pbDocBtn').addEventListener('click', ()=>document.getElementById('pbDocFileInput').click());
-
-// (Öğrenci belgesi OCR ön-kontrolü) Bu SADECE bir ipucu/uyarı katmanıdır —
-// admin'in son onay kararının yerine GEÇMEZ. OCR'ın "eşleşiyor" demesi,
-// belgenin sahte olmadığını KANITLAMAZ (biri doğru numarayı yazan sahte bir
-// belge de üretebilir) — sadece bariz hataları (yanlış fotoğraf, yanlış
-// yazılmış numara) başvuru anında yakalayıp başvurana ve admin'e bir sinyal
-// vermek için var. Bu yüzden eşleşme bulunamasa bile başvuru ENGELLENMEZ.
-let lastOcrText = null; // son taranan belgenin ham metni (öğrenci no değişse bile yeniden OCR çalıştırmadan tekrar kontrol edebilmek için)
-let lastOcrRanForFile = null;
-function normalizeDigits(s){ return (s || '').replace(/[^0-9]/g, ''); }
-function checkOcrMatch(){
-  const statusEl = document.getElementById('pbDocOcrStatus');
-  if(!statusEl) return;
-  const studentNumber = normalizeDigits(document.getElementById('pbStudentNumber').value);
-  if(lastOcrText === null){ statusEl.textContent = ''; return; }
-  if(!studentNumber){
-    statusEl.textContent = '';
-    return;
-  }
-  const found = normalizeDigits(lastOcrText).includes(studentNumber);
-  if(found){
-    statusEl.innerHTML = `<span style="color:var(--green);">${t('ocr_match')}</span>`;
-  } else {
-    statusEl.innerHTML = `<span style="color:var(--yellow);">${t('ocr_nomatch')}</span>`;
-  }
-}
-document.getElementById('pbStudentNumber').addEventListener('input', checkOcrMatch);
-document.getElementById('pbDocFileInput').addEventListener('change', function(){
-  const file = this.files[0] || null;
-  document.getElementById('pbDocFileName').textContent = file ? file.name : t('common_no_file');
-  const statusEl = document.getElementById('pbDocOcrStatus');
-  lastOcrText = null;
-  lastOcrRanForFile = null;
-  if(!file || typeof Tesseract === 'undefined'){
-    if(statusEl) statusEl.textContent = '';
-    return;
-  }
-  if(statusEl){ statusEl.innerHTML = `<span style="color:var(--text-dim);">${t('ocr_scanning')}</span>`; }
-  Tesseract.recognize(file, 'eng').then(function(result){
-    // Kullanıcı bu sırada farklı bir dosya seçmiş olabilir — sonucu sadece
-    // hâlâ AYNI dosya seçiliyse uygula (yarış durumu koruması).
-    if(document.getElementById('pbDocFileInput').files[0] !== file) return;
-    lastOcrText = (result && result.data && result.data.text) || '';
-    lastOcrRanForFile = file;
-    checkOcrMatch();
-  }).catch(function(e){
-    console.warn('[Öğrenci Belgesi OCR] Taranamadı (bu bir hata değil, sadece ön-kontrol atlanıyor):', e);
-    if(statusEl) statusEl.textContent = '';
-  });
-});
-
 /* ============ PUBLIC: BAŞVURU FORMU ============ */
 document.getElementById('pubBasvuruForm').addEventListener('submit', function(e){
   e.preventDefault();
@@ -2444,24 +2356,6 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
   const studentNumber = document.getElementById('pbStudentNumber').value.trim();
   const motivation = document.getElementById('pbMotivation').value.trim();
   if(!name || !email || !org || !studentNumber){ showToast(t('basvuru_toast_required'), 'error'); return; }
-  // (Öğrenci numarası doğrulama — belge/kimlik fotoğrafı zorunluluğu) Her
-  // öğrencinin .edu.tr uzantılı bir e-postası olmayabildiğinden (bkz. kod
-  // yorumu geçmişi — önce e-posta domain kontrolü denenmiş, gerçek
-  // kullanıcılardan geri bildirim üzerine kaldırılmıştır), öğrenci
-  // numarasının gerçekliği artık öğrenci belgesi/kimlik kartı fotoğrafı
-  // yüklemesiyle ve admin'in onay sırasında bu görseli öğrenci numarasıyla
-  // karşılaştırmasıyla teyit ediliyor (aşağıdaki dosya yükleme alanı).
-  const studentDocFile = (document.getElementById('pbDocFileInput').files || [])[0] || null;
-  // (Öğrenci belgesi OCR ön-kontrolü) Bilgi amaçlı bir sinyal — admin'e
-  // "OCR bu numarayı belgede buldu mu" gösterir, ama başvuruyu ASLA
-  // engellemez (OCR çalışmadıysa/eşleşmediyse bile gönderim serbesttir).
-  const ocrMatch = (studentDocFile && lastOcrRanForFile === studentDocFile && lastOcrText !== null)
-    ? normalizeDigits(lastOcrText).includes(normalizeDigits(studentNumber))
-    : null;
-  if(!studentDocFile){
-    showToast(t('basvuru_toast_needdoc'), 'error');
-    return;
-  }
   if(!password || password.length < 6){ showToast(t('basvuru_toast_pwlen'), 'error'); return; }
   if(state.applications.some(a => (a.email||'').toLowerCase() === email.toLowerCase())){
     showToast(t('basvuru_toast_dupemail'), 'error');
@@ -2506,44 +2400,15 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
     // henüz state.applications'a eklenmemiş bir başvuruyla aynı e-postanın
     // yerel yinelenen-başvuru kontrolünü atlatabilirdi).
     return reserveNextId('appIdCounter', () => appIdCounter, (v) => { appIdCounter = v; }).then(function(newId){
-      state.applications.push({id: newId, name, email, org, level: level || 'Belirtilmedi', studentNumber, motivation, status:'bekliyor', date: new Date().toLocaleDateString('tr-TR'), emailVerified: false, emailVerifyToken, studentDocFileName: studentDocFile.name, studentDocUrl: null, ocrMatch: ocrMatch});
+      state.applications.push({id: newId, name, email, org, level: level || 'Belirtilmedi', studentNumber, motivation, status:'bekliyor', date: new Date().toLocaleDateString('tr-TR'), emailVerified: false, emailVerifyToken});
       form.reset();
       resetRecaptcha('basvuru');
-      document.getElementById('pbDocFileName').textContent = t('common_no_file');
-      document.getElementById('pbDocOcrStatus').textContent = '';
-      lastOcrText = null;
-      lastOcrRanForFile = null;
       hasSubmittedApplication = true;
       document.getElementById('pubBasvuruDurum').textContent = t('basvuru_status_awaiting');
       document.getElementById('pubBasvuruDurum').style.color = 'var(--yellow)';
       updateEmailVerifyStatusUI();
       showToast(t('basvuru_toast_success', name), 'success');
       saveShared();
-      // (Öğrenci belgesi/kimlik fotoğrafı — imgbb'ye yükleme) Firebase
-      // Storage bu projede hiç kurulmadığı (bucket yok) ve kurmak ücretli
-      // Blaze plana geçmeyi gerektirdiği için, belge fotoğrafı ücretsiz/kart
-      // istemeyen imgbb API'sine yükleniyor. Yükleme kayıt zaten
-      // gönderildikten SONRA arka planda yapılıyor; ağ sorunu ya da imgbb
-      // tarafında bir hata olursa BU ADIM SESSİZCE BAŞARISIZ OLUR — başvuru
-      // zaten (dosya adıyla) gönderilmiş olduğundan hiçbir şey bozulmaz,
-      // admin panelinde sadece dosya linki görünmez, sadece dosya adı görünür.
-      if(studentDocFile){
-        const imgbbForm = new FormData();
-        imgbbForm.append('image', studentDocFile);
-        fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: 'POST', body: imgbbForm })
-          .then(function(res){ return res.json(); })
-          .then(function(json){
-            if(json && json.success && json.data && json.data.url){
-              const appRec = state.applications.find(a => a.id === newId);
-              if(appRec) appRec.studentDocUrl = json.data.url;
-              saveShared();
-            } else {
-              console.warn('[Öğrenci Belgesi] imgbb yükleme başarısız:', json);
-            }
-          }).catch(function(e){
-            console.warn('[Öğrenci Belgesi] Dosya yüklenemedi:', e);
-          });
-      }
       // (E-posta doğrulama linki) location.origin + location.pathname
       // kullanılıyor ki site hangi Vercel domaininde yayınlanırsa
       // yayınlansın (adm-n-one.vercel.app ya da ileride başka bir domain)
@@ -2554,7 +2419,7 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
       sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
         to_email: email, to_name: name,
         subject_line: 'FinteLig Başvurun Alındı',
-        message_body: `Merhaba ${name}, FinteLig yarışması başvurun alındı. E-postanı doğrulamak için lütfen şu bağlantıya tıkla: <a href="${verifyUrl}" target="_blank" rel="noopener" style="color:#facc15;text-decoration:underline;font-weight:600;">E-postamı Doğrula</a><br>(Bağlantı çalışmazsa şu adresi tarayıcına kopyala: ${verifyUrl})<br><br>Admin, yüklediğin öğrenci belgesini inceledikten sonra başvurunu onaylayacak; onaydan sonra belirlediğin e-posta ve şifreyle OPLab (alım-satım platformu) üzerinde FinteLig Yarışmacısı olarak giriş yapabileceksin.`
+        message_body: `Merhaba ${name}, FinteLig yarışması başvurun alındı. E-postanı doğrulamak için lütfen şu bağlantıya tıkla: <a href="${verifyUrl}" target="_blank" rel="noopener" style="color:#facc15;text-decoration:underline;font-weight:600;">E-postamı Doğrula</a><br>(Bağlantı çalışmazsa şu adresi tarayıcına kopyala: ${verifyUrl})<br><br>Admin, başvurunu inceledikten sonra onaylayacak; onaydan sonra belirlediğin e-posta ve şifreyle OPLab (alım-satım platformu) üzerinde FinteLig Yarışmacısı olarak giriş yapabileceksin.`
       });
       sendNotificationEmail(EMAILJS_TEMPLATE_ADMIN, {
         to_email: ADMIN_NOTIFY_EMAIL, to_name: 'Admin',
