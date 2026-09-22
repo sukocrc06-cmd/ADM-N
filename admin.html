@@ -3059,6 +3059,20 @@ function sendNotificationEmail(templateId, params){
     return Promise.resolve(false);
   }
 }
+// (22 Eylül 2026 — Madde 3 düzeltmesi, index.html'deki AYNI desen) İlk
+// gönderim geçici bir sebeple (ağ titreşimi, EmailJS'in anlık yoğunluğu)
+// başarısız olursa, admini hemen "gönderilemedi" ile karşılamadan önce
+// kısa bir bekleme sonrası sessizce bir kez daha deniyoruz.
+function sendNotificationEmailWithRetry(templateId, params, retryDelayMs = 4000){
+  return sendNotificationEmail(templateId, params).then(function(ok){
+    if (ok) return true;
+    return new Promise(function(resolve){
+      setTimeout(function(){
+        sendNotificationEmail(templateId, params).then(resolve);
+      }, retryDelayMs);
+    });
+  });
+}
 // Admin bir başvuruyu onayladığında/reddettiğinde başvurana otomatik bilgi
 // e-postası gider — başvuru durumunu takip etmek için siteye geri dönmesine
 // gerek kalmaz. Gerçek gönderim sonucunu (true/false) döndürür ki çağıran
@@ -3067,13 +3081,13 @@ function sendNotificationEmail(templateId, params){
 function sendApplicationDecisionEmail(app, decision){
   if(!app || !app.email) return Promise.resolve(false);
   if(decision === 'onayli'){
-    return sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
+    return sendNotificationEmailWithRetry(EMAILJS_TEMPLATE_APPLICANT, {
       to_email: app.email, to_name: app.name,
       subject_line: 'FinteLig Başvurun Onaylandı',
       message_body: `Merhaba ${app.name}, FinteLig yarışması başvurun ONAYLANDI! Kayıt olurken belirlediğin e-posta ve şifreyle OPLab (alım-satım platformu) üzerinde giriş yapabilir, "FinteLig Yarışmacısı" olarak yarışmaya katılabilirsin.`
     });
   } else if(decision === 'reddedildi'){
-    return sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
+    return sendNotificationEmailWithRetry(EMAILJS_TEMPLATE_APPLICANT, {
       to_email: app.email, to_name: app.name,
       subject_line: 'FinteLig Başvuru Sonucun',
       message_body: `Merhaba ${app.name}, FinteLig yarışması başvurunu değerlendirdik; bu dönem için başvurun UYGUN BULUNMADI. İlgini gösterdiğin için teşekkür ederiz, bir sonraki dönemde tekrar başvurabilirsin.`

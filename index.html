@@ -1370,6 +1370,14 @@ const T = {
   basvuru_toast_dupemail: {tr:'Bu e-posta adresiyle daha önce başvuru yapılmış. Bir e-posta ile yalnızca bir kez başvurulabilir.', en:'An application has already been made with this email address. Only one application is allowed per email.'},
   basvuru_toast_dupstudent: {tr:'Bu öğrenci numarasıyla daha önce başvuru yapılmış. Bir öğrenci numarası ile yalnızca bir kez başvurulabilir.', en:'An application has already been made with this student number. Only one application is allowed per student number.'},
   basvuru_toast_success: {tr:(name)=>`Başvurunuz alındı, ${name}! E-postana gönderdiğimiz doğrulama bağlantısına tıkla, sonra admin onayını bekle.`, en:(name)=>`Your application has been received, ${name}! Click the verification link we sent to your email, then wait for admin approval.`},
+  // (22 Eylül 2026 — Madde 3 "sessiz e-posta hatası" düzeltmesi) Önceden
+  // başvuru her zaman yukarıdaki "başarılı" mesajıyla kapanıyordu, doğrulama
+  // e-postası (EmailJS) arka planda sessizce başarısız olsa bile kullanıcı
+  // bundan haberdar edilmiyordu — TEKRAR GÖNDER düğmesinin var olduğunu bile
+  // bilmiyordu çünkü ilk denemenin başarısız olduğunu hiç öğrenmiyordu. Artık
+  // otomatik 1 yeniden denemeden SONRA da gönderilemezse bu ayrı, açık uyarı
+  // gösteriliyor.
+  basvuru_toast_verify_email_fail: {tr:'Başvurun kaydedildi ama doğrulama e-postası gönderilemedi (birden fazla denedik). Aşağıdaki durumunu görüntüle ekranından "DOĞRULAMA BAĞLANTISINI TEKRAR GÖNDER" düğmesini birazdan tekrar dene, ya da yöneticine haber ver.', en:'Your application was saved, but the verification email could not be sent (we tried more than once). Try the "RESEND VERIFICATION LINK" button on the status screen below again in a bit, or let your administrator know.'},
   basvuru_toast_reapply_mismatch: {tr:'Bu e-postayla önceden bir hesap açılmış ama artık sistemde aktif bir başvurun yok. Az önce girdiğin şifre önceki hesabınla eşleşmiyor — aşağıdaki seçeneklerden birini kullan.', en:'An account was previously created with this email, but you no longer have an active application in the system. The password you just entered doesn\'t match your previous account — use one of the options below.'},
   basvuru_toast_need_email: {tr:'Önce yukarıya e-posta adresini gir.', en:'First enter your email address above.'},
   basvuru_toast_pwreset_sent: {tr:(email)=>`Şifre sıfırlama bağlantısı ${email} adresine gönderildi. Gelen kutunu (ve spam klasörünü) kontrol et.`, en:(email)=>`A password reset link was sent to ${email}. Check your inbox (and spam folder).`},
@@ -1664,6 +1672,24 @@ function sendNotificationEmail(templateId, params){
     console.warn('[EmailJS] Senkron hata:', e);
     return Promise.resolve(false);
   }
+}
+// (22 Eylül 2026 — Madde 3 düzeltmesi, ikinci parça: otomatik yeniden
+// deneme) 20 kişinin aynı anda başvurduğu bir yoğunlukta EmailJS'e giden
+// istek geçici olarak başarısız olabilir (ağ titreşimi, EmailJS'in kendi
+// anlık yoğunluğu vb.) — kullanıcıyı hemen "gönderilemedi" ile
+// karşılamadan önce, kısa bir bekleme sonrası SESSİZCE bir kez daha
+// deniyoruz. İki deneme de başarısız olursa (ör. gerçekten aylık kota
+// dolmuşsa ya da hesap/şablon ayarı bozuksa) çağıran taraf nihai false'u
+// görüp kullanıcıya haber verebilsin diye false dönüyor.
+function sendNotificationEmailWithRetry(templateId, params, retryDelayMs = 4000){
+  return sendNotificationEmail(templateId, params).then(function(ok){
+    if (ok) return true;
+    return new Promise(function(resolve){
+      setTimeout(function(){
+        sendNotificationEmail(templateId, params).then(resolve);
+      }, retryDelayMs);
+    });
+  });
 }
 /* ============ RECAPTCHA (OPSİYONEL SPAM/BOT KORUMASI) ============ */
 // google.com/recaptcha/admin üzerinden ücretsiz bir "reCAPTCHA v2 - Kutucuk" site anahtarı oluştur ve aşağıya yapıştır.
@@ -2416,12 +2442,21 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
       // PUBLIC_SITE_URL'nin elle güncel tutulması gerektiği bilinen
       // kısıtından kaçınıyoruz.
       const verifyUrl = location.origin + location.pathname + '?verifyemail=' + newId + '.' + emailVerifyToken;
-      sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
+      // (22 Eylül 2026 — Madde 3 düzeltmesi) Önceden bu gönderimin SONUCU
+      // hiç kontrol edilmiyordu — yukarıdaki "başvurun alındı" toast'ı zaten
+      // gösterilmiş oluyordu, e-posta arka planda sessizce başarısız olsa
+      // bile kullanıcı bunu asla öğrenmiyordu (doğrulama TAMAMEN bu maile
+      // bağlı olduğundan bu, kullanıcının hiç doğrulanamamasına yol
+      // açıyordu). Artık otomatik 1 yeniden denemeden sonra da başarısız
+      // olursa kullanıcıya AYRI ve AÇIK bir uyarı gösteriliyor.
+      sendNotificationEmailWithRetry(EMAILJS_TEMPLATE_APPLICANT, {
         to_email: email, to_name: name,
         subject_line: 'FinteLig Başvurun Alındı',
         message_body: `Merhaba ${name}, FinteLig yarışması başvurun alındı. E-postanı doğrulamak için lütfen şu bağlantıya tıkla: <a href="${verifyUrl}" target="_blank" rel="noopener" style="color:#facc15;text-decoration:underline;font-weight:600;">E-postamı Doğrula</a><br>(Bağlantı çalışmazsa şu adresi tarayıcına kopyala: ${verifyUrl})<br><br>Admin, başvurunu inceledikten sonra onaylayacak; onaydan sonra belirlediğin e-posta ve şifreyle OPLab (alım-satım platformu) üzerinde FinteLig Yarışmacısı olarak giriş yapabileceksin.`
+      }).then(function(ok){
+        if (!ok) showToast(t('basvuru_toast_verify_email_fail'), 'warn');
       });
-      sendNotificationEmail(EMAILJS_TEMPLATE_ADMIN, {
+      sendNotificationEmailWithRetry(EMAILJS_TEMPLATE_ADMIN, {
         to_email: ADMIN_NOTIFY_EMAIL, to_name: 'Admin',
         subject_line: 'Yeni FinteLig Başvurusu',
         message_body: `${name} (${email}) FinteLig yarışmasına başvurdu. Admin panelinden inceleyebilirsin.`
@@ -2662,7 +2697,7 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
     btn.disabled = true;
     btn.textContent = t('common_sending');
     const verifyUrl = location.origin + location.pathname + '?verifyemail=' + app.id + '.' + app.emailVerifyToken;
-    sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
+    sendNotificationEmailWithRetry(EMAILJS_TEMPLATE_APPLICANT, {
       to_email: app.email, to_name: app.name,
       subject_line: 'FinteLig — E-posta Doğrulama Bağlantın',
       message_body: `Merhaba ${app.name}, e-postanı doğrulamak için lütfen şu bağlantıya tıkla: <a href="${verifyUrl}" target="_blank" rel="noopener" style="color:#facc15;text-decoration:underline;font-weight:600;">E-postamı Doğrula</a><br>(Bağlantı çalışmazsa şu adresi tarayıcına kopyala: ${verifyUrl})`
