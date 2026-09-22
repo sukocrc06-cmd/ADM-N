@@ -10,10 +10,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-<!-- EmailJS (OPLab doğrulama sağlamlaştırması) — admin bir başvuruyu onayladığında
-     OPLab giriş linkini/kodunu başvurandaki GERÇEK e-postaya göndermek için.
-     index.html'deki AYNI EmailJS hesabını kullanıyor. -->
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<!-- (22 Eylül 2026 — Madde 3) EmailJS kaldırıldı, e-posta artık api/send-
+     email.js üzerinden sunucu tarafında (Resend ile) gönderiliyor — bu
+     CDN kütüphanesine artık gerek yok. -->
 <style>
 /* ============ RESET & BASE ============ */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -3011,53 +3010,33 @@ document.getElementById('saveZirveSettingsBtn').addEventListener('click', functi
 // index.html içindeki OPTIPULSE_URL ile BİREBİR AYNI olmalıdır.
 const OPTIPULSE_URL = 'https://rekabet-testi.vercel.app/';
 
-/* ============ EMAILJS (BAŞVURU/ZİRVE BİLDİRİMLERİ) ============ */
-// index.html'in başvuru/zirve bildirimlerinde kullandığı AYNI EmailJS hesabı.
-// (OPLab girişi artık gerçek Firebase Authentication ile yapılıyor — başvuru
-// sırasında belirlenen e-posta+şifre kullanılıyor; bu yüzden ayrıca bir
-// "OPLab giriş linki/kodu" e-postası göndermeye gerek kalmadı.)
-const EMAILJS_PUBLIC_KEY = "BQOuVLYDOiQvWyzMc";
-const EMAILJS_SERVICE_ID = "service_r8bspvz";
-const EMAILJS_TEMPLATE_APPLICANT = "template_09hr06n";
-// (Sessiz e-posta hatası düzeltmesi) Önceden EMAILJS_ENABLED sadece SAYFA
-// YÜKLENİRKEN BİR KEZ hesaplanıyordu — CDN'den emailjs kütüphanesi o anda
-// henüz yüklenmemişse (yavaş bağlantı, engellenen istek vb.) EMAILJS_ENABLED
-// kalıcı olarak false kalıyor ve sendNotificationEmail hiçbir uyarı
-// vermeden sessizce hiçbir şey yapmıyordu — admin "e-posta gönderildi"
-// toast'ını görüyor ama e-posta hiç gitmiyordu. Artık her gönderimde CANLI
-// olarak emailjs'in var olup olmadığına bakılıyor, başarı/başarısızlık
-// gerçek bir true/false olarak DÖNDÜRÜLÜYOR ve konsola (F12) ayrıntılı log
-// yazılıyor — böylece "onayladım ama mail gitmedi" gibi durumlarda admin
-// konsolu açıp gerçek nedeni görebilir.
-let _emailjsInitDone = false;
-function ensureEmailJsInit(){
-  if(_emailjsInitDone || typeof emailjs === 'undefined') return;
-  try{ emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY }); _emailjsInitDone = true; }
-  catch(e){ console.warn('[EmailJS] init hatası:', e); }
-}
-ensureEmailJsInit();
+/* ============ E-POSTA GÖNDERİMİ (Vercel sunucu fonksiyonu + Resend) ============ */
+// (22 Eylül 2026 — Madde 3, EmailJS'ten Resend'e geçiş) index.html'deki
+// AYNI değişiklik/gerekçe — bkz. o dosyadaki yorum. Gönderim artık api/
+// send-email.js üzerinden sunucu tarafında yapılıyor, API anahtarı
+// tarayıcıya hiç sızmıyor, ücretsiz kota EmailJS'e göre çok daha geniş.
+// (OPLab girişi zaten gerçek Firebase Authentication ile yapılıyor —
+// başvuru sırasında belirlenen e-posta+şifre kullanılıyor; bu yüzden ayrıca
+// bir "OPLab giriş linki/kodu" e-postası göndermeye gerek kalmadı.)
+const EMAIL_KIND_APPLICANT = "applicant";
 function sendNotificationEmail(templateId, params){
-  if(typeof emailjs === 'undefined'){
-    console.warn('[EmailJS] Kütüphane tarayıcıda bulunamadı (CDN yüklenemedi/engellendi) — e-posta GÖNDERİLMEDİ:', templateId, params && params.to_email);
-    return Promise.resolve(false);
-  }
-  if(EMAILJS_PUBLIC_KEY === 'YOUR_EMAILJS_PUBLIC_KEY'){
-    console.warn('[EmailJS] Public key ayarlanmamış — e-posta GÖNDERİLMEDİ:', templateId, params && params.to_email);
-    return Promise.resolve(false);
-  }
-  ensureEmailJsInit();
-  try{
-    return emailjs.send(EMAILJS_SERVICE_ID, templateId, params).then(function(res){
-      console.log('[EmailJS] Gönderildi ✓', templateId, '->', params && params.to_email, res);
+  return fetch('/api/send-email', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(params)
+  }).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(data){
+      if(!r.ok){
+        console.warn('[E-posta] Gönderilemedi ✕ (sunucu yanıtı — api/send-email.js kurulumunu/ortam değişkenlerini kontrol edin):', templateId, '->', params && params.to_email, r.status, data);
+        return false;
+      }
+      console.log('[E-posta] Gönderildi ✓', templateId, '->', params && params.to_email, data);
       return true;
-    }).catch(function(e){
-      console.warn('[EmailJS] Gönderilemedi ✕ (EmailJS API hatası — servis/şablon ID\'lerini, EmailJS hesabındaki izin verilen alan adları/origin ayarlarını ve aylık gönderim limitini kontrol edin):', templateId, '->', params && params.to_email, e);
-      return false;
     });
-  }catch(e){
-    console.warn('[EmailJS] Senkron hata:', e);
-    return Promise.resolve(false);
-  }
+  }).catch(function(e){
+    console.warn('[E-posta] İstek başarısız (ağ hatası, ya da /api/send-email henüz deploy edilmemiş olabilir):', templateId, '->', params && params.to_email, e);
+    return false;
+  });
 }
 // (22 Eylül 2026 — Madde 3 düzeltmesi, index.html'deki AYNI desen) İlk
 // gönderim geçici bir sebeple (ağ titreşimi, EmailJS'in anlık yoğunluğu)
@@ -3081,13 +3060,13 @@ function sendNotificationEmailWithRetry(templateId, params, retryDelayMs = 4000)
 function sendApplicationDecisionEmail(app, decision){
   if(!app || !app.email) return Promise.resolve(false);
   if(decision === 'onayli'){
-    return sendNotificationEmailWithRetry(EMAILJS_TEMPLATE_APPLICANT, {
+    return sendNotificationEmailWithRetry(EMAIL_KIND_APPLICANT, {
       to_email: app.email, to_name: app.name,
       subject_line: 'FinteLig Başvurun Onaylandı',
       message_body: `Merhaba ${app.name}, FinteLig yarışması başvurun ONAYLANDI! Kayıt olurken belirlediğin e-posta ve şifreyle OPLab (alım-satım platformu) üzerinde giriş yapabilir, "FinteLig Yarışmacısı" olarak yarışmaya katılabilirsin.`
     });
   } else if(decision === 'reddedildi'){
-    return sendNotificationEmailWithRetry(EMAILJS_TEMPLATE_APPLICANT, {
+    return sendNotificationEmailWithRetry(EMAIL_KIND_APPLICANT, {
       to_email: app.email, to_name: app.name,
       subject_line: 'FinteLig Başvuru Sonucun',
       message_body: `Merhaba ${app.name}, FinteLig yarışması başvurunu değerlendirdik; bu dönem için başvurun UYGUN BULUNMADI. İlgini gösterdiğin için teşekkür ederiz, bir sonraki dönemde tekrar başvurabilirsin.`

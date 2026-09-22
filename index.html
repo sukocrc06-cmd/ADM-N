@@ -12,8 +12,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <!-- (9 Ağustos 2026 — Madde #127: Kulüp CV gerçek dosya yükleme) Firebase Storage — Zirve kayıt formundaki "Kulüp CV" alanı önceden sadece dosya ADINI kaydediyordu, dosyanın kendisi hiçbir yere yüklenmiyordu. -->
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
-<!-- EmailJS (opsiyonel e-posta bildirimi — EMAILJS_PUBLIC_KEY doldurulmadan hiçbir şeyi etkilemez) -->
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<!-- (22 Eylül 2026 — Madde 3) EmailJS kaldırıldı, e-posta artık api/send-
+     email.js üzerinden sunucu tarafında (Resend ile) gönderiliyor — bu
+     CDN kütüphanesine artık gerek yok. -->
 <!-- reCAPTCHA (opsiyonel spam/bot koruması — RECAPTCHA_SITE_KEY doldurulmadan hiçbir şeyi etkilemez) -->
 <script src="https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit" async defer></script>
 <style>
@@ -1631,47 +1632,42 @@ function publicAuthErrorMessage(err){
   return t('auth_err_generic');
 }
 
-/* ============ EMAILJS (OPSİYONEL E-POSTA BİLDİRİMİ) ============ */
-// console.emailjs.com üzerinden ücretsiz hesap aç, bir "Email Service" bağla (ör. Gmail) ve iki şablon oluştur:
-// biri başvurana giden onay e-postası, biri sana gelen bildirim e-postası. Şablon değişkenleri: to_email, to_name, subject_line, message_body.
-const EMAILJS_PUBLIC_KEY = "BQOuVLYDOiQvWyzMc";
-const EMAILJS_SERVICE_ID = "service_r8bspvz";
-const EMAILJS_TEMPLATE_APPLICANT = "template_09hr06n";
-const EMAILJS_TEMPLATE_ADMIN = "template_09hr06n";
+/* ============ E-POSTA GÖNDERİMİ (Vercel sunucu fonksiyonu + Resend) ============ */
+// (22 Eylül 2026 — Madde 3, EmailJS'ten Resend'e geçiş) EmailJS istemci
+// TARAFINDA (tarayıcıda) çalışıyordu: herkese açık bir "public key" ile,
+// ücretsiz planın düşük aylık kotasına bağlıydı — 20 kişilik tek bir test
+// bile (20 başvuran + 20 admin bildirimi = 40 e-posta) bu kotayı kolayca
+// tüketebiliyordu, ve kota/servis hatası oluşunca kullanıcı bunu asla
+// öğrenemiyordu. Artık gönderim SUNUCU tarafında yapılıyor — bu projenin
+// zaten kullandığı Vercel sunucu fonksiyonu deseniyle (bkz. api/delete-
+// user.js), Resend üzerinden: API anahtarı tarayıcıya hiç sızmıyor,
+// ücretsiz kota ayda 3000 e-postaya çıkıyor. KURULUM: bkz. api/send-
+// email.js dosyasının başındaki yorum (alan adı doğrulaması + Vercel
+// ortam değişkenleri). Bu ayarlar yapılmadan bu uç nokta 500 döner;
+// aşağıdaki fonksiyon bunu sessizce yutar ve false döndürür — çağıran
+// taraf (sendNotificationEmailWithRetry ve üstündeki .then'ler) zaten
+// false'u kullanıcıya doğru şekilde bildiriyor, "hiçbir şey bozulmaz".
+const EMAIL_KIND_APPLICANT = "applicant";
+const EMAIL_KIND_ADMIN = "admin";
 const ADMIN_NOTIFY_EMAIL = "suko.crc06@gmail.com";
-// (Sessiz e-posta hatası düzeltmesi) Kütüphanenin varlığı artık her
-// gönderimde CANLI kontrol ediliyor (sayfa yüklenirken bir kez değil) ve
-// gerçek başarı/başarısızlık true/false olarak döndürülüyor + konsola (F12)
-// ayrıntılı log yazılıyor — bkz. admin.html'deki aynı düzeltme.
-let _emailjsInitDone = false;
-function ensureEmailJsInit(){
-  if(_emailjsInitDone || typeof emailjs === 'undefined') return;
-  try{ emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY }); _emailjsInitDone = true; }
-  catch(e){ console.warn('[EmailJS] init hatası:', e); }
-}
-ensureEmailJsInit();
 function sendNotificationEmail(templateId, params){
-  if(typeof emailjs === 'undefined'){
-    console.warn('[EmailJS] Kütüphane tarayıcıda bulunamadı (CDN yüklenemedi/engellendi) — e-posta GÖNDERİLMEDİ:', templateId, params && params.to_email);
-    return Promise.resolve(false);
-  }
-  if(EMAILJS_PUBLIC_KEY === 'YOUR_EMAILJS_PUBLIC_KEY'){
-    console.warn('[EmailJS] Public key ayarlanmamış — e-posta GÖNDERİLMEDİ:', templateId, params && params.to_email);
-    return Promise.resolve(false);
-  }
-  ensureEmailJsInit();
-  try{
-    return emailjs.send(EMAILJS_SERVICE_ID, templateId, params).then(function(res){
-      console.log('[EmailJS] Gönderildi ✓', templateId, '->', params && params.to_email, res);
+  return fetch('/api/send-email', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(params)
+  }).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(data){
+      if(!r.ok){
+        console.warn('[E-posta] Gönderilemedi ✕ (sunucu yanıtı — api/send-email.js kurulumunu/ortam değişkenlerini kontrol edin):', templateId, '->', params && params.to_email, r.status, data);
+        return false;
+      }
+      console.log('[E-posta] Gönderildi ✓', templateId, '->', params && params.to_email, data);
       return true;
-    }).catch(function(e){
-      console.warn('[EmailJS] Gönderilemedi ✕ (servis/şablon ID\'lerini ve EmailJS hesap ayarlarını kontrol edin):', templateId, '->', params && params.to_email, e);
-      return false;
     });
-  }catch(e){
-    console.warn('[EmailJS] Senkron hata:', e);
-    return Promise.resolve(false);
-  }
+  }).catch(function(e){
+    console.warn('[E-posta] İstek başarısız (ağ hatası, ya da /api/send-email henüz deploy edilmemiş olabilir):', templateId, '->', params && params.to_email, e);
+    return false;
+  });
 }
 // (22 Eylül 2026 — Madde 3 düzeltmesi, ikinci parça: otomatik yeniden
 // deneme) 20 kişinin aynı anda başvurduğu bir yoğunlukta EmailJS'e giden
@@ -2449,14 +2445,14 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
       // bağlı olduğundan bu, kullanıcının hiç doğrulanamamasına yol
       // açıyordu). Artık otomatik 1 yeniden denemeden sonra da başarısız
       // olursa kullanıcıya AYRI ve AÇIK bir uyarı gösteriliyor.
-      sendNotificationEmailWithRetry(EMAILJS_TEMPLATE_APPLICANT, {
+      sendNotificationEmailWithRetry(EMAIL_KIND_APPLICANT, {
         to_email: email, to_name: name,
         subject_line: 'FinteLig Başvurun Alındı',
         message_body: `Merhaba ${name}, FinteLig yarışması başvurun alındı. E-postanı doğrulamak için lütfen şu bağlantıya tıkla: <a href="${verifyUrl}" target="_blank" rel="noopener" style="color:#facc15;text-decoration:underline;font-weight:600;">E-postamı Doğrula</a><br>(Bağlantı çalışmazsa şu adresi tarayıcına kopyala: ${verifyUrl})<br><br>Admin, başvurunu inceledikten sonra onaylayacak; onaydan sonra belirlediğin e-posta ve şifreyle OPLab (alım-satım platformu) üzerinde FinteLig Yarışmacısı olarak giriş yapabileceksin.`
       }).then(function(ok){
         if (!ok) showToast(t('basvuru_toast_verify_email_fail'), 'warn');
       });
-      sendNotificationEmailWithRetry(EMAILJS_TEMPLATE_ADMIN, {
+      sendNotificationEmailWithRetry(EMAIL_KIND_ADMIN, {
         to_email: ADMIN_NOTIFY_EMAIL, to_name: 'Admin',
         subject_line: 'Yeni FinteLig Başvurusu',
         message_body: `${name} (${email}) FinteLig yarışmasına başvurdu. Admin panelinden inceleyebilirsin.`
@@ -2615,12 +2611,12 @@ document.getElementById('pubZirveForm').addEventListener('submit', function(e){
       console.warn('[Zirve CV] Dosya yüklenemedi (Storage kuralları henüz yayınlanmamış olabilir):', e);
     });
   }
-  sendNotificationEmail(EMAILJS_TEMPLATE_APPLICANT, {
+  sendNotificationEmail(EMAIL_KIND_APPLICANT, {
     to_email: contactEmail, to_name: contact,
     subject_line: 'FinTeClub Zirve Kaydın Alındı',
     message_body: `Merhaba ${contact}, ${club} için FinTeClub Zirve kaydın alındı. Admin onayından sonra durumu görebileceksin.`
   });
-  sendNotificationEmail(EMAILJS_TEMPLATE_ADMIN, {
+  sendNotificationEmail(EMAIL_KIND_ADMIN, {
     to_email: ADMIN_NOTIFY_EMAIL, to_name: 'Admin',
     subject_line: 'Yeni Zirve Kaydı',
     message_body: `${club} kulübü (temsilci: ${contact}, ${contactEmail}) FinTeClub Zirve'ye kayıt oldu. Admin panelinden inceleyebilirsin.`
@@ -2697,7 +2693,7 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
     btn.disabled = true;
     btn.textContent = t('common_sending');
     const verifyUrl = location.origin + location.pathname + '?verifyemail=' + app.id + '.' + app.emailVerifyToken;
-    sendNotificationEmailWithRetry(EMAILJS_TEMPLATE_APPLICANT, {
+    sendNotificationEmailWithRetry(EMAIL_KIND_APPLICANT, {
       to_email: app.email, to_name: app.name,
       subject_line: 'FinteLig — E-posta Doğrulama Bağlantın',
       message_body: `Merhaba ${app.name}, e-postanı doğrulamak için lütfen şu bağlantıya tıkla: <a href="${verifyUrl}" target="_blank" rel="noopener" style="color:#facc15;text-decoration:underline;font-weight:600;">E-postamı Doğrula</a><br>(Bağlantı çalışmazsa şu adresi tarayıcına kopyala: ${verifyUrl})`
