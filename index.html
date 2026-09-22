@@ -880,6 +880,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
             <p style="color:var(--text-dimmer);font-size:11.5px;margin:-4px 0 14px;line-height:1.6;" data-i18n="basvuru_pw_note">Bu şifreyle, başvurun onaylandıktan sonra OPLab (alım-satım platformu) üzerinde FinteLig Yarışmacısı olarak giriş yapacaksın. Ayrıca e-postana bir doğrulama bağlantısı göndereceğiz.</p>
             <div class="field"><label data-i18n="basvuru_field_motivation">Kısa Motivasyon</label><textarea id="pbMotivation" rows="3" data-i18n-placeholder="basvuru_ph_motivation" placeholder="Fintelig yarışmasına neden katılmak istediğinizi kısaca yazın."></textarea></div>
             <div class="g-recaptcha-slot" data-form-id="basvuru" style="margin:14px 0;"></div>
+            <div id="basvuruConnNotice"></div>
             <button type="submit" class="btn btn-blue" id="pbSubmitBtn" data-i18n="basvuru_submit">KAYIT OL</button>
             <!-- (Silinen başvuru sonrası yeniden başvurabilme) Firebase Authentication
                  hesapları istemci taraflı bir siteden silinemez (bkz. aşağıdaki JS
@@ -1075,6 +1076,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
               </div>
             </div>
             <div class="g-recaptcha-slot" data-form-id="zirve" style="margin:14px 0;"></div>
+            <div id="zirveConnNotice"></div>
             <button type="submit" class="btn btn-blue" id="pzSubmitBtn" style="margin-top:10px;" data-i18n="zform_submit">KAYDI TAMAMLA</button>
           </form>
         </div>
@@ -1379,6 +1381,14 @@ const T = {
   // otomatik 1 yeniden denemeden SONRA da gönderilemezse bu ayrı, açık uyarı
   // gösteriliyor.
   basvuru_toast_verify_email_fail: {tr:'Başvurun kaydedildi ama doğrulama e-postası gönderilemedi (birden fazla denedik). Aşağıdaki durumunu görüntüle ekranından "DOĞRULAMA BAĞLANTISINI TEKRAR GÖNDER" düğmesini birazdan tekrar dene, ya da yöneticine haber ver.', en:'Your application was saved, but the verification email could not be sent (we tried more than once). Try the "RESEND VERIFICATION LINK" button on the status screen below again in a bit, or let your administrator know.'},
+  // (22 Eylül 2026 — Madde 4 düzeltmesi) Bağlantı kurulamazsa/yeniden
+  // denenirken gösterilen bant + gönderim tamamen engellendiğinde gösterilen
+  // toast. "conn_retrying" hafif bir bilgi notu (form yine de doldurulabilir,
+  // ama gönder düğmesi geçici olarak kilitli); "conn_blocked" gönder
+  // düğmesine yine de basılırsa (ör. Enter tuşu) çıkan hata.
+  conn_retrying: {tr:'Sunucuya bağlanılıyor… Bağlantı kurulana kadar gönder düğmesi kısa süreliğine kilitli olabilir.', en:'Connecting to the server… The submit button may be briefly locked until the connection is established.'},
+  conn_failed: {tr:'Sunucuya bağlanılamıyor — bu başvuru şu an gönderilirse admin paneline ULAŞMAYABİLİR, bu yüzden gönderim kilitlendi. Lütfen internet bağlantını (WiFi/mobil veri) kontrol edip sayfayı yenile, sonra tekrar dene.', en:'Cannot connect to the server — if this application were submitted now it might NOT reach the admin panel, so submitting is locked. Please check your internet connection (WiFi/mobile data), reload the page, then try again.'},
+  conn_blocked_toast: {tr:'Sunucuya bağlanılamadığı için gönderim şu an kilitli. İnternetini kontrol edip sayfayı yenile, sonra tekrar dene.', en:'Submission is currently locked because the server can\'t be reached. Check your internet connection, reload the page, then try again.'},
   basvuru_toast_reapply_mismatch: {tr:'Bu e-postayla önceden bir hesap açılmış ama artık sistemde aktif bir başvurun yok. Az önce girdiğin şifre önceki hesabınla eşleşmiyor — aşağıdaki seçeneklerden birini kullan.', en:'An account was previously created with this email, but you no longer have an active application in the system. The password you just entered doesn\'t match your previous account — use one of the options below.'},
   basvuru_toast_need_email: {tr:'Önce yukarıya e-posta adresini gir.', en:'First enter your email address above.'},
   basvuru_toast_pwreset_sent: {tr:(email)=>`Şifre sıfırlama bağlantısı ${email} adresine gönderildi. Gelen kutunu (ve spam klasörünü) kontrol et.`, en:(email)=>`A password reset link was sent to ${email}. Check your inbox (and spam folder).`},
@@ -1501,34 +1511,132 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "267255127844",
   appId: "1:267255127844:web:9d8a65057cc822375b9db1"
 };
-const FIREBASE_ENABLED = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY' && typeof firebase !== 'undefined';
-let fsSharedDoc = null;
-let fbAuth = null;
 // (9 Ağustos 2026 — Madde #126: sonuç tablosunu gerçek veriye bağla)
 // admin.html'in Canlı İzleme/Sonuçlar ekranlarının okuduğu AYNI belge —
 // bkz. PAYLASILAN_SEMA.md. Herkese açık okuma (firestore.rules: allow
 // read: if true), giriş gerektirmiyor.
-let fsPortfolioDoc = null;
 // (9 Ağustos 2026 — Madde #127) Storage isteğe bağlı — SDK yüklenmemiş/proje
 // Storage'ı hiç kurulmamışsa fbStorage null kalır, CV yükleme sessizce
 // atlanır (sadece dosya adı kaydedilir, eskisi gibi) — "hiçbir şey bozulmaz".
-let fbStorage = null;
-if(FIREBASE_ENABLED){
-  try{
-    firebase.initializeApp(FIREBASE_CONFIG);
-    fsSharedDoc = firebase.firestore().collection('finteclub').doc('shared_state');
-    fsPortfolioDoc = firebase.firestore().collection('finteclub').doc('oplab_live_portfolio');
-    if(typeof firebase.storage === 'function') fbStorage = firebase.storage();
-  }catch(e){ console.warn('Firebase başlatılamadı, tarayıcı-içi modda devam ediliyor.', e); }
-}
 // (Gerçek Firebase Authentication ile OPLab girişi) Başvuru formunda
 // belirlenen şifre, burada gerçek bir Firebase Auth hesabına dönüştürülür.
 // OPLab tarafı (finteclubBridge.js) aynı Firebase projesine bağlanıp
 // signInWithEmailAndPassword ile giriş kontrolü yapar — şifre hiçbir zaman
 // Firestore'da düz metin olarak saklanmaz, tamamen Firebase Auth yönetir.
-const AUTH_ENABLED = FIREBASE_ENABLED && typeof firebase.auth === 'function';
-if(AUTH_ENABLED){
-  try{ fbAuth = firebase.auth(); }catch(e){ console.warn('Firebase Auth başlatılamadı.', e); }
+//
+// (22 Eylül 2026 — Madde 4 kök neden düzeltmesi: "mobilden başvuru admin
+// paneline düşmüyor") Bütün bu değişkenler önceden SABİT (const) ve sayfa
+// açılır açılmaz TEK SEFERLİK, SESSİZCE hesaplanıyordu: <head>'teki 4
+// Firebase script'inden (app/firestore/auth/storage) HERHANGİ BİRİ mobil
+// veri/okul wifi'sindeki bir titreşim yüzünden yüklenemezse (kablolu
+// laboratuvar bilgisayarlarında bu çok daha nadir), sistem sessizce
+// "sadece bu cihazda (localStorage)" moduna düşüyordu — bkz. saveShared()
+// ve reserveNextId()'deki "if(!fsSharedDoc || !FIREBASE_ENABLED)" yedek
+// yolları. Öğrenci yine de "başvurunuz alındı" görüyordu ama kayıt
+// SADECE O TELEFONUN tarayıcısında kalıyordu, Firestore'a hiç gitmediğinden
+// admin paneli o başvuruyu ASLA görmüyordu. Artık: (1) FIREBASE_ENABLED/
+// AUTH_ENABLED artık `let` — ilk deneme başarısız olursa startFirebaseRetry
+// Loop() birkaç saniye arayla birkaç kez OTOMATİK yeniden dener (geçici
+// titreşimleri kurtarır) ve başarılı olursa bu değişkenleri GERÇEKTEN true'ya
+// çevirir; (2) tüm denemeler de başarısız olursa firebaseConnState 'failed'
+// olur ve updatePublicBasvuruAvailability()/updatePublicZirveAvailability()
+// başvuru/zirve GÖNDER düğmelerini "Sunucuya bağlanılamıyor" diye kilitler —
+// asla sessizce "sahte başarı" gösterip veriyi sadece o cihazda hapsetmez.
+let FIREBASE_ENABLED = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY' && typeof firebase !== 'undefined';
+let fsSharedDoc = null;
+let fbAuth = null;
+let fsPortfolioDoc = null;
+let fbStorage = null;
+let AUTH_ENABLED = false;
+// 'ok' | 'retrying' | 'failed' — SADECE başvuru/zirve gönder düğmelerini
+// kilitlemek için kullanılıyor (bkz. updatePublicBasvuruAvailability/
+// updatePublicZirveAvailability); sayfanın diğer kısımlarına dokunmuyor.
+let firebaseConnState = 'retrying';
+
+function tryInitFirebase(){
+  if(!FIREBASE_ENABLED) return false;
+  try{
+    if(!firebase.apps || !firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    fsSharedDoc = firebase.firestore().collection('finteclub').doc('shared_state');
+    fsPortfolioDoc = firebase.firestore().collection('finteclub').doc('oplab_live_portfolio');
+    if(typeof firebase.storage === 'function') fbStorage = firebase.storage();
+    AUTH_ENABLED = typeof firebase.auth === 'function';
+    if(AUTH_ENABLED){
+      try{ fbAuth = firebase.auth(); }
+      catch(e){ console.warn('Firebase Auth başlatılamadı.', e); AUTH_ENABLED = false; }
+    }
+    return true;
+  }catch(e){
+    console.warn('Firebase başlatılamadı:', e);
+    FIREBASE_ENABLED = false;
+    return false;
+  }
+}
+
+const FIREBASE_SDK_URLS = [
+  'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js',
+  'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js',
+  'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js',
+  'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js'
+];
+function loadScriptOnce(url){
+  return new Promise(function(resolve, reject){
+    const s = document.createElement('script');
+    s.src = url;
+    s.onload = function(){ resolve(); };
+    s.onerror = function(){ reject(new Error('yüklenemedi: ' + url)); };
+    document.head.appendChild(s);
+  });
+}
+function reloadFirebaseSdkOnce(){
+  // Sıralı yükleniyor — firestore/auth/storage compat script'leri, 'firebase'
+  // global'ının app-compat tarafından önceden tanımlanmış olmasına bağımlı.
+  return FIREBASE_SDK_URLS.reduce(function(chain, url){
+    return chain.then(function(){ return loadScriptOnce(url); });
+  }, Promise.resolve());
+}
+function startFirebaseRetryLoop(maxAttempts, delayMs){
+  let attempt = 0;
+  function retryOrGiveUp(){
+    if(attempt >= maxAttempts){
+      firebaseConnState = 'failed';
+      console.warn('[Firebase] Tüm yeniden bağlanma denemeleri (' + maxAttempts + ') başarısız — başvuru/zirve gönderimi bağlantı kurulana kadar engellenecek.');
+      updatePublicBasvuruAvailability();
+      updatePublicZirveAvailability();
+      return;
+    }
+    setTimeout(attemptOnce, delayMs);
+  }
+  function attemptOnce(){
+    attempt++;
+    reloadFirebaseSdkOnce().then(function(){
+      FIREBASE_ENABLED = FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey !== 'YOUR_API_KEY' && typeof firebase !== 'undefined';
+      if(FIREBASE_ENABLED && tryInitFirebase()){
+        firebaseConnState = 'ok';
+        console.log('[Firebase] Yeniden bağlantı başarılı (deneme ' + attempt + ').');
+        updatePublicBasvuruAvailability();
+        updatePublicZirveAvailability();
+        return;
+      }
+      retryOrGiveUp();
+    }).catch(function(e){
+      console.warn('[Firebase] Yeniden yükleme denemesi ' + attempt + ' başarısız:', e.message);
+      retryOrGiveUp();
+    });
+  }
+  attemptOnce();
+}
+
+if(FIREBASE_CONFIG.apiKey === 'YOUR_API_KEY'){
+  // Firebase bilerek hiç yapılandırılmamış (geliştirme/tarayıcı-içi mod) —
+  // bu, bağlantı SORUNU değil, bilinçli bir tercih. Gönderimi ENGELLEME.
+  firebaseConnState = 'ok';
+}else if(FIREBASE_ENABLED && tryInitFirebase()){
+  firebaseConnState = 'ok';
+}else{
+  // İlk (senkron, <head>'teki script tag'lerine dayanan) deneme başarısız —
+  // arka planda otomatik yeniden bağlanmayı başlat.
+  startFirebaseRetryLoop(5, 3000);
 }
 
 // (Öğrenci numarası doğrulama — kendi e-posta doğrulama linkimiz) Firebase
@@ -2274,18 +2382,34 @@ function syncGlobalStatus(){
   renderPublicSonuclar();
 }
 
+// (22 Eylül 2026 — Madde 4) Ortak bağlantı-durumu bandı: başvuru/zirve
+// formlarının ikisi de aynı "Firebase şu an bağlanamıyor" durumunu aynı
+// mesajla gösteriyor, tek bir yerden yönetiliyor.
+function firebaseConnNoticeHtml(){
+  if(firebaseConnState === 'retrying'){
+    return `<div class="notice-box" style="margin-bottom:14px;background:rgba(250,204,21,0.1);border:1px solid rgba(250,204,21,0.35);color:#fde68a;padding:10px 14px;border-radius:8px;font-size:12.5px;">${t('conn_retrying')}</div>`;
+  }
+  if(firebaseConnState === 'failed'){
+    return `<div class="notice-box" style="margin-bottom:14px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.35);color:#fca5a5;padding:10px 14px;border-radius:8px;font-size:12.5px;">${t('conn_failed')}</div>`;
+  }
+  return '';
+}
 function updatePublicBasvuruAvailability(){
   const open = state.applicationsOpen;
+  const connReady = firebaseConnState === 'ok';
   const katilimEl = document.getElementById('pubKatilimDurum');
   katilimEl.textContent = open ? t('common_open') : t('common_closed');
   katilimEl.style.color = open ? 'var(--green)' : '#fca5a5';
   document.getElementById('basvuruClosedNotice').classList.toggle('hidden', open);
-  document.getElementById('pbSubmitBtn').disabled = !open;
-  document.querySelectorAll('#pubBasvuruForm input, #pubBasvuruForm textarea').forEach(el => el.disabled = !open);
+  document.getElementById('pbSubmitBtn').disabled = !open || !connReady;
+  document.querySelectorAll('#pubBasvuruForm input, #pubBasvuruForm textarea').forEach(el => el.disabled = !open || !connReady);
+  const connNoticeEl = document.getElementById('basvuruConnNotice');
+  if(connNoticeEl) connNoticeEl.innerHTML = firebaseConnNoticeHtml();
 }
 
 function updatePublicZirveAvailability(){
   const open = state.zirveOpen;
+  const connReady = firebaseConnState === 'ok';
   const badge = document.getElementById('zirveErisimBadge');
   if(badge){
     badge.textContent = open ? t('zform_open') : t('zform_soon');
@@ -2300,8 +2424,10 @@ function updatePublicZirveAvailability(){
     kontenjanNotice.classList.toggle('hidden', !(open && kontenjan > 0 && onayliSayisi >= kontenjan));
   }
   const submitBtn = document.getElementById('pzSubmitBtn');
-  if(submitBtn) submitBtn.disabled = !open;
-  document.querySelectorAll('#pubZirveForm input, #pubZirveForm textarea').forEach(el => el.disabled = !open);
+  if(submitBtn) submitBtn.disabled = !open || !connReady;
+  document.querySelectorAll('#pubZirveForm input, #pubZirveForm textarea').forEach(el => el.disabled = !open || !connReady);
+  const connNoticeEl = document.getElementById('zirveConnNotice');
+  if(connNoticeEl) connNoticeEl.innerHTML = firebaseConnNoticeHtml();
 }
 
 // (Dil değiştirildiğinde) [data-i18n] öznitelikli statik metinler
@@ -2369,6 +2495,11 @@ function refreshDynamicPublicText(){
 document.getElementById('pubBasvuruForm').addEventListener('submit', function(e){
   e.preventDefault();
   if(!state.applicationsOpen){ showToast(t('basvuru_toast_closed'), 'error'); return; }
+  // (22 Eylül 2026 — Madde 4) Düğme zaten devre dışıysa normalde buraya hiç
+  // gelinmez, ama Enter tuşuyla formu göndermek gibi bir yol var mı diye
+  // ikinci bir güvence katmanı: bağlantı 'ok' değilse gönderimi burada da
+  // KESİN olarak engelle — asla sessizce sadece-yerel bir kayıt oluşturma.
+  if(firebaseConnState !== 'ok'){ showToast(t('conn_blocked_toast'), 'error'); return; }
   const form = this;
   const name = document.getElementById('pbName').value.trim();
   const email = document.getElementById('pbEmail').value.trim();
@@ -2548,6 +2679,8 @@ document.getElementById('pzFileInput').addEventListener('change', function(){
 document.getElementById('pubZirveForm').addEventListener('submit', function(e){
   e.preventDefault();
   if(!state.zirveOpen){ showToast(t('zform_toast_closed'), 'error'); return; }
+  // (22 Eylül 2026 — Madde 4) bkz. pubBasvuruForm'daki AYNI güvence.
+  if(firebaseConnState !== 'ok'){ showToast(t('conn_blocked_toast'), 'error'); return; }
   const club = document.getElementById('pzClub').value.trim();
   const org = document.getElementById('pzOrg').value.trim();
   const contact = document.getElementById('pzContact').value.trim();
