@@ -1759,7 +1759,14 @@ const EMAIL_KIND_APPLICANT = "applicant";
 const EMAIL_KIND_ADMIN = "admin";
 const ADMIN_NOTIFY_EMAIL = "suko.crc06@gmail.com";
 function sendNotificationEmail(templateId, params){
-  return fetch('/api/send-email', {
+  // (23 Eylül 2026 — alan adı düzeni) Bu site artık finteclub.com.tr/fintelig/
+  // alt yolunda (ters proxy ile) yayınlanıyor. Baştaki "/" ile yazılan
+  // '/api/send-email' tarayıcıda finteclub.com.tr/api/send-email'e (ANA kulüp
+  // sitesine) gidiyordu — orada böyle bir fonksiyon yok, e-postalar 404 ile
+  // gitmezdi. Göreli yol ('api/send-email') sayfa nerede açılırsa açılsın
+  // doğru yere gider: /fintelig/ altında -> /fintelig/api/send-email (proxy
+  // ile bu projeye), bu projenin kendi Vercel adresinde -> /api/send-email.
+  return fetch('api/send-email', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(params)

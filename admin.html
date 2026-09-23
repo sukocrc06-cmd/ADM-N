@@ -3020,7 +3020,10 @@ const OPTIPULSE_URL = 'https://rekabet-testi.vercel.app/';
 // bir "OPLab giriş linki/kodu" e-postası göndermeye gerek kalmadı.)
 const EMAIL_KIND_APPLICANT = "applicant";
 function sendNotificationEmail(templateId, params){
-  return fetch('/api/send-email', {
+  // (23 Eylül 2026 — alan adı düzeni) Göreli yol — bkz. index.html'deki aynı
+  // fonksiyonun yorumu: finteclub.com.tr/fintelig/admin.html altında açılınca
+  // /fintelig/api/send-email'e (proxy ile bu projeye) gider.
+  return fetch('api/send-email', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(params)
@@ -3093,7 +3096,12 @@ function sendApplicationDecisionEmail(app, decision){
 // "hiçbir şey bozulmaz" felsefesiyle aynı.
 //
 // Kendi Vercel domain'in değişirse burayı güncelle:
-const BACKEND_API_BASE = 'https://adm-n-one.vercel.app';
+// (23 Eylül 2026 — alan adı düzeni) Eski adres (adm-n-one.vercel.app) artık
+// hiçbir şeye bağlı değil (404) — hem hesap silme isteği hem de QR yoklama
+// linkleri oraya gidip boşa düşüyordu. FinteLig artık resmi olarak
+// finteclub.com.tr/fintelig/ altında (ana sitenin vercel.json'undaki ters
+// proxy ile bu projeye bağlı) yayınlandığı için tek doğru adres bu.
+const BACKEND_API_BASE = 'https://finteclub.com.tr/fintelig';
 // (9 Ağustos 2026 — Madde #128: Zirve check-in/QR yoklama sistemi) Bu, herkese
 // açık FinTeClub sitesinin (index.html) yayınlandığı domain — admin.html'in
 // KENDİSİYLE AYNI Vercel deposundan geldiğini varsayıyoruz (ikisi de
