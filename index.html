@@ -2145,8 +2145,12 @@ document.getElementById('watchVideoBtn').addEventListener('click', ()=> {
 });
 
 /* ============ DIŞ BAĞLANTILAR: OP / OPTIPULSE ve FinTeClub logoları ============ */
-const OPTIPULSE_URL = 'https://rekabet-testi.vercel.app/';
-const FINTECLUB_URL = 'https://finteclub.vercel.app/index.html';
+// (23 Eylül 2026 — alan adı düzeni) DEMO/OPLAB düğmeleri artık resmi adres
+// olan finteclub.com.tr/demo/'ya gidiyor (arkada rekabet-testi.vercel.app'e
+// ters proxy). FinTeClub logosu da eski, artık 404 veren finteclub.vercel.app
+// yerine kulübün gerçek alan adına gidiyor.
+const OPTIPULSE_URL = 'https://finteclub.com.tr/demo/';
+const FINTECLUB_URL = 'https://finteclub.com.tr/';
 // (Gerçek Firebase Authentication ile OPLab girişi) OPLab artık kendi giriş
 // ekranında e-posta+şifre soruyor ve doğrudan Firebase Auth'a bağlanıyor —
 // bu yüzden buradan URL üzerinden herhangi bir token/e-posta taşımaya
