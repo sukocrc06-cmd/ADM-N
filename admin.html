@@ -1991,6 +1991,23 @@ function getConfiguredCompetitionDurationMs(){
   }
   return COMPETITION_DURATION_MS;
 }
+// (24 Eylül 2026 — Word listesi Madde 10: "4 günlük yarışma 1 gün 23 saat
+// gösteriyor") İki kök neden vardı:
+//  1) Süre "Bitiş − Başlangıç tarihi" kadar, ama BAŞLAT'a basılan andan
+//     itibaren sayılıyordu — yarışma tarih aralığının ortasında başlatılınca
+//     (ya da başlangıç tarihi geçmişken) takvimdeki bitişle hiç uyuşmuyordu.
+//  2) Yarışma AKTİFKEN tarihler değiştirilip "Ayarları Kaydet"e basılınca
+//     geri sayım HİÇ güncellenmiyordu — eski (kısa) süre kalıyordu.
+// Artık bitiş anı doğrudan takvimdeki Bitiş Tarihi'nin gün sonu (23:59:59);
+// tarih girilmemişse / geçmişteyse eski davranış (aralık süresi, o da yoksa
+// 2 saat) korunuyor.
+function getConfiguredCompetitionEndMs(){
+  if(state.endDate){
+    const endMs = new Date(state.endDate + 'T23:59:59').getTime();
+    if(!isNaN(endMs) && endMs > Date.now()) return endMs;
+  }
+  return null;
+}
 function formatDurationHuman(ms){
   const totalMinutes = Math.round(ms / 60000);
   const days = Math.floor(totalMinutes / 1440);
@@ -2227,6 +2244,7 @@ function saveShared(){
     zirveIdCounter: zirveIdCounter,
     competitionEndsAt: state.competitionEndsAt,
     competitionTotalMs: state.competitionTotalMs,
+    competitionStartedAt: state.competitionStartedAt || null,
     competitionHistory: state.competitionHistory,
     weeklyQuota: state.weeklyQuota,
     cohortDurationDays: state.cohortDurationDays,
@@ -2339,6 +2357,7 @@ function hydrateFromShared(){
   state.zirveKontenjan = shared.zirveKontenjan ?? state.zirveKontenjan;
   state.competitionEndsAt = shared.competitionEndsAt ?? state.competitionEndsAt;
   state.competitionTotalMs = shared.competitionTotalMs ?? state.competitionTotalMs;
+  state.competitionStartedAt = shared.competitionStartedAt ?? state.competitionStartedAt;
   state.competitionHistory = shared.competitionHistory ?? state.competitionHistory;
   state.weeklyQuota = shared.weeklyQuota ?? state.weeklyQuota;
   state.cohortDurationDays = shared.cohortDurationDays ?? state.cohortDurationDays;
@@ -2978,6 +2997,19 @@ document.getElementById('saveSettingsBtn').addEventListener('click', function(){
   if(wasActive && !wantsActive){
     finishCompetition('admin Yarışma Adayları sayfasından durdurdu');
     return; // finishCompetition zaten syncYarismaSettingsUI() + saveShared() çağırıyor
+  }
+  // (24 Eylül 2026 — Madde 10) Yarışma sürerken Bitiş Tarihi değiştirildiyse
+  // geri sayım da yeni tarihe göre güncellenir (önceden eski süre kalıyordu).
+  if(wasActive && wantsActive){
+    const newEnd = getConfiguredCompetitionEndMs();
+    if(newEnd && newEnd !== state.competitionEndsAt){
+      const startedAt = state.competitionStartedAt || (state.competitionEndsAt && state.competitionTotalMs ? state.competitionEndsAt - state.competitionTotalMs : Date.now());
+      state.competitionEndsAt = newEnd;
+      state.competitionTotalMs = Math.max(1, newEnd - startedAt);
+      if(!state.competitionStartedAt) state.competitionStartedAt = startedAt;
+      addActivity('Yarışma bitiş zamanı güncellendi: ' + new Date(newEnd).toLocaleString('tr-TR') + '.');
+      showToast('Geri sayım yeni bitiş tarihine göre güncellendi (' + formatDurationHuman(newEnd - Date.now()) + ' kaldı).', 'success');
+    }
   }
 
   syncYarismaSettingsUI();
@@ -4002,9 +4034,12 @@ document.getElementById('stopBroadcastBtn').addEventListener('click', ()=>{
 // Artık ikisi de AYNI bu fonksiyonu çağırıyor, hangisinden başlatılırsa
 // başlatılsın sonuç birebir aynı.
 function startCompetitionNow(source){
-  const durationMs = getConfiguredCompetitionDurationMs();
+  const now = Date.now();
+  const calendarEnd = getConfiguredCompetitionEndMs();
+  const durationMs = calendarEnd ? (calendarEnd - now) : getConfiguredCompetitionDurationMs();
   state.competitionActive = true;
-  state.competitionEndsAt = Date.now() + durationMs;
+  state.competitionStartedAt = now;
+  state.competitionEndsAt = now + durationMs;
   state.competitionTotalMs = durationMs;
   state.oplabEnabled = true;
   document.getElementById('toggleYarisma')?.querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value==='aktif'));
@@ -4832,6 +4867,7 @@ function finishCompetition(reason){
   state.competitionActive = false;
   state.competitionEndsAt = null;
   state.competitionTotalMs = null;
+  state.competitionStartedAt = null;
   state.oplabEnabled = false;
 
   document.getElementById('toggleYarisma')?.querySelectorAll('.toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.value==='pasif'));
