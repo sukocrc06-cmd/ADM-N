@@ -203,6 +203,14 @@ module.exports = async function handler(req, res) {
           console.error('[delete-user] Kişisel portföy belgesi silinemedi:', key, e && e.message);
           (firestoreCleanup.errors = firestoreCleanup.errors || []).push({ field: 'oplab_portfolios/' + key, error: (e && e.message) || 'unknown_error' });
         }
+        // (24 Eylül 2026) Kullanıcının grafik çizimleri (Fibonacci, trend
+        // çizgileri vb.) de ayrı bir belgede — o da temizleniyor.
+        try {
+          await db.collection('oplab_drawings').doc(key).delete();
+        } catch (e) {
+          console.error('[delete-user] Çizim belgesi silinemedi:', key, e && e.message);
+          (firestoreCleanup.errors = firestoreCleanup.errors || []).push({ field: 'oplab_drawings/' + key, error: (e && e.message) || 'unknown_error' });
+        }
       }
     } catch (e) {
       console.error('[delete-user] Firestore Admin SDK erişimi başarısız (oplab_portfolios):', e && e.message);
