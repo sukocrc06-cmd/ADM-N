@@ -3023,10 +3023,20 @@ function sendNotificationEmail(templateId, params){
   // (23 Eylül 2026 — alan adı düzeni) Göreli yol — bkz. index.html'deki aynı
   // fonksiyonun yorumu: finteclub.com.tr/fintelig/admin.html altında açılınca
   // /fintelig/api/send-email'e (proxy ile bu projeye) gider.
-  return fetch('api/send-email', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(params)
+  // (24 Eylül 2026 — e-posta güvenlik kilidi) Sunucu artık serbest metinli
+  // e-postayı SADECE doğrulanmış admin oturumundan kabul ediyor — isteğe
+  // adminin güncel Firebase ID token'ı ekleniyor (delete-user ile aynı).
+  const user = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+  if(!user){
+    console.warn('[E-posta] Gönderilmedi — admin gerçek bir Firebase oturumuyla giriş yapmamış.', templateId, '->', params && params.to_email);
+    return Promise.resolve(false);
+  }
+  return user.getIdToken().then(function(idToken){
+    return fetch('api/send-email', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken},
+      body: JSON.stringify(params)
+    });
   }).then(function(r){
     return r.json().catch(function(){ return {}; }).then(function(data){
       if(!r.ok){
@@ -3066,13 +3076,13 @@ function sendApplicationDecisionEmail(app, decision){
     return sendNotificationEmailWithRetry(EMAIL_KIND_APPLICANT, {
       to_email: app.email, to_name: app.name,
       subject_line: 'FinteLig Başvurun Onaylandı',
-      message_body: `Merhaba ${app.name}, FinteLig yarışması başvurun ONAYLANDI! Kayıt olurken belirlediğin e-posta ve şifreyle OPLab (alım-satım platformu) üzerinde giriş yapabilir, "FinteLig Yarışmacısı" olarak yarışmaya katılabilirsin.`
+      message_body: `Merhaba ${escapeHtml(app.name)}, FinteLig yarışması başvurun ONAYLANDI! Kayıt olurken belirlediğin e-posta ve şifreyle OPLab (alım-satım platformu) üzerinde giriş yapabilir, "FinteLig Yarışmacısı" olarak yarışmaya katılabilirsin.`
     });
   } else if(decision === 'reddedildi'){
     return sendNotificationEmailWithRetry(EMAIL_KIND_APPLICANT, {
       to_email: app.email, to_name: app.name,
       subject_line: 'FinteLig Başvuru Sonucun',
-      message_body: `Merhaba ${app.name}, FinteLig yarışması başvurunu değerlendirdik; bu dönem için başvurun UYGUN BULUNMADI. İlgini gösterdiğin için teşekkür ederiz, bir sonraki dönemde tekrar başvurabilirsin.`
+      message_body: `Merhaba ${escapeHtml(app.name)}, FinteLig yarışması başvurunu değerlendirdik; bu dönem için başvurun UYGUN BULUNMADI. İlgini gösterdiğin için teşekkür ederiz, bir sonraki dönemde tekrar başvurabilirsin.`
     });
   }
   return Promise.resolve(false);

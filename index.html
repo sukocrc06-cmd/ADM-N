@@ -1772,11 +1772,12 @@ function sendNotificationEmail(templateId, params){
     body: JSON.stringify(params)
   }).then(function(r){
     return r.json().catch(function(){ return {}; }).then(function(data){
+      const label = params && (params.template || params.to_email);
       if(!r.ok){
-        console.warn('[E-posta] Gönderilemedi ✕ (sunucu yanıtı — api/send-email.js kurulumunu/ortam değişkenlerini kontrol edin):', templateId, '->', params && params.to_email, r.status, data);
+        console.warn('[E-posta] Gönderilemedi ✕ (sunucu yanıtı — api/send-email.js kurulumunu/ortam değişkenlerini kontrol edin):', templateId, '->', label, r.status, data);
         return false;
       }
-      console.log('[E-posta] Gönderildi ✓', templateId, '->', params && params.to_email, data);
+      console.log('[E-posta] Gönderildi ✓', templateId, '->', label, data);
       return true;
     });
   }).catch(function(e){
@@ -1934,14 +1935,18 @@ function saveShared(){
   }
   if(!fsSharedDoc || !FIREBASE_ENABLED){
     persistLocal(payload);
-    return;
+    return Promise.resolve();
   }
+  // (24 Eylül 2026) saveShared artık bir Promise döndürüyor — başvuru/zirve
+  // e-postaları, kayıt Firestore'a GERÇEKTEN yazıldıktan SONRA isteniyor,
+  // çünkü sunucu (api/send-email.js) alıcıyı artık kaydın kendisinden okuyor.
+  //
   // (6 Ağustos 2026 — "bulut köprüsünü daha da güçlendir") "önce oku, sonra
   // yaz" deseninden Firestore'un GERÇEK transaction API'sine geçildi — bkz.
   // admin.html'deki aynı düzeltmenin yorumu. runTransaction, okuma ile
   // yazma arasında belge değişirse otomatik olarak en güncel veriyle
   // yeniden çalışır; hiçbir ara yazma artık sessizce kaybolamaz.
-  firebase.firestore().runTransaction(function(transaction){
+  return firebase.firestore().runTransaction(function(transaction){
     return transaction.get(fsSharedDoc).then(function(doc){
       const remote = doc.exists ? (doc.data() || {}) : {};
       const deletedIds = Object.assign({}, remote.deletedApplicationIds, state.deletedApplicationIds);
@@ -1967,7 +1972,7 @@ function saveShared(){
   }).catch(function(e){
     console.warn('Firestore transaction hatası, düz yazmaya düşülüyor:', e);
     persistLocal(payload);
-    fsSharedDoc.set(payload, {merge:true}).catch(e2=>console.warn('Yedek düz yazma da başarısız:', e2));
+    return fsSharedDoc.set(payload, {merge:true}).catch(e2=>console.warn('Yedek düz yazma da başarısız:', e2));
   });
 }
 function hydrateFromShared(){
@@ -2592,32 +2597,19 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
       document.getElementById('pubBasvuruDurum').style.color = 'var(--yellow)';
       updateEmailVerifyStatusUI();
       showToast(t('basvuru_toast_success', name), 'success');
-      saveShared();
-      // (E-posta doğrulama linki) location.origin + location.pathname
-      // kullanılıyor ki site hangi Vercel domaininde yayınlanırsa
-      // yayınlansın (adm-n-one.vercel.app ya da ileride başka bir domain)
-      // link her zaman doğru adrese işaret etsin — admin.html'deki sabit
-      // PUBLIC_SITE_URL'nin elle güncel tutulması gerektiği bilinen
-      // kısıtından kaçınıyoruz.
-      const verifyUrl = location.origin + location.pathname + '?verifyemail=' + newId + '.' + emailVerifyToken;
-      // (22 Eylül 2026 — Madde 3 düzeltmesi) Önceden bu gönderimin SONUCU
-      // hiç kontrol edilmiyordu — yukarıdaki "başvurun alındı" toast'ı zaten
-      // gösterilmiş oluyordu, e-posta arka planda sessizce başarısız olsa
-      // bile kullanıcı bunu asla öğrenmiyordu (doğrulama TAMAMEN bu maile
-      // bağlı olduğundan bu, kullanıcının hiç doğrulanamamasına yol
-      // açıyordu). Artık otomatik 1 yeniden denemeden sonra da başarısız
-      // olursa kullanıcıya AYRI ve AÇIK bir uyarı gösteriliyor.
-      sendNotificationEmailWithRetry(EMAIL_KIND_APPLICANT, {
-        to_email: email, to_name: name,
-        subject_line: 'FinteLig Başvurun Alındı',
-        message_body: `Merhaba ${name}, FinteLig yarışması başvurun alındı. E-postanı doğrulamak için lütfen şu bağlantıya tıkla: <a href="${verifyUrl}" target="_blank" rel="noopener" style="color:#facc15;text-decoration:underline;font-weight:600;">E-postamı Doğrula</a><br>(Bağlantı çalışmazsa şu adresi tarayıcına kopyala: ${verifyUrl})<br><br>Admin, başvurunu inceledikten sonra onaylayacak; onaydan sonra belirlediğin e-posta ve şifreyle OPLab (alım-satım platformu) üzerinde FinteLig Yarışmacısı olarak giriş yapabileceksin.`
-      }).then(function(ok){
-        if (!ok) showToast(t('basvuru_toast_verify_email_fail'), 'warn');
-      });
-      sendNotificationEmailWithRetry(EMAIL_KIND_ADMIN, {
-        to_email: ADMIN_NOTIFY_EMAIL, to_name: 'Admin',
-        subject_line: 'Yeni FinteLig Başvurusu',
-        message_body: `${name} (${email}) FinteLig yarışmasına başvurdu. Admin panelinden inceleyebilirsin.`
+      // (24 Eylül 2026 — e-posta güvenlik kilidi) Alıcı/konu/içerik artık
+      // tarayıcıdan GÖNDERİLMİYOR — sunucu, başvuru kaydını (id + doğrulama
+      // kodu ile) Firestore'dan kendisi bulup e-postayı kendi şablonuyla
+      // hazırlıyor (bkz. api/send-email.js). Bu yüzden e-posta isteği kayıt
+      // Firestore'a yazıldıktan SONRA atılıyor. Doğrulama e-postası iki
+      // denemede de gidemezse kullanıcıya ayrı bir uyarı gösteriliyor
+      // (22 Eylül 2026 — Madde 3 düzeltmesi).
+      const emailRef = { app_id: newId, verify_token: emailVerifyToken, verify_base: location.origin + location.pathname };
+      Promise.resolve(saveShared()).catch(function(){}).then(function(){
+        sendNotificationEmailWithRetry(EMAIL_KIND_APPLICANT, Object.assign({ template: 'application_received' }, emailRef)).then(function(ok){
+          if (!ok) showToast(t('basvuru_toast_verify_email_fail'), 'warn');
+        });
+        sendNotificationEmailWithRetry(EMAIL_KIND_ADMIN, Object.assign({ template: 'application_admin_notice' }, emailRef));
       });
     });
   }
@@ -2752,7 +2744,7 @@ document.getElementById('pubZirveForm').addEventListener('submit', function(e){
   document.getElementById('pzAccordionToggle').classList.remove('open');
   document.getElementById('pzDateVal').textContent = new Date().toLocaleDateString('tr-TR');
   showToast(t('zform_toast_success', club), 'success');
-  saveShared();
+  const zirveSaved = saveShared();
   // (9 Ağustos 2026 — Madde #127) Dosya GERÇEKTEN Firebase Storage'a
   // yükleniyor — önceden sadece adı kaydedilip dosyanın kendisi hiçbir yere
   // gitmiyordu, admin CV'yi asla göremiyordu. Yükleme, kayıt zaten
@@ -2775,15 +2767,13 @@ document.getElementById('pubZirveForm').addEventListener('submit', function(e){
       console.warn('[Zirve CV] Dosya yüklenemedi (Storage kuralları henüz yayınlanmamış olabilir):', e);
     });
   }
-  sendNotificationEmail(EMAIL_KIND_APPLICANT, {
-    to_email: contactEmail, to_name: contact,
-    subject_line: 'FinTeClub Zirve Kaydın Alındı',
-    message_body: `Merhaba ${contact}, ${club} için FinTeClub Zirve kaydın alındı. Admin onayından sonra durumu görebileceksin.`
-  });
-  sendNotificationEmail(EMAIL_KIND_ADMIN, {
-    to_email: ADMIN_NOTIFY_EMAIL, to_name: 'Admin',
-    subject_line: 'Yeni Zirve Kaydı',
-    message_body: `${club} kulübü (temsilci: ${contact}, ${contactEmail}) FinTeClub Zirve'ye kayıt oldu. Admin panelinden inceleyebilirsin.`
+  // (24 Eylül 2026 — e-posta güvenlik kilidi) Sunucu, zirve kaydını
+  // (id + temsilci e-postası ile) Firestore'dan kendisi bulup e-postayı
+  // kendi şablonuyla hazırlıyor — kayıt yazıldıktan SONRA isteniyor.
+  const zirveEmailRef = { zirve_id: zirveId, contact_email: contactEmail };
+  Promise.resolve(zirveSaved).catch(function(){}).then(function(){
+    sendNotificationEmailWithRetry(EMAIL_KIND_APPLICANT, Object.assign({ template: 'zirve_received' }, zirveEmailRef));
+    sendNotificationEmailWithRetry(EMAIL_KIND_ADMIN, Object.assign({ template: 'zirve_admin_notice' }, zirveEmailRef));
   });
   });
 });
@@ -2856,11 +2846,10 @@ document.getElementById('statusQueryBtn').addEventListener('click', ()=>{
     const btn = this;
     btn.disabled = true;
     btn.textContent = t('common_sending');
-    const verifyUrl = location.origin + location.pathname + '?verifyemail=' + app.id + '.' + app.emailVerifyToken;
     sendNotificationEmailWithRetry(EMAIL_KIND_APPLICANT, {
-      to_email: app.email, to_name: app.name,
-      subject_line: 'FinteLig — E-posta Doğrulama Bağlantın',
-      message_body: `Merhaba ${app.name}, e-postanı doğrulamak için lütfen şu bağlantıya tıkla: <a href="${verifyUrl}" target="_blank" rel="noopener" style="color:#facc15;text-decoration:underline;font-weight:600;">E-postamı Doğrula</a><br>(Bağlantı çalışmazsa şu adresi tarayıcına kopyala: ${verifyUrl})`
+      template: 'verify_resend',
+      app_id: app.id, verify_token: app.emailVerifyToken,
+      verify_base: location.origin + location.pathname
     }).then(function(ok){
       showToast(ok ? t('durum_resend_success') : t('durum_resend_fail'), ok ? 'success' : 'error');
     }).finally(function(){
