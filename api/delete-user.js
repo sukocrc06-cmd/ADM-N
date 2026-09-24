@@ -188,5 +188,26 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  // (24 Eylül 2026 — çok cihazlı senkron yeniden yapılanması) OPLab artık her
+  // yarışmacının portföyünü AYRI bir belgede tutuyor: oplab_portfolios/{e-posta}
+  // (bkz. finteclubBridge.js). Silinen kişinin bu belgesini de temizliyoruz.
+  const emailKeys = emails.map((e) => String(e || '').trim().toLowerCase()).filter(Boolean);
+  if (emailKeys.length) {
+    if (!firestoreCleanup.attempted) firestoreCleanup = { attempted: true, ids: [], errors: [] };
+    try {
+      const db = admin.firestore();
+      for (const key of emailKeys) {
+        try {
+          await db.collection('oplab_portfolios').doc(key).delete();
+        } catch (e) {
+          console.error('[delete-user] Kişisel portföy belgesi silinemedi:', key, e && e.message);
+          (firestoreCleanup.errors = firestoreCleanup.errors || []).push({ field: 'oplab_portfolios/' + key, error: (e && e.message) || 'unknown_error' });
+        }
+      }
+    } catch (e) {
+      console.error('[delete-user] Firestore Admin SDK erişimi başarısız (oplab_portfolios):', e && e.message);
+    }
+  }
+
   res.status(200).json({ results, firestoreCleanup });
 };

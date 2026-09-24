@@ -20,7 +20,8 @@ map'ler olarak):
 | `finteclub/shared_state` | admin.html, index.html (FinTeClub) | admin.html, index.html | Başvurular, zirve kayıtları, yarışma ayarları |
 | `finteclub/oplab_activity` | OptiPulseLab (finteclubBridge.js) | admin.html | Doğrulanmış ziyaretçi/aktivasyon özeti |
 | `finteclub/oplab_live_portfolio` | OptiPulseLab (finteclubBridge.js) | admin.html | Canlı liderlik tablosu / işlem akışı özeti |
-| `finteclub/oplab_user_portfolios` | OptiPulseLab (finteclubBridge.js) | OptiPulseLab (finteclubBridge.js) | Çoklu cihaz senkronu (telefon/PC arası GERÇEK portföy) |
+| `oplab_portfolios/{e-posta}` | OptiPulseLab (finteclubBridge.js) — her yarışmacı SADECE kendi belgesine | OptiPulseLab, admin.html (şüpheli işlem taraması) | **24 Eylül 2026'dan itibaren** çoklu cihaz senkronu (yarışmacı başına ayrı belge) |
+| `finteclub/oplab_user_portfolios` | (artık yazılmıyor) | finteclubBridge.js (tek seferlik taşıma), admin.html | ESKİ ortak senkron belgesi — sadece geriye dönük okuma |
 | `finteclub/oplab_balance_commands` | admin.html | OptiPulseLab (finteclubBridge.js) | Admin'den öğrenciye tek yönlü bakiye ayarla/sıfırla komutu |
 
 Güvenlik kuralları `optipulselab/firestore.rules` dosyasında tanımlı — bu
@@ -121,7 +122,27 @@ beslenir (`oplabPortfolioData` — bkz. admin.html).
 `shared_state.applications[i].disqualified`'da tutulur — admin.html render
 fonksiyonları ikisini çapraz referans verir (`isRankExcluded(appId)`).
 
-## `finteclub/oplab_user_portfolios`
+## `oplab_portfolios/{e-posta}` (24 Eylül 2026 — yeni)
+
+```
+{ appId: string,          // shared_state.applications[i].id
+  name, email,            // email = belge kimliği (küçük harf, Firebase Auth e-postası)
+  portfolio: {...},       // tradingEngine.js'in TAM portföy nesnesi
+  rev: number,            // monoton artan revizyon — çift-satış (OCC) koruması aynen
+  deviceId: string,       // son yazan cihaz
+  updatedAt: ISOString,
+  contentHash: string }   // portföy içeriğinin özeti — içerik değişmediyse yazılmaz
+```
+Neden taşındı: eski ortak belgede 20 kişinin tam portföyü tek belgede (1 MB
+sınırı), her açık sekme her 5 saniyede koşulsuz yazıyor, her yazma tüm
+cihazlara yeniden indiriliyordu → ücretsiz Firestore kotası dakikalar içinde
+bitiyor, aynı kişinin iki cihazı birbirini sürekli yeniliyordu. Yeni yapıda
+buluta yalnızca değişiklik olunca yazılıyor; diğer cihaz sayfa yenilemeden
+güncelleniyor; güvenlik kuralı "herkes sadece kendi e-postasının belgesine
+yazabilir" diyebiliyor. Eski kayıt, yarışmacının ilk girişinde otomatik
+taşınıyor. Silme: `api/delete-user.js` bu belgeyi de siliyor.
+
+## `finteclub/oplab_user_portfolios` (ESKİ — 24 Eylül 2026'dan beri yazılmıyor)
 
 ```
 { users: { [applicationId]: {

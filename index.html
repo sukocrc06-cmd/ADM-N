@@ -1993,6 +1993,8 @@ function hydrateFromShared(){
 }
 function onSharedDataUpdated(){
   hydrateFromShared();
+  // (24 Eylül 2026) Admin sonuçları az önce yayınladıysa sıralamayı hemen getir.
+  try{ fetchPublicResultsIfNeeded(false); }catch(e){ /* sayfa henüz tam yüklenmedi */ }
   syncGlobalStatus();
   processCheckinParam();
   processEmailVerifyParam();
@@ -2304,13 +2306,31 @@ function isRankExcluded(appId){
   const a = state.applications.find(x => String(x.id) === String(appId));
   return !!(a && a.disqualified);
 }
-if(fsPortfolioDoc){
-  fsPortfolioDoc.onSnapshot((doc)=>{
+// (24 Eylül 2026 — Firebase kota düzeltmesi) Önceden burada GERÇEK ZAMANLI
+// bir dinleyici (onSnapshot) vardı: siteyi açık tutan HER ziyaretçi, herhangi
+// bir yarışmacının her güncellemesinde bu belgeyi yeniden indiriyordu (her
+// indirme = 1 okuma). Yarışma sırasında sitede açık duran tek bir sekme bile
+// saatte binlerce okuma harcayıp ücretsiz planın günlük 50.000 okuma hakkını
+// tüketebiliyordu. Oysa bu veri SADECE admin sonuçları yayınladığında
+// (state.resultsPublished) gösteriliyor. Artık: sonuçlar yayınlanmadıysa hiç
+// okunmuyor; yayınlandıysa dakikada bir kez okunuyor.
+const PUBLIC_RESULTS_POLL_MS = 60000;
+let publicResultsLastFetch = 0;
+function fetchPublicResultsIfNeeded(force){
+  if(!fsPortfolioDoc) return;
+  if(!state.resultsPublished){ renderPublicSonuclar(); return; }
+  if(!force && Date.now() - publicResultsLastFetch < PUBLIC_RESULTS_POLL_MS - 1000) return;
+  publicResultsLastFetch = Date.now();
+  fsPortfolioDoc.get().then((doc)=>{
     const data = doc.exists ? (doc.data() || {}) : {};
     const competitors = data.competitors || {};
     oplabPortfolioData = Object.keys(competitors).map(id => Object.assign({id: id}, competitors[id]));
     renderPublicSonuclar();
-  }, (err)=>console.warn('Canlı sonuç verisi dinlenemedi:', err));
+  }).catch((err)=>console.warn('Sonuç verisi okunamadı:', err));
+}
+if(fsPortfolioDoc){
+  setTimeout(()=>fetchPublicResultsIfNeeded(true), 3000);
+  setInterval(()=>fetchPublicResultsIfNeeded(false), PUBLIC_RESULTS_POLL_MS);
 }
 function renderPublicSonuclar(){
   const rankCards = document.querySelectorAll('#pub-sonuclar .rank-card');

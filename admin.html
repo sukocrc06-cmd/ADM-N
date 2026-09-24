@@ -4604,19 +4604,43 @@ async function renderAnomaliTespiti(){
     return;
   }
   body.innerHTML = `<tr><td colspan="6"><div class="empty-state" style="padding:22px 0;">Taranıyor…</div></td></tr>`;
-  let doc;
+  // (24 Eylül 2026 — çok cihazlı senkron yeniden yapılanması) Portföyler artık
+  // her yarışmacı için AYRI belgede (oplab_portfolios/{e-posta}) duruyor —
+  // finteclubBridge.js, eski ortak belgedeki (oplab_user_portfolios) kaydı
+  // yarışmacının ilk girişinde oraya taşıyor. Tarama ikisini birlikte okur:
+  // kişisel belge varsa o esas alınır, henüz taşınmamış biri için eski kayıt
+  // kullanılır.
+  // Kişisel belgeleri listelemek güvenlik kurallarında SADECE admin girişine
+  // (Firebase Authentication) açık — giriş yapılmamışsa tarama eski belgeyle
+  // sınırlı kalır ve bu açıkça belirtilir.
+  const users = {};
+  const byEmail = {};
+  let perUserOk = true;
   try{
-    doc = await fsUserPortfoliosDoc.get();
+    const legacyDoc = await fsUserPortfoliosDoc.get();
+    Object.assign(users, (legacyDoc.exists ? (legacyDoc.data() || {}) : {}).users || {});
   }catch(e){
-    console.warn('Şüpheli işlem taraması için oplab_user_portfolios okunamadı:', e);
-    body.innerHTML = `<tr><td colspan="6"><div class="empty-state" style="padding:22px 0;">Tarama başarısız — bağlantıyı kontrol edip tekrar deneyin.</div></td></tr>`;
+    console.warn('Şüpheli işlem taraması için eski portföy belgesi okunamadı:', e);
+  }
+  try{
+    const perUserSnap = await firebase.firestore().collection('oplab_portfolios').get();
+    perUserSnap.forEach(d => {
+      const rec = d.data() || {};
+      byEmail[String(d.id).toLowerCase()] = rec;
+      if(rec.appId) users[String(rec.appId)] = rec;
+    });
+  }catch(e){
+    perUserOk = false;
+    console.warn('Kişisel portföy belgeleri listelenemedi (admin girişi gerekli):', e);
+  }
+  if(!perUserOk && !Object.keys(users).length){
+    body.innerHTML = `<tr><td colspan="6"><div class="empty-state" style="padding:22px 0;">Tarama başarısız — admin hesabıyla (Firebase) giriş yapıp tekrar deneyin.</div></td></tr>`;
     return;
   }
-  const users = (doc.exists ? (doc.data() || {}) : {}).users || {};
 
   const results = [];
   state.applications.forEach(app => {
-    const rec = users[String(app.id)];
+    const rec = byEmail[String(app.email || '').trim().toLowerCase()] || users[String(app.id)];
     if(!rec) return;
     const stats = computeAnomaliStatsForUser(rec);
     if(!stats) return;
@@ -4627,7 +4651,7 @@ async function renderAnomaliTespiti(){
   document.getElementById('anomaliTaranan').textContent = String(results.length);
   document.getElementById('anomaliIsaretlenen').textContent = String(results.filter(r=>r.flagged).length);
   const lastScanEl = document.getElementById('anomaliLastScan');
-  if(lastScanEl) lastScanEl.textContent = 'Son tarama: ' + new Date().toLocaleTimeString('tr-TR');
+  if(lastScanEl) lastScanEl.textContent = 'Son tarama: ' + new Date().toLocaleTimeString('tr-TR') + (perUserOk ? '' : ' (UYARI: güncel kişisel kayıtlar okunamadı — admin girişi yapın)');
 
   if(!results.length){
     body.innerHTML = `<tr><td colspan="6"><div class="empty-state" style="padding:22px 0;">Değerlendirilecek kadar (en az ${ANOMALI_MIN_TRADES} kapanmış işlem) VİOP verisi olan hesap yok.</div></td></tr>`;
