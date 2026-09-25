@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>FinTeLig Canlı Yayın</title>
+<meta name="description" content="FinTeLig Borsa Simülasyon Yarışması — canlı sıralama ekranı">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<!--
+  FinTeLig CANLI YAYIN SAYFASI (25 Eylül 2026)
+  ─────────────────────────────────────────────
+  Projeksiyon / TV / telefon için, GİRİŞ GEREKTİRMEYEN, sadece OKUYAN sayfa.
+  Veri kaynağı: finteclub/public_leaderboard — admin paneli açıkken, veri
+  değiştikçe (en fazla 20 sn'de bir) yazılır. İçinde SADECE isim, portföy
+  değeri, getiri ve sıra var: yarışma kuralı 4.9/6.11 gereği yarışmacıların
+  pozisyonları/emirleri/işlem geçmişi bu ekranda ASLA gösterilmez.
+  Sahne akışı otomatik döner; admin panelindeki "Yayın Yönetim" sayfasından
+  belirli bir sahne sabitlenebilir ve ekrana duyuru gönderilebilir.
+  Kısayollar: ← / → sahne değiştir (60 sn sonra otomatiğe döner), F tam ekran.
+-->
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060913;--bg2:#0a1020;--card:#101a30;--card2:#0c1528;
+  --line:rgba(255,255,255,.08);--line2:rgba(255,255,255,.16);
+  --text:#f3f5fa;--dim:#8b93ab;--dimmer:#5b6479;
+  --blue:#3d6fee;--blue2:#6f93ff;--gold:#eab308;--gold2:#fcd34d;
+  --green:#22c55e;--red:#ef4444;--silver:#cbd5e1;--bronze:#d08a4c;
+  --row-h:clamp(46px,7.2vh,86px);
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;overflow:hidden}
+body{background:
+  radial-gradient(1200px 700px at 12% -10%,rgba(61,111,238,.22),transparent 60%),
+  radial-gradient(900px 600px at 110% 110%,rgba(234,179,8,.10),transparent 60%),var(--bg)}
+.app{position:relative;height:100%;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto 1fr auto;cursor:default}
+.top{grid-row:1}.announce{grid-row:2}.stage{grid-row:3}.bottom{grid-row:4}
+.app.idle{cursor:none}
+/* üst şerit */
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:clamp(10px,2vh,22px) clamp(16px,3vw,48px)}
+.brand{display:flex;align-items:baseline;gap:14px;min-width:0}
+.brand-mark{font-family:Oswald,sans-serif;font-weight:700;font-size:clamp(26px,3.4vw,54px);letter-spacing:.5px;line-height:1}
+.brand-mark span{color:var(--gold)}
+.brand-sub{color:var(--dim);font-size:clamp(11px,1vw,16px);font-weight:600;letter-spacing:2px;text-transform:uppercase;white-space:nowrap}
+.top-mid{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
+.chip{font-size:clamp(11px,1vw,15px);font-weight:700;letter-spacing:1px;padding:6px 12px;border-radius:999px;border:1px solid var(--line2);color:var(--dim);text-transform:uppercase;white-space:nowrap}
+.chip.gold{color:var(--gold);border-color:rgba(234,179,8,.45)}
+.live{font-size:clamp(11px,1vw,15px);font-weight:800;letter-spacing:2px;color:#fff;background:var(--red);padding:6px 12px;border-radius:999px;display:none;align-items:center;gap:8px}
+.live.on{display:inline-flex}
+.live i{width:8px;height:8px;border-radius:50%;background:#fff;animation:blink 1.2s infinite}
+@keyframes blink{50%{opacity:.25}}
+.top-right{text-align:right}
+.clock{font-family:Oswald,sans-serif;font-size:clamp(22px,2.6vw,42px);font-weight:600;font-variant-numeric:tabular-nums;line-height:1}
+.cd-mini{color:var(--gold);font-size:clamp(11px,1vw,15px);font-weight:700;margin-top:4px;min-height:1em;font-variant-numeric:tabular-nums}
+/* duyuru */
+.announce{margin:0 clamp(16px,3vw,48px);padding:12px 18px;border-radius:14px;background:linear-gradient(90deg,rgba(234,179,8,.18),rgba(61,111,238,.14));border:1px solid rgba(234,179,8,.45);display:flex;gap:12px;align-items:center;font-size:clamp(14px,1.5vw,24px);font-weight:700;animation:pop .5s ease}
+.announce.hidden{display:none}
+@keyframes pop{from{transform:translateY(-10px);opacity:0}to{transform:none;opacity:1}}
+/* sahneler */
+.stage{position:relative;overflow:hidden;padding:clamp(8px,1.6vh,18px) clamp(16px,3vw,48px)}
+.scene{position:absolute;inset:clamp(8px,1.6vh,18px) clamp(16px,3vw,48px);opacity:0;transform:translateY(24px) scale(.985);transition:opacity .7s ease,transform .7s ease;pointer-events:none;display:flex;flex-direction:column}
+.scene.active{opacity:1;transform:none;pointer-events:auto}
+.scene-title{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:clamp(8px,1.6vh,18px)}
+.scene-title h2{font-family:Oswald,sans-serif;font-weight:600;font-size:clamp(22px,2.6vw,44px);letter-spacing:1px;text-transform:uppercase}
+.scene-title .sub{color:var(--dim);font-size:clamp(12px,1.1vw,17px);font-weight:600}
+/* liderlik */
+.lb-head{display:grid;grid-template-columns:clamp(54px,6vw,96px) 1fr clamp(130px,16vw,260px) clamp(96px,11vw,170px);gap:14px;padding:0 18px 8px;color:var(--dimmer);font-size:clamp(10px,.9vw,14px);font-weight:700;letter-spacing:1.5px;text-transform:uppercase}
+.lb-head span:nth-child(3),.lb-head span:nth-child(4){text-align:right}
+.lb{position:relative;flex:1}
+.row{position:absolute;left:0;right:0;height:calc(var(--row-h) - 8px);display:grid;grid-template-columns:clamp(54px,6vw,96px) 1fr clamp(130px,16vw,260px) clamp(96px,11vw,170px);gap:14px;align-items:center;padding:0 18px;border-radius:14px;background:linear-gradient(90deg,var(--card),var(--card2));border:1px solid var(--line);transition:transform .9s cubic-bezier(.2,.8,.2,1),opacity .5s,background .6s,border-color .6s;will-change:transform}
+.row.r1{border-color:rgba(234,179,8,.55);background:linear-gradient(90deg,rgba(234,179,8,.16),var(--card2))}
+.row.r2{border-color:rgba(203,213,225,.35)}
+.row.r3{border-color:rgba(208,138,76,.4)}
+.row.dq{opacity:.45}
+.row.flash{animation:flash 1.4s ease}
+@keyframes flash{0%{box-shadow:0 0 0 0 rgba(111,147,255,.0)}25%{box-shadow:0 0 0 3px rgba(111,147,255,.55)}100%{box-shadow:0 0 0 0 rgba(111,147,255,0)}}
+.rank{font-family:Oswald,sans-serif;font-weight:700;font-size:clamp(20px,2.4vw,40px);display:flex;align-items:center;gap:8px}
+.rank .medal{width:clamp(30px,3.2vw,52px);height:clamp(30px,3.2vw,52px);border-radius:50%;display:grid;place-items:center;font-size:clamp(15px,1.6vw,26px);color:#111}
+.r1 .medal{background:radial-gradient(circle at 30% 30%,#fff3b0,var(--gold))}
+.r2 .medal{background:radial-gradient(circle at 30% 30%,#fff,var(--silver))}
+.r3 .medal{background:radial-gradient(circle at 30% 30%,#ffd9b5,var(--bronze))}
+.name{min-width:0;font-weight:700;font-size:clamp(16px,1.9vw,32px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:10px}
+.move{font-size:clamp(11px,1vw,16px);font-weight:800;padding:2px 8px;border-radius:999px;opacity:0;transition:opacity .4s}
+.move.show{opacity:1}
+.move.up{color:var(--green);background:rgba(34,197,94,.14)}
+.move.down{color:var(--red);background:rgba(239,68,68,.14)}
+.tag-dq{font-size:clamp(10px,.8vw,13px);color:#fca5a5;border:1px solid rgba(239,68,68,.5);padding:2px 8px;border-radius:999px;font-weight:700}
+.eq{text-align:right;font-family:Oswald,sans-serif;font-size:clamp(17px,2vw,34px);font-weight:500;font-variant-numeric:tabular-nums}
+.pct{justify-self:end;font-weight:800;font-size:clamp(14px,1.6vw,26px);padding:6px 12px;border-radius:10px;font-variant-numeric:tabular-nums}
+.pct.pos{color:var(--green);background:rgba(34,197,94,.12)}
+.pct.neg{color:#fca5a5;background:rgba(239,68,68,.12)}
+.pct.zero{color:var(--dim);background:rgba(255,255,255,.05)}
+.lb-more{position:absolute;bottom:0;left:0;right:0;text-align:center;color:var(--dim);font-size:clamp(12px,1vw,16px);font-weight:600}
+.empty{flex:1;display:grid;place-items:center;text-align:center;color:var(--dim);font-size:clamp(16px,1.8vw,28px);font-weight:600;line-height:1.6}
+.empty b{display:block;font-family:Oswald,sans-serif;font-size:clamp(28px,3.6vw,60px);color:var(--text);margin-bottom:8px;font-weight:600}
+/* podyum */
+.podium{flex:1;display:grid;grid-template-columns:1fr 1.15fr 1fr;align-items:end;gap:clamp(12px,2vw,36px);padding:0 clamp(0px,4vw,80px)}
+.pcol{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}
+.pname{font-weight:800;font-size:clamp(16px,2.2vw,38px);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ppct{font-weight:800;font-size:clamp(16px,2vw,32px)}
+.peq{color:var(--dim);font-weight:600;font-size:clamp(12px,1.2vw,19px)}
+.pblock{width:100%;border-radius:18px 18px 0 0;display:grid;place-items:center;font-family:Oswald,sans-serif;font-weight:700;font-size:clamp(40px,6vw,110px);color:rgba(0,0,0,.55);transform-origin:bottom;transform:scaleY(0);transition:transform 1.1s cubic-bezier(.2,.9,.2,1)}
+.scene.active .pblock{transform:scaleY(1)}
+.p1 .pblock{height:clamp(140px,34vh,380px);background:linear-gradient(180deg,var(--gold2),var(--gold));transition-delay:.5s}
+.p2 .pblock{height:clamp(100px,24vh,270px);background:linear-gradient(180deg,#f1f5f9,var(--silver));transition-delay:.2s}
+.p3 .pblock{height:clamp(80px,18vh,200px);background:linear-gradient(180deg,#f3c49b,var(--bronze));transition-delay:0s}
+.crown{font-size:clamp(28px,3.4vw,58px);animation:float 2.4s ease-in-out infinite}
+@keyframes float{50%{transform:translateY(-8px)}}
+/* geri sayım */
+.cd{flex:1;display:grid;grid-template-columns:auto 1fr;gap:clamp(20px,4vw,70px);align-items:center;justify-content:center;padding:0 clamp(0px,4vw,80px)}
+.ring{position:relative;width:clamp(180px,30vh,380px);aspect-ratio:1}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring .bg{stroke:rgba(255,255,255,.08)}
+.ring .fg{stroke:url(#grad);transition:stroke-dashoffset 1s linear}
+.ring-center{position:absolute;inset:0;display:grid;place-items:center;text-align:center}
+.ring-center b{display:block;font-family:Oswald,sans-serif;font-size:clamp(34px,5vw,84px);line-height:1}
+.ring-center span{display:block;margin-top:6px;color:var(--dim);font-weight:700;letter-spacing:2px;font-size:clamp(10px,1vw,15px);text-transform:uppercase}
+.cd-big{font-family:Oswald,sans-serif;font-weight:600;font-size:clamp(46px,8.5vw,150px);line-height:1;font-variant-numeric:tabular-nums;letter-spacing:1px}
+.cd-label{color:var(--dim);font-size:clamp(14px,1.6vw,26px);font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px}
+.cd-foot{margin-top:18px;display:flex;gap:10px;flex-wrap:wrap}
+/* finalistler */
+.finals{flex:1;display:grid;grid-template-columns:repeat(5,1fr);gap:clamp(10px,1.6vw,26px);align-items:center}
+.fcard{border-radius:18px;border:1px solid var(--line);background:linear-gradient(180deg,var(--card),var(--card2));padding:clamp(20px,6vh,70px) 16px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;opacity:0;transform:translateY(20px);transition:opacity .6s,transform .6s}
+.scene.active .fcard{opacity:1;transform:none}
+.fcard.filled{border-color:rgba(234,179,8,.5);box-shadow:0 0 40px rgba(234,179,8,.08) inset}
+.fweek{font-family:Oswald,sans-serif;color:var(--gold);font-size:clamp(16px,1.8vw,30px);letter-spacing:1px;text-transform:uppercase}
+.favatar{width:clamp(56px,7vw,120px);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;font-family:Oswald,sans-serif;font-size:clamp(24px,3vw,52px);font-weight:700;background:linear-gradient(135deg,var(--blue),#1c2f5e);border:2px solid rgba(255,255,255,.15)}
+.fcard.empty-slot .favatar{background:transparent;border:2px dashed var(--line2);color:var(--dimmer);animation:pulse 2.4s infinite}
+@keyframes pulse{50%{opacity:.4}}
+.fname{font-weight:800;font-size:clamp(14px,1.5vw,24px)}
+.fpct{font-weight:700;color:var(--green);font-size:clamp(12px,1.2vw,19px)}
+/* bilgi */
+.info{flex:1;display:grid;grid-template-columns:1.2fr .8fr;gap:clamp(20px,4vw,70px);align-items:center}
+.info h3{font-family:Oswald,sans-serif;font-size:clamp(30px,4.2vw,72px);font-weight:600;line-height:1.05;margin-bottom:clamp(12px,2vh,26px)}
+.info h3 span{color:var(--gold)}
+.facts{display:grid;gap:clamp(8px,1.4vh,16px)}
+.fact{display:flex;gap:14px;align-items:center;font-size:clamp(14px,1.6vw,26px);font-weight:600}
+.fact i{font-style:normal;width:clamp(36px,3.4vw,56px);aspect-ratio:1;display:grid;place-items:center;border-radius:12px;background:rgba(61,111,238,.16);border:1px solid rgba(61,111,238,.35);flex:none}
+.qr{justify-self:center;text-align:center}
+.qr-box{background:#fff;padding:clamp(10px,1.2vw,18px);border-radius:18px;width:clamp(170px,26vh,330px);aspect-ratio:1;display:grid;place-items:center}
+.qr-box img,.qr-box svg{width:100%;height:100%;image-rendering:pixelated}
+.qr p{margin-top:12px;color:var(--dim);font-weight:700;font-size:clamp(12px,1.1vw,18px)}
+/* kazanan */
+.winner{flex:1;display:grid;place-items:center;text-align:center}
+.winner .lbl{color:var(--gold);font-weight:800;letter-spacing:4px;text-transform:uppercase;font-size:clamp(14px,1.6vw,26px)}
+.winner .wn{font-family:Oswald,sans-serif;font-size:clamp(46px,8vw,150px);font-weight:700;line-height:1.05;margin:10px 0;background:linear-gradient(90deg,#fff,var(--gold2),#fff);-webkit-background-clip:text;background-clip:text;color:transparent;background-size:200% 100%;animation:shine 4s linear infinite}
+@keyframes shine{to{background-position:-200% 0}}
+.winner .wp{font-size:clamp(20px,2.6vw,44px);font-weight:800;color:var(--green)}
+.winner .wnote{margin-top:14px;color:var(--dim);font-weight:600;font-size:clamp(12px,1.2vw,18px)}
+/* alt şerit */
+.bottom{border-top:1px solid var(--line);background:rgba(6,9,19,.7)}
+.ticker{overflow:hidden;white-space:nowrap;padding:clamp(8px,1.2vh,14px) 0;border-bottom:1px solid var(--line)}
+.ticker-track{display:inline-flex;gap:42px;padding-left:100%;animation:tick 60s linear infinite;font-weight:700;font-size:clamp(13px,1.2vw,20px)}
+.ticker-track .ti{display:inline-flex;gap:10px;align-items:baseline}
+.ticker-track .ti b{color:var(--dim);font-weight:700}
+.ticker-track .up{color:var(--green)}.ticker-track .dn{color:#fca5a5}
+@keyframes tick{to{transform:translateX(-100%)}}
+.disclaimer{display:flex;justify-content:space-between;gap:12px;padding:8px clamp(16px,3vw,48px);color:var(--dimmer);font-size:clamp(10px,.85vw,14px);font-weight:600}
+.dots{display:flex;gap:6px;align-items:center}
+.dots span{width:8px;height:8px;border-radius:50%;background:var(--line2);transition:all .4s}
+.dots span.on{background:var(--gold);width:22px;border-radius:6px}
+/* bildirim */
+.toast{max-width:92vw;overflow:hidden;text-overflow:ellipsis;position:fixed;left:50%;top:18%;transform:translate(-50%,-20px) scale(.95);opacity:0;padding:18px 30px;border-radius:18px;background:linear-gradient(90deg,#7c2d12,#b45309);border:1px solid var(--gold);font-size:clamp(18px,2.4vw,40px);font-weight:800;box-shadow:0 20px 60px rgba(0,0,0,.5);transition:all .5s cubic-bezier(.2,.9,.2,1);z-index:40;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1;transform:translate(-50%,0) scale(1)}
+.fs-btn{position:fixed;right:14px;bottom:88px;z-index:50;background:rgba(16,26,48,.9);color:var(--dim);border:1px solid var(--line2);border-radius:10px;padding:8px 12px;font-weight:700;cursor:pointer;transition:opacity .4s}
+.app.idle .fs-btn{opacity:0}
+.stale{color:#fca5a5}
+#confetti{position:fixed;left:0;top:0;width:100vw;height:100vh;pointer-events:none;z-index:45}
+/* telefon / dikey ekran */
+@media (max-width:760px),(orientation:portrait){
+  html,body{overflow:auto}
+  .app{height:auto;min-height:100%}
+  .top{flex-wrap:wrap}
+  .brand-sub{display:none}
+  .stage{min-height:70vh}
+  .scene{position:relative;inset:auto;display:none}
+  .scene.active{display:flex}
+  :root{--row-h:58px}
+  .lb{min-height:calc(var(--row-h) * 10)}
+  .lb-head,.row{grid-template-columns:44px 1fr 92px;gap:8px;padding:0 10px}
+  .lb-head span:nth-child(3){display:none}
+  .row .eq{display:none}
+  .cd,.info{grid-template-columns:1fr;justify-items:center;text-align:center}
+  .cd-foot{justify-content:center}
+  .finals{grid-template-columns:1fr 1fr}
+  .podium{padding:0}
+  .fs-btn{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand"><span class="brand-mark">FinTe<span>Lig</span></span><span class="brand-sub">Borsa Simülasyon Yarışması</span></div>
+    <div class="top-mid">
+      <span class="live" id="liveBadge"><i></i>CANLI</span>
+      <span class="chip gold" id="weekChip">Hafta —</span>
+      <span class="chip" id="statusChip">Bağlanıyor…</span>
+      <span class="chip" id="marketChip">Borsa —</span>
+    </div>
+    <div class="top-right"><div class="clock" id="clock">--:--:--</div><div class="cd-mini" id="cdMini"></div></div>
+  </header>
+  <div class="announce hidden" id="announce"><span>📢</span><span id="announceText"></span></div>
+  <main class="stage" id="stage">
+    <section class="scene" data-scene="leaderboard">
+      <div class="scene-title"><h2>Canlı Sıralama</h2><span class="sub" id="lbSub"></span></div>
+      <div class="lb-head"><span>Sıra</span><span>Yarışmacı</span><span>Portföy Değeri</span><span>Getiri</span></div>
+      <div class="lb" id="lb"></div>
+    </section>
+    <section class="scene" data-scene="podium">
+      <div class="scene-title"><h2>İlk Üç</h2><span class="sub" id="podSub"></span></div>
+      <div class="podium" id="podium"></div>
+    </section>
+    <section class="scene" data-scene="countdown">
+      <div class="scene-title"><h2 id="cdTitle">Yarışma Süresi</h2><span class="sub" id="cdSub"></span></div>
+      <div class="cd">
+        <div class="ring">
+          <svg viewBox="0 0 120 120"><defs><linearGradient id="grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6f93ff"/><stop offset="1" stop-color="#eab308"/></linearGradient></defs>
+            <circle class="bg" cx="60" cy="60" r="52" fill="none" stroke-width="10"/>
+            <circle class="fg" id="ringFg" cx="60" cy="60" r="52" fill="none" stroke-width="10" stroke-linecap="round" stroke-dasharray="326.73" stroke-dashoffset="326.73"/></svg>
+          <div class="ring-center"><div><b id="ringPct">—</b><span>tamamlandı</span></div></div>
+        </div>
+        <div>
+          <div class="cd-label" id="cdLabel">Kalan süre</div>
+          <div class="cd-big" id="cdBig">—</div>
+          <div class="cd-foot" id="cdFoot"></div>
+        </div>
+      </div>
+    </section>
+    <section class="scene" data-scene="finalists">
+      <div class="scene-title"><h2>Zirve 27 Yolu</h2><span class="sub">Her haftanın birincisi Zirve 27'de FinTeClub'ı temsil edecek ekipte</span></div>
+      <div class="finals" id="finals"></div>
+    </section>
+    <section class="scene" data-scene="info">
+      <div class="info">
+        <div>
+          <h3>Borsayı <span>risksiz</span> dene,<br>haftanın birincisi ol.</h3>
+          <div class="facts" id="facts"></div>
+        </div>
+        <div class="qr"><div class="qr-box" id="qrBox"></div><p>finteclub.com.tr/fintelig</p></div>
+      </div>
+    </section>
+    <section class="scene" data-scene="winner">
+      <div class="winner"><div>
+        <div class="lbl" id="winLbl">Haftanın Kazananı</div>
+        <div class="wn" id="winName">—</div>
+        <div class="wp" id="winPct"></div>
+        <div class="wnote" id="winNote"></div>
+      </div></div>
+    </section>
+  </main>
+  <footer class="bottom">
+    <div class="ticker"><div class="ticker-track" id="tickerTrack"><span class="ti"><b>Piyasa verileri yükleniyor…</b></span></div></div>
+    <div class="disclaimer"><span>Yatırım tavsiyesi değildir · Yarışma eğitim ve simülasyon amaçlıdır · Gerçek para kullanılmaz</span><span class="dots" id="dots"></span><span id="freshness"></span></div>
+  </footer>
+  <button class="fs-btn" id="fsBtn" type="button">⛶ Tam ekran (F)</button>
+</div>
+<div class="toast" id="toast"></div>
+<canvas id="confetti"></canvas>
+
+<script>
+(function(){
+'use strict';
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyA9OmfHaqZizxVB1ATnBDedU1YV0a7aiWQ",
+  authDomain: "finte-bf5f7.firebaseapp.com",
+  projectId: "finte-bf5f7",
+  storageBucket: "finte-bf5f7.firebasestorage.app",
+  messagingSenderId: "267255127844",
+  appId: "1:267255127844:web:9d8a65057cc822375b9db1"
+};
+const MARKET_URL = 'https://rekabet-testi.onrender.com/api/v1/market-ticker';
+const APPLY_URL = 'https://finteclub.com.tr/fintelig/';
+const PAGE_SIZE = 10;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtTL = (n) => (Number(n) || 0).toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' ₺';
+const fmtPct = (p) => { const v = Number(p) || 0; return (v > 0 ? '+' : '') + v.toFixed(2).replace('.', ',') + '%'; };
+const pctCls = (p) => (p > 0.004 ? 'pos' : p < -0.004 ? 'neg' : 'zero');
+const pad = (n) => String(n).padStart(2, '0');
+
+let data = null;          // son okunan public_leaderboard
+let lastUpdateMs = 0;
+
+/* ── saat + borsa durumu (İstanbul saati) ─────────────────────────── */
+function istanbulNow(){
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Istanbul', weekday: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).formatToParts(new Date());
+  const o = {}; parts.forEach(p => o[p.type] = p.value);
+  return { wd: o.weekday, h: +o.hour, m: +o.minute, s: +o.second };
+}
+function marketOpen(){
+  const t = istanbulNow();
+  if (t.wd === 'Sat' || t.wd === 'Sun') return false;
+  const mins = t.h * 60 + t.m;
+  return mins >= 10 * 60 && mins < 18 * 60;
+}
+function fmtRemain(ms){
+  if (ms <= 0) return '00:00:00';
+  const s = Math.floor(ms / 1000), d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return (d > 0 ? d + ' gün ' : '') + pad(h) + ':' + pad(m) + ':' + pad(sec);
+}
+function tickClock(){
+  const t = istanbulNow();
+  $('clock').textContent = pad(t.h) + ':' + pad(t.m) + ':' + pad(t.s);
+  const open = marketOpen();
+  const mc = $('marketChip');
+  mc.textContent = open ? 'Borsa açık' : 'Borsa kapalı';
+  mc.style.color = open ? 'var(--green)' : 'var(--dim)';
+  mc.style.borderColor = open ? 'rgba(34,197,94,.45)' : '';
+  updateCountdown();
+  const age = lastUpdateMs ? Math.round((Date.now() - lastUpdateMs) / 1000) : null;
+  const fr = $('freshness');
+  if (age === null) { fr.textContent = ''; }
+  else { fr.textContent = 'Son güncelleme: ' + (age < 60 ? age + ' sn önce' : Math.round(age / 60) + ' dk önce'); fr.classList.toggle('stale', age > 180 && data && data.competitionActive); }
+}
+
+/* ── geri sayım ──────────────────────────────────────────────────── */
+function updateCountdown(){
+  const mini = $('cdMini');
+  if (!data) { mini.textContent = ''; return; }
+  const now = Date.now();
+  const ends = data.competitionEndsAt;
+  const total = data.competitionTotalMs || (ends && data.competitionStartedAt ? ends - data.competitionStartedAt : 0);
+  let label, big, frac = 0, title = 'Yarışma Süresi';
+  if (data.competitionActive && ends) {
+    const rem = ends - now;
+    label = data.tradingHalted ? 'İşlemler geçici olarak durduruldu · kalan süre' : 'Kalan süre';
+    big = fmtRemain(rem);
+    frac = total > 0 ? Math.min(1, Math.max(0, 1 - rem / total)) : 0;
+    mini.textContent = '⏱ ' + fmtRemain(rem);
+  } else if (!data.competitionActive && (data.rows || []).length) {
+    label = data.resultsPublished ? 'Sonuçlar açıklandı' : 'Sonuçlar kontrol ediliyor';
+    big = 'Bitti'; frac = 1; mini.textContent = '';
+  } else {
+    label = 'Yarışma henüz başlamadı'; big = 'Yakında'; frac = 0; mini.textContent = '';
+  }
+  $('cdTitle').textContent = title;
+  $('cdLabel').textContent = label;
+  $('cdBig').textContent = big;
+  $('ringPct').textContent = Math.round(frac * 100) + '%';
+  $('ringFg').setAttribute('stroke-dashoffset', String(326.73 * (1 - frac)));
+  $('cdSub').textContent = data.participantCount ? data.participantCount + ' yarışmacı' : '';
+  const foot = [];
+  foot.push('<span class="chip">' + (marketOpen() ? 'Seans açık · 10:00–18:00' : 'Seans kapalı · hafta içi 10:00–18:00') + '</span>');
+  if (data.startBalance) foot.push('<span class="chip">Başlangıç sermayesi ' + fmtTL(data.startBalance) + '</span>');
+  $('cdFoot').innerHTML = foot.join('');
+}
+
+/* ── liderlik tablosu (kayan satırlar + sayan rakamlar) ──────────── */
+const rowEls = new Map();   // anahtar → {el, eq, rank}
+let lbPage = 0;
+function rowKey(r, i, seen){ let k = r.name || ('#' + i); while (seen.has(k)) k += '·'; seen.add(k); return k; }
+function animateNumber(el, from, to){
+  if (from === to || !isFinite(from)) { el.textContent = fmtTL(to); return; }
+  const t0 = performance.now(), dur = 900;
+  const step = (t) => {
+    const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = fmtTL(from + (to - from) * e);
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+function renderLeaderboard(){
+  const lb = $('lb');
+  const rows = (data && data.rows) || [];
+  if (!rows.length) {
+    rowEls.forEach(o => o.el.remove()); rowEls.clear();
+    lb.innerHTML = '<div class="empty"><div><b>Sıralama henüz oluşmadı</b>Yarışma başladığında canlı sıralama burada görünecek.</div></div>';
+    return;
+  }
+  const emptyEl = lb.querySelector('.empty'); if (emptyEl) emptyEl.remove();
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  if (lbPage >= pages) lbPage = 0;
+  const visible = rows.slice(lbPage * PAGE_SIZE, lbPage * PAGE_SIZE + PAGE_SIZE);
+  $('lbSub').textContent = rows.length + ' yarışmacı' + (pages > 1 ? ' · sayfa ' + (lbPage + 1) + '/' + pages : '');
+  const rowH = lb.clientHeight / PAGE_SIZE || 60;
+  const seen = new Set(), keep = new Set();
+  visible.forEach((r, i) => {
+    const key = rowKey(r, i, seen); keep.add(key);
+    let o = rowEls.get(key);
+    const isNew = !o;
+    if (isNew) {
+      const el = document.createElement('div');
+      el.className = 'row';
+      el.innerHTML = '<div class="rank"></div><div class="name"><span class="nm"></span><span class="move"></span></div><div class="eq"></div><div class="pct"></div>';
+      el.style.transform = 'translateY(' + (rowH * PAGE_SIZE) + 'px)';
+      el.style.opacity = '0';
+      lb.appendChild(el);
+      o = { el, eq: r.equity, rank: r.rank };
+      rowEls.set(key, o);
+      el.querySelector('.eq').textContent = fmtTL(r.equity);
+    }
+    const el = o.el;
+    el.className = 'row' + (r.rank <= 3 && !r.dq ? ' r' + r.rank : '') + (r.dq ? ' dq' : '');
+    const medal = (r.rank <= 3 && !r.dq) ? '<span class="medal">' + r.rank + '</span>' : String(r.rank);
+    el.querySelector('.rank').innerHTML = medal;
+    el.querySelector('.nm').innerHTML = esc(r.name) + (r.dq ? ' <span class="tag-dq">diskalifiye</span>' : '');
+    const pctEl = el.querySelector('.pct');
+    pctEl.textContent = fmtPct(r.pct);
+    pctEl.className = 'pct ' + pctCls(r.pct);
+    if (!isNew) {
+      if (o.eq !== r.equity) { animateNumber(el.querySelector('.eq'), o.eq, r.equity); el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+      if (o.rank !== r.rank) {
+        const mv = el.querySelector('.move');
+        const diff = o.rank - r.rank;
+        mv.textContent = (diff > 0 ? '▲' : '▼') + Math.abs(diff);
+        mv.className = 'move show ' + (diff > 0 ? 'up' : 'down');
+        clearTimeout(o.mvT); o.mvT = setTimeout(() => { mv.className = 'move'; }, 7000);
+      }
+    }
+    o.eq = r.equity; o.rank = r.rank;
+    requestAnimationFrame(() => { el.style.opacity = '1'; el.style.transform = 'translateY(' + (i * rowH) + 'px)'; });
+    el.style.height = (rowH - 8) + 'px';
+  });
+  rowEls.forEach((o, key) => { if (!keep.has(key)) { o.el.style.opacity = '0'; setTimeout(() => o.el.remove(), 500); rowEls.delete(key); } });
+}
+
+/* ── podyum ──────────────────────────────────────────────────────── */
+function renderPodium(){
+  const rows = ((data && data.rows) || []).filter(r => !r.dq);
+  const pod = $('podium');
+  if (!rows.length) { pod.innerHTML = '<div class="empty" style="grid-column:1/-1"><div><b>Henüz ilk üç yok</b>Yarışma başladığında burada görünecek.</div></div>'; return; }
+  const slot = (r, n) => r
+    ? '<div class="pcol p' + n + '">' + (n === 1 ? '<div class="crown">👑</div>' : '') + '<div class="pname">' + esc(r.name) + '</div><div class="ppct" style="color:' + (r.pct >= 0 ? 'var(--green)' : '#fca5a5') + '">' + fmtPct(r.pct) + '</div><div class="peq">' + fmtTL(r.equity) + '</div><div class="pblock">' + n + '</div></div>'
+    : '<div class="pcol p' + n + '"><div class="pname" style="color:var(--dimmer)">—</div><div class="pblock">' + n + '</div></div>';
+  pod.innerHTML = slot(rows[1], 2) + slot(rows[0], 1) + slot(rows[2], 3);
+  $('podSub').textContent = data.competitionActive ? 'Canlı — değişebilir' : (data.resultsPublished ? 'Kesin sonuç' : 'Sonuçlar kontrol ediliyor');
+}
+
+/* ── Zirve 27 finalistleri ───────────────────────────────────────── */
+function renderFinalists(){
+  const w = (data && data.weeklyWinners) || [];
+  const cards = [];
+  for (let i = 0; i < 5; i++) {
+    const x = w[i];
+    cards.push(x
+      ? '<div class="fcard filled" style="transition-delay:' + (i * 0.12) + 's"><div class="fweek">' + esc(x.week) + '</div><div class="favatar">' + esc((x.name || '?').trim().charAt(0).toUpperCase()) + '</div><div class="fname">' + esc(x.name) + '</div>' + (typeof x.pct === 'number' ? '<div class="fpct">' + fmtPct(x.pct) + '</div>' : '') + '</div>'
+      : '<div class="fcard empty-slot" style="transition-delay:' + (i * 0.12) + 's"><div class="fweek">' + (i + 1) + '. Hafta</div><div class="favatar">?</div><div class="fname" style="color:var(--dimmer)">Belli olacak</div></div>');
+  }
+  $('finals').innerHTML = cards.join('');
+}
+
+/* ── bilgi + QR ──────────────────────────────────────────────────── */
+function renderInfo(){
+  const bal = data && data.startBalance ? fmtTL(data.startBalance) : '100.000 ₺';
+  $('facts').innerHTML = [
+    ['🎓', 'Sadece AYBÜ öğrencileri · dönemde bir kez'],
+    ['💰', 'Herkese eşit sanal sermaye: ' + bal],
+    ['🏛️', 'Borsa İstanbul verileri · resmi seans saatlerinde'],
+    ['🏆', 'Haftanın birincisi Zirve 27 ekibinde']
+  ].map(f => '<div class="fact"><i>' + f[0] + '</i><span>' + esc(f[1]) + '</span></div>').join('');
+  const box = $('qrBox');
+  if (!box.dataset.done && typeof qrcode === 'function') {
+    try { const q = qrcode(0, 'M'); q.addData(APPLY_URL); q.make(); box.innerHTML = q.createSvgTag({ cellSize: 6, margin: 0, scalable: true }); box.dataset.done = '1'; }
+    catch (e) { box.textContent = APPLY_URL; }
+  }
+}
+
+/* ── kazanan ─────────────────────────────────────────────────────── */
+function renderWinner(){
+  const top = ((data && data.rows) || []).filter(r => !r.dq)[0];
+  $('winLbl').textContent = (data && data.weekLabel ? data.weekLabel + ' · ' : '') + 'Haftanın Kazananı';
+  $('winName').textContent = top ? top.name : '—';
+  $('winPct').textContent = top ? fmtPct(top.pct) + ' · ' + fmtTL(top.equity) : '';
+  $('winNote').textContent = 'Zirve 27 temsil ekibine katılıyor · Sonuçlara itiraz: ilandan itibaren 2 iş günü';
+}
+
+/* ── sahne akışı ─────────────────────────────────────────────────── */
+const DUR = { leaderboard: 24000, podium: 11000, countdown: 10000, finalists: 11000, info: 10000, winner: 14000 };
+let current = null, sceneTimer = null, manualUntil = 0, playlistIdx = 0;
+function playlist(){
+  if (!data) return ['info'];
+  const override = data.scene && data.scene !== 'auto' ? data.scene : null;
+  if (override && DUR[override]) return [override];
+  const hasRows = (data.rows || []).length > 0;
+  if (data.competitionActive) return hasRows ? ['leaderboard', 'podium', 'countdown', 'leaderboard', 'finalists', 'info'] : ['countdown', 'info', 'finalists'];
+  if (hasRows && data.resultsPublished) return ['winner', 'podium', 'leaderboard', 'finalists', 'info'];
+  if (hasRows) return ['countdown', 'finalists', 'info'];  // bitti ama sonuçlar kontrol ediliyor: sıralama gösterilmez
+  return ['info', 'finalists', 'countdown'];
+}
+function renderScene(name){
+  if (name === 'leaderboard') renderLeaderboard();
+  else if (name === 'podium') renderPodium();
+  else if (name === 'finalists') renderFinalists();
+  else if (name === 'info') renderInfo();
+  else if (name === 'winner') { renderWinner(); confettiBurst(220); }
+  else if (name === 'countdown') updateCountdown();
+}
+function show(name){
+  if (current !== name) {
+    document.querySelectorAll('.scene').forEach(s => s.classList.toggle('active', s.dataset.scene === name));
+    current = name;
+  }
+  renderScene(name);
+  const list = playlist();
+  $('dots').innerHTML = list.map((n, i) => '<span class="' + (i === playlistIdx % list.length ? 'on' : '') + '"></span>').join('');
+}
+function scheduleNext(){
+  clearTimeout(sceneTimer);
+  const list = playlist();
+  const name = list[playlistIdx % list.length];
+  let dur = DUR[name] || 10000;
+  // çok sayfalı liderlik: her sayfa ayrı süre
+  if (name === 'leaderboard') {
+    const pages = Math.max(1, Math.ceil(((data && data.rows) || []).length / PAGE_SIZE));
+    if (pages > 1) dur = 9000;
+  }
+  sceneTimer = setTimeout(() => {
+    if (Date.now() < manualUntil) { scheduleNext(); return; }
+    const l = playlist();
+    const cur = l[playlistIdx % l.length];
+    const pages = Math.max(1, Math.ceil(((data && data.rows) || []).length / PAGE_SIZE));
+    if (cur === 'leaderboard' && pages > 1 && lbPage < pages - 1) { lbPage++; show('leaderboard'); scheduleNext(); return; }
+    lbPage = 0;
+    playlistIdx = (playlistIdx + 1) % l.length;
+    show(l[playlistIdx]);
+    scheduleNext();
+  }, dur);
+}
+function step(dir){
+  const l = playlist();
+  playlistIdx = (playlistIdx + dir + l.length) % l.length;
+  lbPage = 0;
+  manualUntil = Date.now() + 60000;
+  show(l[playlistIdx]);
+  scheduleNext();
+}
+
+/* ── veri ────────────────────────────────────────────────────────── */
+let prevLeader = null, prevScene = null;
+function onData(d){
+  const first = !data;
+  data = d || {};
+  lastUpdateMs = Date.now();
+  $('weekChip').textContent = data.weekLabel || 'FinTeLig';
+  const st = $('statusChip');
+  if (data.competitionActive) { st.textContent = data.tradingHalted ? 'İşlemler durduruldu' : 'Yarışma sürüyor'; st.style.color = data.tradingHalted ? '#fca5a5' : 'var(--green)'; }
+  else if ((data.rows || []).length) { st.textContent = data.resultsPublished ? 'Sonuçlar açıklandı' : 'Yarışma bitti'; st.style.color = 'var(--gold)'; }
+  else { st.textContent = 'Yarışma başlamadı'; st.style.color = 'var(--dim)'; }
+  $('liveBadge').classList.toggle('on', !!data.competitionActive);
+  const ann = String(data.announcement || '').trim();
+  $('announce').classList.toggle('hidden', !ann);
+  $('announceText').textContent = ann;
+  // lider değişimi (sadece yarışma sürerken)
+  const leader = ((data.rows || []).filter(r => !r.dq)[0] || {}).name || null;
+  if (!first && data.competitionActive && leader && prevLeader && leader !== prevLeader) {
+    toast('🔥 Yeni lider: ' + leader);
+    confettiBurst(120);
+  }
+  prevLeader = leader;
+  const sceneKey = (data.scene || 'auto') + '|' + !!data.competitionActive + '|' + !!data.resultsPublished + '|' + ((data.rows || []).length > 0);
+  if (first || sceneKey !== prevScene) { playlistIdx = 0; lbPage = 0; show(playlist()[0]); scheduleNext(); }
+  else renderScene(current);
+  prevScene = sceneKey;
+}
+function toast(msg){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 5000);
+}
+
+/* ── piyasa bandı ────────────────────────────────────────────────── */
+async function loadTicker(){
+  try {
+    const r = await fetch(MARKET_URL, { cache: 'no-store' });
+    const j = await r.json();
+    const items = (j && j.items) || [];
+    if (!items.length) return;
+    const html = items.map(it => {
+      const ch = Number(it.changePct) || 0;
+      const px = typeof it.price === 'number' ? it.price.toLocaleString('tr-TR', { maximumFractionDigits: it.price < 100 ? 4 : 2 }) : '—';
+      return '<span class="ti"><b>' + esc(it.label || it.symbol) + '</b><span>' + px + '</span><span class="' + (ch >= 0 ? 'up' : 'dn') + '">' + (ch >= 0 ? '▲' : '▼') + ' ' + Math.abs(ch).toFixed(2).replace('.', ',') + '%</span></span>';
+    }).join('');
+    $('tickerTrack').innerHTML = html + html;
+  } catch (e) { /* sessiz: bir sonraki denemede */ }
+}
+
+/* ── konfeti ─────────────────────────────────────────────────────── */
+const cv = $('confetti'), cx = cv.getContext('2d');
+let parts = [], confRaf = null;
+function resize(){ cv.width = innerWidth * devicePixelRatio; cv.height = innerHeight * devicePixelRatio; }
+addEventListener('resize', () => { resize(); if (current === 'leaderboard') renderLeaderboard(); });
+resize();
+function confettiBurst(n){
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const colors = ['#eab308', '#fcd34d', '#6f93ff', '#22c55e', '#ffffff'];
+  for (let i = 0; i < n; i++) parts.push({ x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * .3, vx: (Math.random() - .5) * 3 * devicePixelRatio, vy: (2 + Math.random() * 4) * devicePixelRatio, r: (4 + Math.random() * 6) * devicePixelRatio, a: Math.random() * 6.28, va: (Math.random() - .5) * .3, c: colors[i % colors.length] });
+  if (!confRaf) confRaf = requestAnimationFrame(drawConfetti);
+}
+function drawConfetti(){
+  cx.clearRect(0, 0, cv.width, cv.height);
+  parts.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += .03 * devicePixelRatio; p.a += p.va; cx.save(); cx.translate(p.x, p.y); cx.rotate(p.a); cx.fillStyle = p.c; cx.fillRect(-p.r / 2, -p.r / 4, p.r, p.r / 2); cx.restore(); });
+  parts = parts.filter(p => p.y < cv.height + 30);
+  confRaf = parts.length ? requestAnimationFrame(drawConfetti) : (cx.clearRect(0, 0, cv.width, cv.height), null);
+}
+
+/* ── tam ekran, klavye, imleç ────────────────────────────────────── */
+function toggleFs(){ if (!document.fullscreenElement) document.documentElement.requestFullscreen && document.documentElement.requestFullscreen().catch(() => {}); else document.exitFullscreen && document.exitFullscreen(); }
+$('fsBtn').addEventListener('click', toggleFs);
+addEventListener('keydown', (e) => {
+  if (e.key === 'f' || e.key === 'F') toggleFs();
+  else if (e.key === 'ArrowRight') step(1);
+  else if (e.key === 'ArrowLeft') step(-1);
+});
+let idleT;
+function wake(){ $('app').classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => $('app').classList.add('idle'), 3000); }
+addEventListener('mousemove', wake); wake();
+
+/* ── başlat ──────────────────────────────────────────────────────── */
+tickClock(); setInterval(tickClock, 1000);
+loadTicker(); setInterval(loadTicker, 60000);
+show('info'); scheduleNext();
+try {
+  const app = firebase.initializeApp(FIREBASE_CONFIG, 'yayin');
+  app.firestore().collection('finteclub').doc('public_leaderboard').onSnapshot(
+    (snap) => onData(snap.exists ? snap.data() : {}),
+    (err) => { console.warn('[Yayın] veri okunamadı', err); $('statusChip').textContent = 'Bağlantı yok'; }
+  );
+} catch (e) { console.warn('[Yayın] Firebase başlatılamadı', e); $('statusChip').textContent = 'Bağlantı yok'; }
+// test/önizleme kancası
+window.__yayin = { onData, step, get current(){ return current; } };
+})();
+</script>
+</body>
+</html>

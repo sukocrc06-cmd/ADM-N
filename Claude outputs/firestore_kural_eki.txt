@@ -1,0 +1,11 @@
+    match /oplab_portfolios/{emailId} {
+      allow get: if true;
+      allow list: if isFinteClubAdmin();
+      allow create, update: if request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() == emailId
+        && request.resource.data.email == emailId
+        && request.resource.data.keys().size() < 20
+        && request.resource.data.portfolio is map;
+      allow delete: if isFinteClubAdmin();
+    }

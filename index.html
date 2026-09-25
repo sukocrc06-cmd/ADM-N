@@ -1558,7 +1558,10 @@ function tryInitFirebase(){
   try{
     if(!firebase.apps || !firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     fsSharedDoc = firebase.firestore().collection('finteclub').doc('shared_state');
-    fsPortfolioDoc = firebase.firestore().collection('finteclub').doc('oplab_live_portfolio');
+    // (25 Eylül 2026 — kural 4.9) Canlı portföy belgesi artık sadece admine
+    // açık; ziyaretçiler admin panelinin yazdığı SADELEŞTİRİLMİŞ herkese açık
+    // sıralamayı (isim/değer/getiri/sıra) okur.
+    fsPortfolioDoc = firebase.firestore().collection('finteclub').doc('public_leaderboard');
     if(typeof firebase.storage === 'function') fbStorage = firebase.storage();
     AUTH_ENABLED = typeof firebase.auth === 'function';
     if(AUTH_ENABLED){
@@ -2328,8 +2331,7 @@ function fetchPublicResultsIfNeeded(force){
   publicResultsLastFetch = Date.now();
   fsPortfolioDoc.get().then((doc)=>{
     const data = doc.exists ? (doc.data() || {}) : {};
-    const competitors = data.competitors || {};
-    oplabPortfolioData = Object.keys(competitors).map(id => Object.assign({id: id}, competitors[id]));
+    oplabPortfolioData = (Array.isArray(data.rows) ? data.rows : []).map(r => ({ id: 'pub' + r.rank, name: r.name, equity: r.equity, _dq: !!r.dq }));
     renderPublicSonuclar();
   }).catch((err)=>console.warn('Sonuç verisi okunamadı:', err));
 }
@@ -2362,7 +2364,7 @@ function renderPublicSonuclar(){
   }
 
   const sorted = data.slice().sort((a,b)=> (b.equity||0) - (a.equity||0));
-  const rankable = sorted.filter(c => !isRankExcluded(c.id));
+  const rankable = sorted.filter(c => !(c._dq || isRankExcluded(c.id)));
   // rank-card sırası HTML'de 02/01/03 (ortadaki lider) olarak dizili —
   // buildViewModeHtml (admin.html) ile aynı üç kişiyi kullanıyoruz, sadece
   // DOM sırası farklı (kart 0 → 2., kart 1 → 1., kart 2 → 3.).
@@ -2383,8 +2385,8 @@ function renderPublicSonuclar(){
 
   tbody.innerHTML = sorted.map((c,i)=>{
     const pct = pctReturn(c.equity||0);
-    const dq = isRankExcluded(c.id);
-    const tradeCount = (c.recentTrades || []).length;
+    const dq = !!(c._dq || isRankExcluded(c.id));
+    const tradeCount = '—'; // (kural 4.9) işlem bilgileri herkese açık değil
     return `<tr${dq?' style="opacity:.55;"':''}>
       <td>${i+1}</td>
       <td>${escapeHtml(c.name) || t('sonuc_unnamed')}${dq?' <span class="status-pill red" style="font-size:9.5px;padding:2px 6px;">'+t('sonuc_disqualified')+'</span>':''}</td>
