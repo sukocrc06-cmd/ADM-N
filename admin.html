@@ -986,9 +986,9 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 
 /* ---- Lig modülü (sezon/hafta, yarışma günü, yaptırım & sonuç) ---- */
 .lig-card{margin-bottom:20px;}
-#page-sezon .grid-2>*,#page-sezon .grid-2-even>*,#page-sezon .grid-4>*,#page-gun .grid-2>*,#page-gun .grid-2-even>*,#page-gun .grid-4>*,#page-karar .grid-2>*,#page-karar .grid-2-even>*{min-width:0;}
-#page-sezon .field-row,#page-gun .field-row,#page-karar .field-row{flex-wrap:wrap;}
-#page-sezon .field-row>.field,#page-karar .field-row>.field{min-width:140px;}
+#page-yarisma .grid-2>*,#page-yarisma .grid-2-even>*,#page-yarisma .grid-4>*,#page-gun .grid-2>*,#page-gun .grid-2-even>*,#page-gun .grid-4>*,#page-karar .grid-2>*,#page-karar .grid-2-even>*{min-width:0;}
+#page-yarisma .field-row,#page-gun .field-row,#page-karar .field-row{flex-wrap:wrap;}
+#page-yarisma .field-row>.field,#page-karar .field-row>.field{min-width:140px;}
 .lig-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
 .lig-table{width:100%;border-collapse:collapse;font-size:12.5px;}
 .lig-table th{color:var(--text-dim);text-align:left;font-weight:600;padding:8px 8px;border-bottom:1px solid var(--border-strong);white-space:nowrap;font-size:11px;letter-spacing:.04em;text-transform:uppercase;}
@@ -1012,7 +1012,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 .lig-ol{margin:6px 0 0 18px;font-size:12.5px;line-height:1.7;max-height:260px;overflow:auto;}
 .lig-modal-back{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;}
 .lig-modal{background:var(--card-bg);border:1px solid var(--border-strong);border-radius:var(--radius);padding:22px;max-width:520px;width:100%;max-height:90vh;overflow:auto;}
-#page-sezon select,#page-gun select,#page-karar select{background:var(--card-bg-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:10px 12px;color:var(--text);}
+#page-yarisma select,#page-gun select,#page-karar select{background:var(--card-bg-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:10px 12px;color:var(--text);}
 
 /* ---- (26 Eylül 2026 v3) Yayın Yönetimi ---- */
 .yy-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px;margin-bottom:20px;align-items:start}
@@ -1120,7 +1120,6 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
     <ul class="nav-list">
       <li><button class="nav-item" data-page="page-menu">Menü</button></li>
       <li><button class="nav-item" data-page="page-yarisma">FinteLig Yarışması</button></li>
-      <li><button class="nav-item" data-page="page-sezon">Sezon &amp; Hafta Planı</button></li>
       <li><button class="nav-item" data-page="page-gun">Yarışma Günü</button></li>
       <li><button class="nav-item" data-page="page-karar">Yaptırım &amp; Sonuç</button></li>
       <li><button class="nav-item" data-page="page-basvuru">Başvuru Onayları<span class="nav-badge" id="navBadgeBasvuru"></span></button></li>
@@ -1237,7 +1236,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           <div class="stat-sub" id="ylYarismaDurumuSub">Yarışma henüz başlatılmadı</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">TARİH ARALIĞI</div>
+          <div class="stat-label">HAFTA TARİHLERİ</div>
           <div class="stat-value gray" id="ylTarihAraligi">Belirlenmedi</div>
           <div class="stat-sub" id="ylTarihAraligiSub">Tarih ayarlanmadı</div>
         </div>
@@ -1247,29 +1246,19 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           <div class="stat-sub">Demo portföy limiti</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">GÜNCEL HAFTA / KOTA</div>
+          <div class="stat-label">GÜNCEL HAFTA / KONTENJAN</div>
           <div class="stat-value blue" id="ylGuncelHafta">Hafta 1</div>
-          <div class="stat-sub" id="ylGuncelHaftaSub">0/5 onaylı bu hafta</div>
+          <div class="stat-sub" id="ylGuncelHaftaSub">0/20 onaylı</div>
         </div>
       </div>
 
       <div class="grid-2-even">
         <div class="card">
-          <h3 class="section-title">Yarışma Adayları</h3>
-          <p class="section-desc">FinteLig yarışmasının temel parametrelerini buradan yönetin.</p>
+          <h3 class="section-title">Genel Ayarlar</h3>
+          <p class="section-desc">Hafta tarihleri, kontenjan ve seans saatleri aşağıdaki sezon takviminden yönetilir.</p>
           <div class="field">
             <label>Yarışma Adı</label>
             <input type="text" id="inpName" placeholder="Örn: FinteLig 2026">
-          </div>
-          <div class="field-row">
-            <div class="field">
-              <label>Başlangıç Tarihi</label>
-              <input type="date" id="inpStart">
-            </div>
-            <div class="field">
-              <label>Bitiş Tarihi</label>
-              <input type="date" id="inpEnd">
-            </div>
           </div>
           <div class="field-row">
             <div class="field">
@@ -1277,52 +1266,41 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
               <input type="number" id="inpBalance" value="100000" step="1000">
             </div>
             <div class="field">
-              <label>Katılım Durumu</label>
+              <label>Başvurular (lig sitesi)</label>
               <div class="toggle-group" id="toggleKatilim">
                 <button type="button" class="toggle-opt on-green" data-value="acik">Açık</button>
                 <button type="button" class="toggle-opt off active" data-value="kapali">Kapalı</button>
               </div>
             </div>
           </div>
-          <div class="field-row">
-            <div class="field">
-              <label>Haftalık Kota (0 = sınırsız)</label>
-              <input type="number" id="inpWeeklyQuota" min="0" step="1" placeholder="5">
-            </div>
-            <div class="field">
-              <label>Hafta Süresi (gün)</label>
-              <input type="number" id="inpCohortDays" min="1" step="1" placeholder="7">
-            </div>
-          </div>
-          <p class="section-desc" style="margin-top:-4px;" id="cohortDurum"></p>
-          <button type="button" class="btn" id="endCohortNowBtn" style="margin-bottom:14px;width:100%;border-color:var(--yellow);color:var(--yellow);">HAFTAYI ŞİMDİ BİTİR</button>
-          <div class="field">
-            <label>Yarışma Durumu</label>
-            <div class="toggle-group" id="toggleYarisma">
-              <button type="button" class="toggle-opt on-blue" data-value="aktif">Aktif</button>
-              <button type="button" class="toggle-opt off active" data-value="pasif">Pasif</button>
-            </div>
-          </div>
           <button class="btn btn-blue" id="saveSettingsBtn" style="margin-top:6px;">AYARLARI KAYDET</button>
+          <!-- Eski "haftalık kota / hafta süresi / aktif-pasif" alanları: kod uyumu için gizli, kullanılmıyor. -->
+          <div id="ylLegacyFields" style="display:none;" aria-hidden="true">
+            <input type="date" id="inpStart"><input type="date" id="inpEnd">
+            <div class="field-row"><input type="number" id="inpWeeklyQuota"><input type="number" id="inpCohortDays"></div>
+            <p id="cohortDurum"></p>
+            <button type="button" id="endCohortNowBtn"></button>
+            <div class="toggle-group" id="toggleYarisma">
+              <button type="button" class="toggle-opt" data-value="aktif">Aktif</button>
+              <button type="button" class="toggle-opt active" data-value="pasif">Pasif</button>
+            </div>
+          </div>
         </div>
 
         <div class="card">
-          <h3 class="section-title">Yarışma Kuralları</h3>
-          <p class="section-desc">Yarışma sırasında geçerli temel demo kuralları.</p>
-          <ul class="bullet-list" style="margin-bottom:20px;">
-            <li><span class="dot"></span> Her kullanıcı demo portföy ile yarışır.</li>
-            <li><span class="dot"></span> Katılım admin onayına bağlıdır.</li>
-            <li><span class="dot"></span> Sıralama portföy getirisine göre oluşur.</li>
-            <li><span class="dot"></span> Yarışma sonunda sonuç ekranı yayınlanır.</li>
-            <li><span class="dot"></span> Her hafta sınırlı sayıda yarışmacı kabul edilir; hafta bitince otomatik geçmişe alınır.</li>
-          </ul>
+          <h3 class="section-title">Yarışma Akışı</h3>
+          <p class="section-desc">Başvuru → hafta ataması → yarışma günü → sonuç ilanı. Her adımın ekranı:</p>
           <div class="btn-row" style="flex-direction:column;">
-            <button class="btn btn-blue btn-block" data-nav="page-canli">CANLI İZLE</button>
-            <button class="btn btn-block" data-nav="page-sonuclar">SONUÇLARI GÖR</button>
+            <button class="btn btn-block" data-nav="page-basvuru">1 · BAŞVURULAR (onay + hafta seçimi)</button>
+            <button class="btn btn-blue btn-block" data-nav="page-gun">2 · YARIŞMA GÜNÜ (yoklama, seans, duyuru)</button>
+            <button class="btn btn-block" data-nav="page-canli">3 · CANLI İZLE</button>
+            <button class="btn btn-block" data-nav="page-karar">4 · YAPTIRIM &amp; SONUÇ (ilan, itiraz)</button>
             <button class="btn btn-block" data-nav="page-gecmis">YARIŞMA GEÇMİŞİ</button>
           </div>
         </div>
       </div>
+
+      <div id="ligSezonRoot"></div>
 
       <div class="card">
         <h3 class="section-title">Son Yönetim Aktiviteleri</h3>
@@ -1333,7 +1311,6 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
     </section>
 
     <!-- ============ PAGE: SEZON & HAFTA PLANI / YARIŞMA GÜNÜ / YAPTIRIM & SONUÇ (26 Eylül 2026) ============ -->
-    <section id="page-sezon" class="page"><div id="ligSezonRoot"></div></section>
     <section id="page-gun" class="page"><div id="ligGunRoot"></div></section>
     <section id="page-karar" class="page"><div id="ligKararRoot"></div></section>
 
@@ -2118,7 +2095,10 @@ function getConfiguredCompetitionDurationMs(){
 // tarih girilmemişse / geçmişteyse eski davranış (aralık süresi, o da yoksa
 // 2 saat) korunuyor.
 function ligSeasonOn(){
-  return !!(state.season && state.season.enabled && Array.isArray(state.season.weeks) && state.season.weeks.length);
+  // (26 Eylül 2026) Tek sistem: eski "haftalık kota / hafta süresi" kaldırıldı,
+  // FinteLig Yarışması sayfasındaki sezon takvimi her zaman geçerli.
+  if(typeof window !== 'undefined' && window.LIG) LIG.S();
+  return !!(state.season && Array.isArray(state.season.weeks));
 }
 function getConfiguredCompetitionEndMs(){
   // (26 Eylül 2026) Sezon planı açıkken bitiş = aktif haftanın SON işlem
@@ -2384,7 +2364,7 @@ function saveShared(){
     cohortStartedAt: state.cohortStartedAt,
     cohortHistory: state.cohortHistory,
     zirvePromotedAppIds: state.zirvePromotedAppIds,
-    season: state.season || null,
+    season: (state.season && !state.season._draft) ? state.season : (window.__ligRemoteSeason || null),
     yayinConfig: state.yayinConfig || null,
     oplabAnnouncement: state.oplabAnnouncement || null,
     tieBreak: state.tieBreak || null
@@ -2505,7 +2485,11 @@ function hydrateFromShared(){
   state.cohortStartedAt = shared.cohortStartedAt ?? state.cohortStartedAt;
   state.cohortHistory = shared.cohortHistory ?? state.cohortHistory;
   state.zirvePromotedAppIds = shared.zirvePromotedAppIds ?? state.zirvePromotedAppIds;
-  state.season = shared.season ?? state.season;
+  if(shared.season){
+    window.__ligRemoteSeason = shared.season; state.season = shared.season;
+    // Eski panelde "Kapalı" bırakılmış plan: tek sisteme geçişte bir kez açık olarak kaydet (OPLab hafta/seans kontrolleri buna bakar).
+    if(shared.season.enabled !== true && !window.__ligEnableSaved){ window.__ligEnableSaved = true; setTimeout(() => { if(window.LIG){ LIG.S(); saveShared(); } }, 1500); }
+  }
   state.yayinConfig = shared.yayinConfig ?? state.yayinConfig;
   state.oplabAnnouncement = ('oplabAnnouncement' in shared) ? shared.oplabAnnouncement : state.oplabAnnouncement;
   state.tieBreak = ('tieBreak' in shared) ? shared.tieBreak : state.tieBreak;
@@ -3157,7 +3141,7 @@ document.getElementById('logoutBtn').addEventListener('click', function(){
 /* ============ NAVIGATION ============ */
 const PAGES = {
   'page-menu': {title:'YÖNETİM MENÜSÜ', sub:'FinteLig yarışması ve FinTeClub Zirve süreçlerini yönetin.'},
-  'page-yarisma': {title:'FINTELIG YARIŞMA YÖNETİMİ', sub:'Yarışma tarih aralığını, erişim durumunu ve temel yarışma ayarlarını yönetin.'},
+  'page-yarisma': {title:'FINTELIG YARIŞMA YÖNETİMİ', sub:'Genel ayarlar, 5 haftalık sezon takvimi, kontenjan, tatiller, kura ve haftası atanmamış yarışmacılar (kural 2, 7, 16).'},
   'page-basvuru': {title:'YARIŞMACI BAŞVURU ONAYLARI', sub:'FinteLig yarışmasına katılmak isteyen kullanıcıları inceleyin, onaylayın veya reddedin.'},
   'page-kullanicilar': {title:'KULLANICI VERİTABANI', sub:'Kayıtlı tüm kullanıcıları (ad, e-posta, kurum, durum) tek tabloda görüntüleyin.'},
   'page-canli': {title:'CANLI YARIŞMA İZLEME', sub:'Yarışmacı portföylerini, anlık sıralamayı ve işlem hareketlerini canlı olarak takip edin.'},
@@ -3168,7 +3152,6 @@ const PAGES = {
   'page-zirve': {title:'ZİRVE KAYIT YÖNETİMİ', sub:'FinTeClub Zirve kayıt başvurularını, uygunluk durumlarını ve katılımcı listesini yönetin.'},
   'page-oplab': {title:'OPLAB (ALIM-SATIM SİTESİ) KONTROLÜ', sub:'OptiPulseLab erişimini yönetin, doğrulanmış yarışmacıları ve aktivasyon istatistiklerini görüntüleyin.'},
   'page-yayin': {title:'YAYIN YÖNETİMİ', sub:'Yarışma ekranını canlı yayına hazırlayın, başlatın, durdurun ve görüntü modunu yönetin.'},
-  'page-sezon': {title:'SEZON & HAFTA PLANI', sub:'5 haftalık takvim, işlem günleri, tatiller, kontenjan, VİOP, kura ve yedek liste (kural 2, 7, 16).'},
   'page-gun': {title:'YARIŞMA GÜNÜ', sub:'Yoklama, 15 dakika kuralı, seans kontrolü, süre uzatma ve OPLab duyuruları (kural 7, 13, 15).'},
   'page-karar': {title:'YAPTIRIM & SONUÇ', sub:'İhlaller, eşitlik ek süresi, sonuç ilanı, itirazlar, kesinleştirme ve Zirve 27 finalistleri (kural 9, 12, 17, 21).'}
 };
@@ -3318,7 +3301,7 @@ document.getElementById('saveSettingsBtn').addEventListener('click', function(){
   const yarisma = document.querySelector('#toggleYarisma .toggle-opt.active').dataset.value;
   state.applicationsOpen = katilim === 'acik';
   const wasActive = state.competitionActive;
-  const wantsActive = yarisma === 'aktif';
+  const wantsActive = ligSeasonOn() ? wasActive : yarisma === 'aktif';
 
   // (5 Ağustos 2026 düzeltmesi) Bu sayfadan Pasif→Aktif ya da Aktif→Pasif
   // geçişi TAM yarışma başlatma/bitirme akışını da tetikler (OPLab erişimi,
@@ -3996,7 +3979,7 @@ function renderBasvuruDetail(){
     ${app.status==='onayli' && app.cohortId ? `<div style="margin-bottom:14px;"><div class="field-label">HAFTA</div><div style="font-size:13.5px;">Hafta ${app.cohortId}${app.pastCompetitor ? ' — sona erdi' : ' — aktif'}</div></div>` : ''}
     ${!app.studentDocUrl && !app.studentDocFileName && app.status !== 'onayli' ? `<p style="font-size:11px;color:var(--yellow);margin-bottom:6px;line-height:1.6;">⚠ Bu başvuruda öğrenci belgesi/kimlik fotoğrafı yok (muhtemelen bu özellikten önce başvurmuş) — öğrenci numarasının gerçekliğini teyit edemedin. Yine de onaylayabilirsin, karar sana ait.</p>` : ''}
     ${app.emailVerified === false && app.status !== 'onayli' ? `<p style="font-size:11px;color:var(--yellow);margin-bottom:10px;line-height:1.6;">⚠ Bu başvuru sahibi e-postasını henüz doğrulamadı. Yine de onaylayabilirsin, karar sana ait.</p>` : ''}
-    ${window.LIG ? LIG.approveWeekSelectHtml(app) : ''}
+    ${window.LIG ? LIG.approveWeekSelectHtml(app) + LIG.assignWeekDetailHtml(app) : ''}
     ${app.rulesAcceptedAt || app.kvkkAcceptedAt ? `<div style="margin-bottom:14px;"><div class="field-label">ONAYLAR</div><div style="font-size:12.5px;color:var(--text-dim);line-height:1.7;">${app.rulesAcceptedAt ? '✓ Yarışma kuralları kabul' : '✗ Kural onayı yok'} · ${app.kvkkAcceptedAt ? '✓ KVKK' : '✗ KVKK yok'} · ${app.imageConsent ? '✓ Görüntü kullanım izni' : '— Görüntü izni yok'}</div></div>` : (app.status !== 'onayli' ? `<p style="font-size:11px;color:var(--text-dimmer);margin-bottom:10px;">Bu başvuru kural/KVKK onay kutuları eklenmeden önce yapılmış.</p>` : '')}
     <div class="btn-row">
       <button class="btn btn-green" style="flex:1;" id="approveAppBtn" ${app.status==='onayli'?'disabled':''}>ONAYLA</button>
@@ -4410,7 +4393,7 @@ function startCompetitionNow(source){
   addActivity('Yarışma başlatıldı (' + source + ') — ' + durationLabel + ' süre başladı, OPLab erişimi açıldı.');
   showToast('Yarışma başlatıldı. ' + durationLabel + ' sonra otomatik olarak bitecek.', 'success');
 }
-document.getElementById('startCompBtn').addEventListener('click', ()=> startCompetitionNow('Yayın Yönetim panelinden'));
+document.getElementById('startCompBtn').addEventListener('click', ()=> { if(ligSeasonOn() && window.LIG) LIG.startNextWeek(); else startCompetitionNow('Yayın Yönetim panelinden'); });
 // Admin süre dolmadan erken bitirirse de AYNI arşivleme/kapatma akışından
 // (finishCompetition) geçer — iki yoldan da (otomatik/manuel) sonuç aynı:
 // Yarışma Geçmişi'ne kayıt + OPLab erişiminin tam kapanması.
@@ -6054,7 +6037,7 @@ function blankWeek(n){
 }
 function defaultSeason(){
   return {
-    enabled:false, term:'2026-2027 Güz Dönemi',
+    enabled:true, _draft:true, term:'2026-2027 Güz Dönemi',
     sessionStart:'10:00', sessionEnd:'18:00',
     lateMinutes:15, arriveMinutes:20, autoSession:true,
     sanctionLockMin:2, sanctionCutPct:10, objectionBusinessDays:2,
@@ -6069,6 +6052,7 @@ const numOr = (v, d) => { const n = Number(v); return isFinite(n) && n >= 0 ? n 
 function S(){
   if(!state.season || typeof state.season !== 'object') state.season = defaultSeason();
   const s = state.season;
+  s.enabled = true; // (26 Eylül 2026) tek sistem: eski "haftalık kota / hafta süresi" kaldırıldı
   // finteclub/shared_state herkese açık yazılabilir — alanları her okumada
   // doğrula ki bozuk/kötü niyetli bir değer ekranı ya da hesapları bozmasın.
   if(!Array.isArray(s.weeks)) s.weeks = [];
@@ -6170,7 +6154,7 @@ function defaultTargetWeek(){
 }
 function approveGuard(app, weekNo){
   const w = weekByNo(weekNo);
-  if(!w) return { ok:false, msg:'Önce bir yarışma haftası seç (Sezon & Hafta Planı).' };
+  if(!w) return { ok:false, msg:'Önce bir yarışma haftası seç (FinteLig Yarışması sayfası → hafta takvimi).' };
   const conflict = participationConflict(app);
   if(conflict) return { ok:false, msg:`Kural 2.15: ${conflict.name} (aynı e-posta/öğrenci no) bu dönem zaten onaylı (Hafta ${conflict.cohortId || '?'}). Bir öğrenci aynı dönemde yalnızca bir hafta yarışabilir.` };
   if(w.status === 'review' || w.status === 'published' || w.status === 'finalized') return { ok:false, msg:`Hafta ${w.no} tamamlandı — bu haftaya yeni yarışmacı eklenemez.` };
@@ -6735,10 +6719,7 @@ function renderSezon(){
   const half = Object.keys(s.halfDays || {}).filter(d => s.halfDays[d]).sort().map(d => `<span class="lig-chip yellow">${esc(dmy(d))} yarım gün (kapanış ${esc(s.halfDays[d])}) <button data-lig="del-half" data-date="${esc(d)}" title="Kaldır">×</button></span>`).join('');
   const drawWeek = weekByNo(Number(root.dataset.drawWeek) || (defaultTargetWeek() || s.weeks[0] || {}).no) || s.weeks[0];
   root.innerHTML = `
-  <div class="lig-banner ${s.enabled ? 'ok' : ''}">
-    <div><b>Sezon planı ${s.enabled ? 'AÇIK' : 'KAPALI'}</b> — ${s.enabled ? 'Onaylar hafta seçilerek yapılır, OPLab yalnızca aktif haftanın yarışmacılarına ve seans saatlerinde işlem açar, hafta sonuçları kurallara göre (ilan → 2 iş günü itiraz → kesinleştirme) yönetilir.' : 'Açınca eski "haftalık kota / hafta süresi" sistemi devre dışı kalır ve aşağıdaki takvim geçerli olur.'}</div>
-    <div class="toggle-group" style="flex-shrink:0;"><button type="button" class="toggle-opt on-green ${s.enabled ? 'active' : ''}" data-lig="season-on">Açık</button><button type="button" class="toggle-opt off ${!s.enabled ? 'active' : ''}" data-lig="season-off">Kapalı</button></div>
-  </div>
+  ${unassignedCard()}
   <div class="grid-2-even">
     ${card('Sezon Ayarları', 'Değişiklikler otomatik kaydedilir.', `
       <div class="field"><label>Dönem adı</label><input type="text" data-sf="term" value="${escapeAttr(s.term || '')}"></div>
@@ -6785,6 +6766,62 @@ function renderSezon(){
   `)}
   ${card('Kura, Yedek Liste ve Duyuru Listesi', 'Kural 2.14: başvuru sayısı kontenjanı aşarsa kura ile seçilir. Kural 2.15: bir öğrenci aynı dönemde yalnızca bir hafta yarışabilir — aynı e-posta veya öğrenci numarasıyla zaten onaylı olanlar kuraya alınmaz.', drawSection(drawWeek))}
   `;
+}
+function unassignedApps(){
+  const s = S();
+  return state.applications.filter(a => a.status === 'onayli' && !a.pastCompetitor && (!weekByNo(a.cohortId) || a.seasonTerm !== s.term));
+}
+function weekOptions(sel){
+  return S().weeks.filter(w => w.status === 'planned' || w.status === 'active').map(w => `<option value="${Number(w.no)}" ${Number(sel) === Number(w.no) ? 'selected' : ''}>${esc(weekLabel(w))} — ${weekApps(w).length}/${Number(w.quota) || '∞'}</option>`).join('');
+}
+function unassignedCard(){
+  const list = unassignedApps();
+  if(!list.length) return '';
+  return card('Haftası atanmamış onaylı yarışmacılar', `Bu ${list.length} kişi eski "haftalık kota" sisteminde onaylandı ya da bu dönemin takviminde bir haftaya bağlı değil. Bir haftaya atanmadıkça OPLab'da yarışamaz ve sıralamalarda görünmez. Her birini bir yarışma haftasına ata (kural 2.15: dönemde bir kez).`,
+    `<div class="lig-scroll"><table class="lig-table"><thead><tr><th>Yarışmacı</th><th>E-posta</th><th>Eski hafta</th><th>Yeni hafta</th><th></th></tr></thead><tbody>${list.map(a => `<tr>
+      <td><b>${esc(a.name)}</b><div class="lig-dim">${esc(a.studentNumber || '')}</div></td><td>${esc(a.email)}</td><td>${a.cohortId ? 'Hafta ' + Number(a.cohortId) + ' (eski sistem)' : '—'}</td>
+      <td><select data-lig-assign-sel="${esc(a.id)}">${weekOptions((defaultTargetWeek() || {}).no)}</select></td>
+      <td><button class="btn btn-blue lig-sm" data-lig-assign="${esc(a.id)}">Ata</button></td></tr>`).join('')}</tbody></table></div>`, 'style="border-color:rgba(234,179,8,.5)"');
+}
+function assignWeek(appId, weekNo){
+  const app = appById(appId); const w = weekByNo(weekNo);
+  if(!app || !w){ showToast('Hafta seç.', 'warn'); return; }
+  const others = state.applications.filter(o => o.id !== app.id);
+  const e = norm(app.email), sn = norm(app.studentNumber), term = S().term;
+  const clash = others.find(o => o.status === 'onayli' && o.seasonTerm === term && ((e && norm(o.email) === e) || (sn && norm(o.studentNumber) === sn)));
+  if(clash){ showToast(`Kural 2.15: ${clash.name} bu dönem zaten Hafta ${clash.cohortId}'e atanmış.`, 'error'); return; }
+  if(seatsLeft(w) <= 0){ showToast(`Hafta ${w.no} kontenjanı dolu.`, 'error'); return; }
+  const old = app.cohortId;
+  app.cohortId = w.no; app.seasonTerm = term; app.pastCompetitor = false;
+  saveShared(); schedulePublicLeaderboard(true);
+  addActivity(`${app.name}, ${old ? 'eski Hafta ' + old + ' kaydından ' : ''}Hafta ${w.no}'e (${dm(w.start)}–${dm(w.end)}) atandı.`);
+  showToast(`${app.name} Hafta ${w.no}'e atandı.`, 'success');
+  render(true); renderBasvuruList(); renderBasvuruDetail(); renderKullaniciVeritabani();
+}
+function assignWeekDetailHtml(app){
+  if(!app || app.status !== 'onayli' || app.pastCompetitor) return '';
+  if(weekByNo(app.cohortId) && app.seasonTerm === S().term){
+    const w = weekByNo(app.cohortId);
+    return `<div style="margin-bottom:14px;"><div class="field-label">YARIŞMA HAFTASI</div><div style="font-size:13.5px;">${esc(weekLabel(w))} · ${esc((STATUS_PILL[w.status] || STATUS_PILL.planned)[0].toLowerCase())}</div></div>`;
+  }
+  return `<div style="margin-bottom:14px;padding:10px 12px;border:1px solid rgba(234,179,8,.5);border-radius:8px;"><div class="field-label" style="color:var(--yellow);">HAFTASI ATANMAMIŞ</div>
+    <p style="font-size:12px;color:var(--text-dim);margin:4px 0 8px;">Eski sistemde onaylanmış${app.cohortId ? ' (Hafta ' + Number(app.cohortId) + ')' : ''}. Bu dönemin takviminde bir haftaya atanmadıkça yarışamaz.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;"><select data-lig-assign-sel="${esc(app.id)}" style="flex:1;min-width:160px;background:var(--card-bg-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:9px 10px;color:var(--text);">${weekOptions((defaultTargetWeek() || {}).no)}</select><button class="btn btn-blue" data-lig-assign="${esc(app.id)}">Haftaya ata</button></div></div>`;
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-lig-assign]'); if(!b) return;
+  const id = b.dataset.ligAssign;
+  const box = b.closest('tr') || b.parentElement;
+  const sel = box && box.querySelector(`[data-lig-assign-sel="${CSS.escape(id)}"]`);
+  assignWeek(id, sel ? Number(sel.value) : null);
+});
+function startNextWeek(){
+  const s = S();
+  if(state.competitionActive){ showToast('Zaten aktif bir hafta var.', 'warn'); return; }
+  const w = s.weeks.filter(x => x.status === 'planned' && x.start && x.end && weekCloseMs(x) > Date.now()).sort((a, b) => a.no - b.no)[0];
+  if(!w){ showToast('Başlatılacak planlanmış hafta yok — FinteLig Yarışması sayfasında hafta tarihlerini gir.', 'warn'); navigateTo('page-yarisma'); return; }
+  if(!confirm(`Hafta ${w.no} şimdi başlatılsın mı?\n\n${weekLabel(w)}\nOPLab yalnızca bu haftanın ${weekApps(w).length} onaylı yarışmacısına açılır; yarışma ${fmtDT(weekCloseMs(w))} tarihinde otomatik biter.`)) return;
+  undraft(); startWeek(w.no, 'Yayın Yönetim');
 }
 function drawSection(w){
   if(!w) return '<p class="lig-dim">Önce hafta ekle.</p>';
@@ -6846,7 +6883,7 @@ function gunRows(w){
 }
 function renderGun(){
   const root = document.getElementById('ligGunRoot'); if(!root) return;
-  if(!on()){ root.innerHTML = card('Sezon planı kapalı', '', `<p>Yarışma günü araçları sezon planıyla çalışır. <button class="btn btn-blue" data-nav-lig="page-sezon">Sezon & Hafta Planı'na git</button></p>`); return; }
+  if(!on()){ root.innerHTML = card('Sezon planı kapalı', '', `<p>Yarışma günü araçları sezon planıyla çalışır. <button class="btn btn-blue" data-nav-lig="page-yarisma">FinteLig Yarışması sayfasına git</button></p>`); return; }
   const s = S();
   const w = currentWeek() || s.weeks.find(x => x.status === 'planned') || s.weeks[0];
   const apps = w ? weekApps(w) : [];
@@ -6906,7 +6943,7 @@ function updateGunClock(){
 
 function renderKarar(){
   const root = document.getElementById('ligKararRoot'); if(!root) return;
-  if(!on()){ root.innerHTML = card('Sezon planı kapalı', '', `<p>Sonuç süreci sezon planıyla çalışır. <button class="btn btn-blue" data-nav-lig="page-sezon">Sezon & Hafta Planı'na git</button></p>`); return; }
+  if(!on()){ root.innerHTML = card('Sezon planı kapalı', '', `<p>Sonuç süreci sezon planıyla çalışır. <button class="btn btn-blue" data-nav-lig="page-yarisma">FinteLig Yarışması sayfasına git</button></p>`); return; }
   const s = S();
   const doneWeeks = s.weeks.filter(w => w.historyId);
   const selNo = Number(root.dataset.week) || (currentWeek() && currentWeek().historyId ? currentWeek().no : (doneWeeks[doneWeeks.length - 1] || {}).no);
@@ -7003,6 +7040,9 @@ function openViolationModal(app){
 /* ---------- Olay yönetimi ---------- */
 function appById(id){ return state.applications.find(a => String(a.id) === String(id)); }
 function persist(){ saveShared(); schedulePublicLeaderboard(true); }
+function undraft(){ if(state.season && state.season._draft) delete state.season._draft; }
+document.addEventListener('change', e => { if(e.target.closest && e.target.closest('#ligSezonRoot, #ligGunRoot, #ligKararRoot')) undraft(); }, true);
+document.addEventListener('click', e => { if(e.target.closest && e.target.closest('#ligSezonRoot [data-lig], #ligGunRoot [data-lig], #ligKararRoot [data-lig], [data-lig-assign]')) undraft(); }, true);
 function onClick(e){
   const nav = e.target.closest('[data-nav-lig]');
   if(nav){ navigateTo(nav.dataset.navLig); return; }
@@ -7012,12 +7052,6 @@ function onClick(e){
   const wk = b.dataset.week ? Number(b.dataset.week) : null;
   const app = b.dataset.app ? appById(b.dataset.app) : null;
   switch(act){
-    case 'season-on':
-      if(!s.weeks.some(w => w.start && w.end)){ showToast('Önce en az bir haftanın tarihlerini gir.', 'warn'); }
-      s.enabled = true; persist(); addActivity('Sezon planı AÇILDI (haftalık takvim, kura, yarışma günü ve sonuç süreci aktif).'); break;
-    case 'season-off':
-      if(state.competitionActive && !confirm('Aktif yarışma sürerken sezon planını kapatmak OPLab hafta/seans kontrollerini kaldırır. Emin misin?')) return;
-      s.enabled = false; persist(); addActivity('Sezon planı KAPATILDI.'); break;
     case 'start-week': {
       const w = weekByNo(wk);
       const pend = s.weeks.filter(x => x.no !== wk && x.status === 'review');
@@ -7153,7 +7187,10 @@ function fillYarismaCards(){
   if(endBtn) endBtn.style.display = onNow ? 'none' : '';
   if(!onNow) return;
   const w = currentWeek() || defaultTargetWeek();
-  if(durum) durum.innerHTML = `Sezon planı aktif — haftalar, kontenjanlar ve tarihler <a href="#" data-nav-lig="page-sezon" style="color:var(--blue);">Sezon & Hafta Planı</a> sayfasından yönetilir.`;
+
+  const ta = document.getElementById('ylTarihAraligi'), tas = document.getElementById('ylTarihAraligiSub');
+  if(ta && w){ ta.textContent = w.start ? `${dm(w.start)} – ${dm(w.end)}` : 'Belirlenmedi'; ta.className = 'stat-value ' + (w.start ? 'blue' : 'gray'); }
+  if(tas && w) tas.textContent = w.start ? `Hafta ${w.no} · ${tradingDays(w).length} işlem günü · seans ${S().sessionStart}–${S().sessionEnd}` : 'Hafta tarihlerini aşağıdaki takvimden gir';
   const gh = document.getElementById('ylGuncelHafta'), ghs = document.getElementById('ylGuncelHaftaSub');
   if(gh && w) gh.textContent = 'Hafta ' + w.no;
   if(ghs && w) ghs.textContent = `${weekApps(w).length}/${w.quota || '∞'} onaylı · ${(STATUS_PILL[w.status] || STATUS_PILL.planned)[0].toLowerCase()}`;
@@ -7191,9 +7228,9 @@ document.addEventListener('focusout', () => { if(renderPending){ renderPending =
 document.addEventListener('click', e => { const n = e.target.closest('#page-yarisma [data-nav-lig]'); if(n){ e.preventDefault(); navigateTo(n.dataset.navLig); } });
 
 window.LIG = {
-  S, render, tick, onFinish, onPublish, extendPublic, rowExtras, penaltyFor, applyPenalties, approveGuard, approveIntoWeek, approveWeekSelectHtml,
+  S, render, tick, onFinish, startNextWeek, assignWeekDetailHtml, unassignedApps, onPublish, extendPublic, rowExtras, penaltyFor, applyPenalties, approveGuard, approveIntoWeek, approveWeekSelectHtml,
   weekInfoText, fillKota, fillYarismaCards, currentWeek, weekCloseMs, sessionEndFor, istMs, tradingDays, weekByNo,
-  onNavigate(pageId){ if(pageId === 'page-sezon' || pageId === 'page-gun' || pageId === 'page-karar') render(true); },
+  onNavigate(pageId){ if(pageId === 'page-yarisma' || pageId === 'page-gun' || pageId === 'page-karar') render(true); },
   _test: { addBusinessDays, tieGroups, mulberry32, istDate, sessionNow, participationConflict, doLockout, weekApps, applyViolation, finalizeWeek, transferFinalist, instagramText, LIG_SCENES_NOTE }
 };
 render();
