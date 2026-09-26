@@ -228,3 +228,26 @@ Ayrıntılar için `optipulselab/firestore.rules`:
 3. OptiPulseLab tarafında (ayrı bir depo/proje) `.rules` dosyasının
    GERÇEKTEN Firebase Console'a yayınlanmış (deploy edilmiş) olması gerekir
    — disk üzerindeki dosyayı güncellemek tek başına yeterli değildir.
+
+## Lig modülü alanları (26 Eylül 2026)
+
+Admin panelindeki **Sezon & Hafta Planı / Yarışma Günü / Yaptırım & Sonuç**
+sayfaları `finteclub/shared_state` belgesine yazar; OPLab (finteclubBridge.js)
+ve yayın sayfası (yayin.html, `public_leaderboard` üzerinden) okur.
+
+| Alan | Yazan | Okuyan | Açıklama |
+|---|---|---|---|
+| `season` | admin.html | admin.html, finteclubBridge.js | `{enabled, term, sessionStart, sessionEnd, lateMinutes, arriveMinutes, autoSession, sanctionLockMin, sanctionCutPct, objectionBusinessDays, requireVerifiedEmail, holidays[], halfDays{tarih:'HH:MM'}, weeks[{no, start, end, quota, viop, status, startedAt, finishedAt, historyId, resultsPublishedAt, objectionDeadline, ceremonyAt, finalizedAt, lockoutDoneAt, draw, waitlist[], objections[], finalist, finalistHistory[]}]}` |
+| `oplabAnnouncement` | admin.html | finteclubBridge.js | `{text, level:'info'\|'warn', at}` — OPLab ekranının üstündeki duyuru bandı |
+| `tieBreak` | admin.html | finteclubBridge.js | `{weekNo, historyId, appIds[], names[], minutes, startedAt, endsAt, done}` — kural 9.11 ek süresi, yalnızca `appIds` işlem yapabilir |
+| `applications[i].cohortId` | admin.html | finteclubBridge.js | Yarışmacının haftası. Sezon planı açıkken OPLab yalnızca `cohortId === currentCohortId` olanı yarışmacı sayar |
+| `applications[i].checkInAt / idChecked / lockedOut / lockOverride` | admin.html | finteclubBridge.js | Yoklama ve 15 dk kuralı (kural 15) |
+| `applications[i].reviewHalt / tradeLockUntil / violations[] / disqualified / dqReason` | admin.html | finteclubBridge.js | İnceleme (12.3) ve yaptırımlar (21.2–21.3) |
+| `applications[i].rulesAcceptedAt / kvkkAcceptedAt / imageConsent / rulesVersion` | index.html | admin.html | Başvuru formundaki zorunlu onaylar (kural 22.2, 19.4) |
+| `oplab_balance_commands.commands[id].penaltyPct` | admin.html | finteclubBridge.js | 2. ihlal: yarışmacının cihazında, o anki portföy değerinin %X'i kadar bakiyeden kesinti |
+
+`public_leaderboard` ek alanları (admin yazar, yayin.html okur): `rows[].spark`,
+`rows[].prevRank`, `stats`, `series`, `session`, `ceremonyAt`,
+`resultsPublishedAt`, `objectionDeadline`, `finalized`, `weeklyWinners[].status`.
+Yarışma bittikten sonra sıralama canlı değerlerden değil, doğrulanmış final
+kaydından (`competitionHistory`) yayımlanır (kural 17.1).

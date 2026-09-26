@@ -32,7 +32,9 @@
 
   Piyasa verisi (herkese açık): market-ticker (60 sn), quotes (60 sn),
   ohlcv/XU100 15 dk (5 dk). Hata olursa sessizce son iyi veri tutulur.
-  Kısayollar: ← / → sahne değiştir (60 sn sonra otomatiğe döner), F tam ekran.
+  Kısayollar: ← / → sahne değiştir (60 sn sonra otomatiğe döner), F tam ekran,
+  D sade/detaylı görünüm. "Demo veri" düğmesi (veya yayin.html?demo=1) rastgele
+  örnek yarışma verisiyle önizleme açar — hiçbir yere yazılmaz.
 -->
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -423,6 +425,32 @@ svg{display:block}
 #confetti{position:fixed;left:0;top:0;width:100vw;height:100vh;pointer-events:none;z-index:45}
 
 /* ── telefon / dikey ekran ───────────────────────────────────────── */
+
+/* ── (26 Eylül 2026) SADE görünüm (varsayılan) + DEMO VERİ önizleme ── */
+.pill.cd{color:var(--text);border-color:var(--line3);font-family:var(--f-num);font-weight:600;letter-spacing:0;text-transform:none;display:none}
+.pill.cd b{font-family:var(--f-disp);font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--dim);margin-right:8px}
+.pill.cd.warn{color:var(--amber);border-color:rgba(255,171,26,.55)}
+.pill.cd.crit{color:var(--red);border-color:var(--red);animation:blink 1s infinite}
+.app.sade .pill.cd{display:inline-flex;align-items:baseline}
+.app.sade .strip,.app.sade .ticker,.app.sade .mv-sec,.app.sade .movers,.app.sade .side-foot,.app.sade .brand-sub{display:none}
+.app.sade{--side:clamp(260px,20vw,400px);grid-template-rows:auto minmax(0,1fr) auto}
+.app.sade .side{gap:clamp(8px,1.4vh,16px);padding-top:clamp(12px,2vh,24px)}
+.app.sade .fxr{padding:clamp(4px,.8vh,9px) 0}
+.pill.demo{display:none;background:#7c3aed;border-color:#7c3aed;color:#fff}
+.app.demo .pill.demo{display:inline-flex}
+.mode-btn{background:transparent;color:var(--dim);border:1px solid var(--line3);border-radius:3px;padding:1px 8px;font:600 12px var(--f-body);cursor:pointer;transition:opacity .4s}
+.mode-btn.on{color:#fff;background:#7c3aed;border-color:#7c3aed}
+.app.idle .mode-btn:not(.on){opacity:0}
+.demobar{position:fixed;bottom:calc(var(--bottom-h) + 10px);right:calc(var(--side) + 14px);z-index:60;max-width:min(760px,calc(100vw - var(--side) - 28px));display:none;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;padding:6px 8px;background:rgba(20,12,36,.94);border:1px solid #7c3aed;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.5);transition:opacity .4s}
+.app.demo~.demobar,.demobar.on{display:flex}
+.demobar .dk{font-family:var(--f-disp);font-weight:800;letter-spacing:1.6px;color:#c4b5fd;padding:0 6px;font-size:15px;text-transform:uppercase}
+.demobar button{background:#1e1433;color:#e9e3ff;border:1px solid #4c3a7a;border-radius:5px;padding:4px 10px;font:600 12.5px var(--f-body);cursor:pointer}
+.demobar button:hover{border-color:#a78bfa}
+.demobar button.on{background:#7c3aed;border-color:#a78bfa;color:#fff}
+.demobar button.x{background:transparent;color:#fca5a5;border-color:rgba(252,165,165,.45)}
+body.idle-demo .demobar{opacity:.12}
+@media (max-width:760px),(orientation:portrait){.demobar{right:8px;left:8px;max-width:none;bottom:calc(var(--legal-h) + 8px)}}
+body.idle-demo .demobar:hover{opacity:1}
 @media (max-width:760px),(orientation:portrait){
   html,body{overflow-x:hidden;overflow-y:auto;height:auto;min-height:100%}
   .app{height:auto;min-height:100vh;grid-template-rows:auto auto auto auto}
@@ -483,7 +511,7 @@ svg{display:block}
 </style>
 </head>
 <body>
-<div class="app" id="app">
+<div class="app sade" id="app">
   <header class="top">
     <div class="brand">
       <svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="4" fill="#ffab1a"/><path d="M11 9v22M20 6v26M29 12v18" stroke="#111" stroke-width="2"/><rect x="8" y="14" width="6" height="10" fill="#111"/><rect x="17" y="10" width="6" height="12" fill="#111"/><rect x="26" y="16" width="6" height="9" fill="#111"/></svg>
@@ -495,6 +523,8 @@ svg{display:block}
       <span class="pill amber" id="weekChip">Hafta —</span>
       <span class="pill" id="statusChip">Bağlanıyor…</span>
       <span class="pill redo conn" id="connPill"></span>
+      <span class="pill cd" id="cdPill"><b id="cdK">Seans</b><span id="cdV">—</span></span>
+      <span class="pill demo">Demo veri</span>
     </div>
     <div class="clockbox">
       <div class="clock-lbl"><b>İstanbul</b><span id="dateLbl"></span></div>
@@ -637,7 +667,7 @@ svg{display:block}
       </div>
       <div class="sec-h"><span>Döviz · Emtia</span></div>
       <div class="fx" id="fxList"><div class="mk-empty">Yükleniyor…</div></div>
-      <div class="sec-h"><span>Günün hareketlileri</span><span class="t2">Büyük hisseler</span></div>
+      <div class="sec-h mv-sec"><span>Günün hareketlileri</span><span class="t2">Büyük hisseler</span></div>
       <div class="movers"><div><div class="mv-h up">Yükselenler</div><div id="mvUp"></div></div><div><div class="mv-h dn">Düşenler</div><div id="mvDn"></div></div></div>
       <div class="side-foot"><div class="qr-mini" id="qrMini"></div><div class="apply"><div class="club">FinTe<b>Club</b></div><div class="apply-k">Başvur</div><div class="apply-u">finteclub.com.tr/fintelig</div></div></div>
     </aside>
@@ -646,13 +676,23 @@ svg{display:block}
   <footer class="bottom" id="bottom">
     <div class="crawl"><div class="crawl-lbl"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L4 14h6l-1 8 9-12h-6z"/></svg>Son dakika</div><div class="view"><div class="track" id="crawlTrack"></div></div></div>
     <div class="ticker"><div class="tk-lbl">Piyasa</div><div class="view"><div class="track" id="tickerTrack"><span class="ti"><b>Piyasa verileri yükleniyor…</b></span></div></div></div>
-    <div class="legal" id="legal"><span class="lg">Yatırım tavsiyesi değildir · Yarışma eğitim ve simülasyon amaçlıdır · Gerçek para kullanılmaz</span><span class="lg-r"><span class="dots" id="dots"></span><button class="fs-btn" id="fsBtn" type="button" title="Tam ekran (F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>Tam ekran</button></span></div>
+    <div class="legal" id="legal"><span class="lg">Yatırım tavsiyesi değildir · Yarışma eğitim ve simülasyon amaçlıdır · Gerçek para kullanılmaz</span><span class="lg-r"><span class="dots" id="dots"></span><button class="mode-btn" id="demoBtn" type="button" title="Rastgele örnek yarışma verisiyle önizleme (gerçek veri değildir)">Demo veri</button><button class="mode-btn" id="modeBtn" type="button" title="Sade / detaylı görünüm (D)">Detaylı görünüm</button><button class="fs-btn" id="fsBtn" type="button" title="Tam ekran (F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>Tam ekran</button></span></div>
   </footer>
 </div>
 <div class="bk" id="bk"><div class="bk-k" id="bkK"></div><div class="bk-b"><div class="bk-t" id="bkT"></div><div class="bk-s" id="bkS"></div></div></div>
 <div class="ov" id="ovFinal"><div><div class="ov-k">Yarışmanın bitmesine</div><div class="ov-num" id="ovNum">60</div><div class="ov-s">saniye</div><div class="ov-bar"><i id="ovBar"></i></div></div></div>
 <div class="ov" id="ovEnd"><div class="end-wrap"><div class="gong"><i></i><i></i><i></i></div><div class="end-card"><div class="end-k" id="endK">FinTeLig</div><div class="end-t">Yarışma sona erdi</div><div class="end-s">Sonuçlar sistem kayıtları kontrol edildikten sonra açıklanacak</div><div class="end-time" id="endTime"></div></div></div></div>
 <canvas id="confetti"></canvas>
+<div class="demobar" id="demoBar" role="toolbar" aria-label="Demo veri kontrolleri">
+  <span class="dk">Demo veri · gerçek değil</span>
+  <button type="button" data-demo="active" class="on">Canlı yarışma</button>
+  <button type="button" data-demo="final60">Son 60 saniye</button>
+  <button type="button" data-demo="review">Kontrol aşaması</button>
+  <button type="button" data-demo="ceremony">Sonuç töreni</button>
+  <button type="button" data-demo="halt">İşlem durdurma</button>
+  <button type="button" data-demo="new">Yeni rastgele</button>
+  <button type="button" data-demo="exit" class="x">Demodan çık</button>
+</div>
 
 <script>
 (function(){
@@ -808,6 +848,16 @@ function tick(){
     $('cV').textContent = fmtRemain(rem);
     if (rem <= 5 * 60e3) cEl.classList.add('crit'); else if (rem <= 30 * 60e3) cEl.classList.add('warn');
   } else $('cV').textContent = ph === 'pre' ? 'başlamadı' : ph === 'review' ? 'bitti · kontrol' : ph === 'published' ? 'bitti · açıklandı' : '—';
+  // sade görünüm: başlıkta tek, en önemli süre
+  const cdp = $('cdPill');
+  cdp.classList.remove('warn', 'crit');
+  if (ph === 'active' && ends) {
+    const rem = ends - now;
+    $('cdK').textContent = 'Bitişe'; $('cdV').textContent = fmtRemain(rem);
+    if (rem <= 5 * 60e3) cdp.classList.add('crit'); else if (rem <= 30 * 60e3) cdp.classList.add('warn');
+  } else if (si.state === 'open') { $('cdK').textContent = 'Seans açık'; $('cdV').textContent = 'kapanışa ' + fmtRemain(si.close - now); }
+  else if (si.state === 'pre') { $('cdK').textContent = 'Seans'; $('cdV').textContent = 'açılışa ' + fmtRemain(si.open - now); }
+  else { $('cdK').textContent = 'Seans kapalı'; $('cdV').textContent = nextOpenLabel(si.target); }
   // toplu istatistik
   const st = showsRanks(ph) ? stats() : null;
   $('nV').textContent = data && (data.participantCount || rowsAll().length) ? String(data.participantCount || rowsAll().length) : '—';
@@ -841,6 +891,7 @@ function updateChips(){
   const ph = phase(), st = $('statusChip');
   const s = data.session || {};
   $('weekChip').textContent = (data.weekLabel || 'FinTeLig') + (isNum(s.weeksTotal) && isNum(s.weekNo) && !/\//.test(data.weekLabel || '') ? ' / ' + s.weeksTotal : '');
+  $('weekChip').style.display = data.weekLabel ? '' : 'none';
   let txt, c = '';
   if (ph === 'active') { txt = data.tradingHalted ? 'İşlemler durduruldu' : 'Yarışma sürüyor'; c = data.tradingHalted ? 'redo' : 'green'; }
   else if (ph === 'published') { txt = 'Sonuçlar açıklandı'; c = 'amber'; }
@@ -1693,7 +1744,132 @@ addEventListener('keydown', (e) => {
   if (e.key === 'f' || e.key === 'F') toggleFs();
   else if (e.key === 'ArrowRight') step(1);
   else if (e.key === 'ArrowLeft') step(-1);
+  else if (e.key === 'd' || e.key === 'D') $('modeBtn').click();
 });
+
+/* ── (26 Eylül 2026) GÖRÜNÜM: sade (varsayılan) / detaylı ─────────── */
+const MODE_KEY = 'fintelig_yayin_mode';
+function setMode(m){
+  const sade = m !== 'detay';
+  $('app').classList.toggle('sade', sade);
+  $('modeBtn').textContent = sade ? 'Detaylı görünüm' : 'Sade görünüm';
+  try { localStorage.setItem(MODE_KEY, sade ? 'sade' : 'detay'); } catch (e) { /* yok */ }
+  measure(); if (current) renderScene(current, false); crawlSig = ''; renderCrawl();
+}
+$('modeBtn').addEventListener('click', () => setMode($('app').classList.contains('sade') ? 'detay' : 'sade'));
+
+/* ── DEMO VERİ: yarışma sırasında ekranın nasıl görüneceğini önizleme ──
+   Tamamen tarayıcıda üretilen rastgele veri; hiçbir yere yazılmaz. Demo
+   açıkken gerçek Firestore verisi saklanır, çıkınca geri yüklenir. */
+const demo = { on: false, timer: null, rows: [], scen: 'active', t0: 0, endsAt: 0, cerAt: 0, halted: false, series: { t: [], avgPct: [] }, real: null, lastRank: new Map(), winners: null };
+const DEMO_NAMES = ['Ayşe Yılmaz','Mehmet Demir','Zeynep Kaya','Can Öztürk','Elif Şahin','Burak Arslan','Deniz Aydın','Ece Koç','Emre Çelik','Selin Yıldız','Kerem Aksoy','Merve Güneş','Onur Polat','İrem Kurt','Barış Tekin','Sena Aslan','Yiğit Erdem','Nazlı Çınar'];
+const drnd = (a, b) => a + Math.random() * (b - a);
+function demoStep(){
+  demo.rows.forEach(r => {
+    r.eq *= 1 + r.drift + (Math.random() - 0.5) * 2 * r.vol;
+    if (Math.random() < 0.025) r.eq *= 1 + drnd(-0.03, 0.04);   // ara sıra sert hareket → sıra atlama / yeni lider
+    r.eq = Math.max(60000, r.eq);
+    r.hist.push(Math.round(r.eq)); if (r.hist.length > 40) r.hist.shift();
+  });
+}
+const demoAvg = () => demo.rows.reduce((a, r) => a + (r.eq / 1000 - 100), 0) / demo.rows.length;
+function demoInit(){
+  const now = Date.now();
+  demo.t0 = now - 27 * 3600e3;
+  demo.endsAt = now + 2 * 86400e3 + 5 * 3600e3 + 17 * 60e3;
+  demo.rows = DEMO_NAMES.slice().sort(() => Math.random() - 0.5).slice(0, 14).map(name => ({ name, eq: 100000, drift: drnd(-0.0012, 0.0024), vol: drnd(0.002, 0.008), hist: [] }));
+  demo.series = { t: [], avgPct: [] };
+  for (let i = 0; i < 32; i++) { demoStep(); demo.series.t.push(demo.t0 + i * (27 * 3600e3 / 32)); demo.series.avgPct.push(+demoAvg().toFixed(2)); }
+  demo.lastRank = new Map(); demo.halted = false;
+  const w = DEMO_NAMES.filter(n => !demo.rows.some(r => r.name === n));
+  demo.winners = [{ week: 'Hafta 1', name: w[0] || 'Selin Yıldız', pct: +drnd(3, 9).toFixed(2), status: 'katilacak' }];
+}
+function demoWeekdays(n){
+  const out = []; let t = Date.now();
+  for (let i = 0; out.length < n && i < 14; i++, t += 86400e3) { const x = ist(t); if (x.wd !== 'Sat' && x.wd !== 'Sun') out.push(x.y + '-' + pad(x.mo) + '-' + pad(x.d)); }
+  return out;
+}
+function demoPayload(){
+  const now = Date.now();
+  const sorted = demo.rows.slice().sort((a, b) => b.eq - a.eq);
+  const dqName = sorted[sorted.length - 2] && sorted[sorted.length - 2].name;
+  const rows = sorted.map((r, i) => {
+    const o = { rank: i + 1, name: r.name, equity: Math.round(r.eq * 100) / 100, pct: Math.round((r.eq / 1000 - 100) * 100) / 100, spark: r.hist.slice() };
+    const pr = demo.lastRank.get(r.name); if (pr) o.prevRank = pr;
+    if (r.name === dqName) o.dq = true;
+    return o;
+  });
+  const ok = rows.filter(r => !r.dq), pcts = ok.map(r => r.pct);
+  const p = {
+    v: 1, demo: true, compName: 'FinteLig 2026', weekLabel: 'Hafta 2',
+    competitionActive: true, competitionStartedAt: demo.t0, competitionEndsAt: demo.endsAt, competitionTotalMs: demo.endsAt - demo.t0,
+    tradingHalted: demo.halted, broadcastLive: true, resultsPublished: false, startBalance: 100000, participantCount: rows.length,
+    rows, weeklyWinners: demo.winners, scene: 'auto', announcement: '',
+    stats: { count: ok.length, profitable: pcts.filter(x => x > 0).length, losing: pcts.filter(x => x < 0).length, avgPct: +(pcts.reduce((a, b) => a + b, 0) / pcts.length).toFixed(2), bestPct: Math.max.apply(null, pcts), worstPct: Math.min.apply(null, pcts) },
+    series: { t: demo.series.t.slice(), avgPct: demo.series.avgPct.slice() },
+    session: { weekNo: 2, weeksTotal: 5, sessionStart: '10:00', sessionEnd: '18:00', tradingDays: demoWeekdays(5) },
+    updatedAt: new Date(now).toISOString()
+  };
+  if (demo.scen === 'review' || demo.scen === 'ceremony') { p.competitionActive = false; p.competitionEndsAt = demo.endsAt; }
+  if (demo.scen === 'ceremony') { p.resultsPublished = true; p.ceremonyAt = demo.cerAt; p.resultsPublishedAt = demo.cerAt; p.objectionDeadline = demo.cerAt + 4 * 86400e3; }
+  return p;
+}
+function demoPush(step){
+  if (!demo.on) return;
+  if (step && (demo.scen === 'active' || demo.scen === 'final60')) {
+    demo.rows.slice().sort((a, b) => b.eq - a.eq).forEach((r, i) => demo.lastRank.set(r.name, i + 1));
+    demoStep();
+    demo.series.t.push(Date.now()); demo.series.avgPct.push(+demoAvg().toFixed(2));
+    if (demo.series.t.length > 60) { demo.series.t.shift(); demo.series.avgPct.shift(); }
+  }
+  onData(demoPayload());
+}
+function resetView(){
+  stopCeremony();
+  events.length = 0; fired.clear(); prevRankMap.clear(); prevPctMap.clear(); localDelta.clear(); localHist.clear();
+  lastPhase = null; prevAnn = null; crawlSig = ''; data = null; prevKey = null;
+  ['ovFinal', 'ovEnd'].forEach(id => $(id).classList.remove('on'));
+  $('bk').classList.remove('show');
+}
+function demoScenario(sc){
+  const now = Date.now();
+  if (sc === 'new') { demoInit(); sc = 'active'; resetView(); }
+  if (sc === 'halt') { demo.halted = !demo.halted; if (demo.scen !== 'active' && demo.scen !== 'final60') { demo.scen = 'active'; demo.endsAt = now + 2 * 86400e3 + 5 * 3600e3; } }
+  else {
+    demo.scen = sc;
+    if (sc === 'active') { demo.endsAt = Math.max(demo.endsAt, now + 3600e3); demo.halted = false; if (phase() !== 'active') resetView(); }
+    if (sc === 'final60') { demo.endsAt = now + 65e3; demo.halted = false; }
+    if (sc === 'review') demo.endsAt = Math.min(demo.endsAt, now - 1000);
+    if (sc === 'ceremony') { demo.endsAt = Math.min(demo.endsAt, now - 1000); demo.cerAt = now; }
+  }
+  document.querySelectorAll('#demoBar [data-demo]').forEach(b => b.classList.toggle('on', b.dataset.demo === demo.scen || (b.dataset.demo === 'halt' && demo.halted)));
+  demoPush(false);
+}
+function demoStart(){
+  if (demo.on) return;
+  demo.on = true;
+  $('app').classList.add('demo'); $('demoBar').classList.add('on'); $('demoBtn').classList.add('on'); $('demoBtn').textContent = 'Demo açık';
+  demoInit(); resetView(); demo.scen = 'active';
+  demoScenario('active');
+  clearInterval(demo.timer);
+  demo.timer = setInterval(() => demoPush(true), 4000);
+}
+function demoStop(){
+  if (!demo.on) return;
+  demo.on = false; clearInterval(demo.timer);
+  $('app').classList.remove('demo'); $('demoBar').classList.remove('on'); $('demoBtn').classList.remove('on'); $('demoBtn').textContent = 'Demo veri';
+  resetView();
+  onData(demo.real || {});
+  if (!demo.real) { data = null; show('info'); scheduleNext(); }
+}
+$('demoBtn').addEventListener('click', () => demo.on ? demoStop() : demoStart());
+$('demoBar').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-demo]'); if (!b) return;
+  if (b.dataset.demo === 'exit') demoStop(); else demoScenario(b.dataset.demo);
+});
+let demoIdleT;
+addEventListener('mousemove', () => { document.body.classList.remove('idle-demo'); clearTimeout(demoIdleT); demoIdleT = setTimeout(() => document.body.classList.add('idle-demo'), 6000); });
+
 let idleT;
 function wake(){ $('app').classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => $('app').classList.add('idle'), 3000); }
 addEventListener('mousemove', wake); wake();
@@ -1709,16 +1885,19 @@ loadQuotes(); setInterval(loadQuotes, 60000);
 loadBars(); setInterval(loadBars, 5 * 60000);
 setInterval(burnIn, 180000);
 show('info'); scheduleNext();
+try { setMode(localStorage.getItem(MODE_KEY) === 'detay' ? 'detay' : 'sade'); } catch (e) { setMode('sade'); }
+if (/[?&]demo=1\b/.test(location.search)) setTimeout(demoStart, 300);
 try {
   const app = firebase.initializeApp(FIREBASE_CONFIG, 'yayin');
   app.firestore().collection('finteclub').doc('public_leaderboard').onSnapshot(
-    (snap) => onData(snap.exists ? snap.data() : {}),
+    (snap) => { demo.real = snap.exists ? snap.data() : {}; if (!demo.on) onData(demo.real); },
     (err) => { console.warn('[Yayın] veri okunamadı', err); connErr = true; tick(); }
   );
 } catch (e) { console.warn('[Yayın] Firebase başlatılamadı', e); connErr = true; }
 // test/önizleme kancası
 window.__yayin = {
-  onData, step,
+  onData, step, demoStart, demoStop, demoScenario, setMode,
+  get demo(){ return { on: demo.on, scen: demo.scen }; },
   get current(){ return current; },
   get phase(){ return phase(); },
   get ceremony(){ return { running: cer.running, step: cer.step, idx: cer.idx }; },

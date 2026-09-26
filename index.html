@@ -690,6 +690,68 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 
 /* (4 Ağustos 2026) Tanıtım Sihirbazı (sağ alttaki "Tanıtım Turu" düğmesi ve
    ilgili tur CSS'i) kullanıcı isteğiyle kaldırıldı. */
+
+/* ---- (26 Eylül 2026) Kurallar sayfası + başvuru onayları ---- */
+.rules-hero{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:24px;align-items:start;margin-bottom:28px;}
+.rules-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.rules-fact{background:var(--card-bg-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:12px 14px;}
+.rules-fact b{display:block;font-family:'Oswald',sans-serif;font-size:20px;color:var(--text);letter-spacing:.02em;}
+.rules-fact span{font-size:12px;color:var(--text-dim);line-height:1.5;}
+.rules-layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:28px;align-items:start;}
+.rules-toc{position:sticky;top:90px;max-height:calc(100vh - 120px);overflow:auto;background:var(--card-bg-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:10px;}
+.rules-toc summary{cursor:pointer;font-weight:700;font-size:12px;letter-spacing:.08em;color:var(--text-dim);padding:6px 8px;list-style:none;}
+.rules-toc summary::-webkit-details-marker{display:none;}
+.rules-toc a{display:flex;gap:8px;padding:6px 8px;border-radius:6px;color:var(--text-dim);text-decoration:none;font-size:12.5px;line-height:1.35;}
+.rules-toc a:hover,.rules-toc a.on{background:rgba(61,111,238,.14);color:var(--text);}
+.rules-toc a i{font-style:normal;color:var(--text-dimmer);min-width:20px;}
+.rules-sec{scroll-margin-top:90px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--card-bg, transparent);margin-bottom:12px;overflow:hidden;}
+.rules-sec>summary{cursor:pointer;display:flex;align-items:center;gap:12px;padding:16px 18px;list-style:none;}
+.rules-sec>summary::-webkit-details-marker{display:none;}
+.rules-sec>summary .n{font-family:'Oswald',sans-serif;font-size:13px;color:#8fb0ff;border:1px solid rgba(61,111,238,.4);border-radius:6px;padding:2px 8px;}
+.rules-sec>summary .t{font-family:'Oswald',sans-serif;font-size:18px;letter-spacing:.02em;flex:1;}
+.rules-sec>summary .c{color:var(--text-dimmer);transition:transform .2s;}
+.rules-sec[open]>summary .c{transform:rotate(180deg);}
+.rules-body{padding:0 18px 16px;font-size:14px;line-height:1.75;color:var(--text-dim);}
+.rules-body p{margin:0 0 10px;}
+.rules-item{display:grid;grid-template-columns:44px minmax(0,1fr);gap:8px;padding:8px 0;border-top:1px solid var(--border);}
+.rules-item:first-child{border-top:none;}
+.rules-item .no{font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;}
+.rules-item.cancel .tx{text-decoration:line-through;opacity:.6;}
+.rules-item ul{margin:6px 0 0 18px;}
+.rules-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px;}
+.rules-step{border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:12px;background:var(--card-bg-2);}
+.rules-step b{display:block;font-family:'Oswald',sans-serif;font-size:13px;letter-spacing:.06em;margin-bottom:4px;}
+.rules-step:nth-child(1) b{color:var(--yellow);} .rules-step:nth-child(2) b{color:#fb923c;} .rules-step:nth-child(3) b{color:#fca5a5;}
+.rules-ex{width:100%;max-width:420px;border-collapse:collapse;margin:8px 0;font-size:13px;}
+.rules-ex td,.rules-ex th{border:1px solid var(--border-strong);padding:6px 10px;text-align:left;}
+.rules-ex tr.win td{color:var(--green);font-weight:700;}
+.ytd-box{border:1px solid rgba(234,179,8,.45);background:rgba(234,179,8,.07);border-radius:var(--radius-sm);padding:14px 16px;font-size:13px;line-height:1.6;color:var(--text-dim);}
+.ytd-line{font-size:11.5px;color:var(--text-dimmer);text-align:center;margin-top:14px;letter-spacing:.02em;}
+.consent-box{border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:12px 14px;margin:14px 0;display:flex;flex-direction:column;gap:10px;background:var(--card-bg-2);}
+.consent-row{display:flex;gap:10px;align-items:flex-start;font-size:12.5px;line-height:1.55;color:var(--text-dim);cursor:pointer;}
+.consent-row input{margin-top:3px;flex-shrink:0;width:16px;height:16px;accent-color:#3d6fee;}
+.consent-row a{color:#8fb0ff;text-decoration:underline;cursor:pointer;}
+.consent-row .req{color:#fca5a5;font-weight:700;}
+.consent-err{display:none;color:#fca5a5;font-size:12px;}
+.consent-err.show{display:block;}
+.rules-modal{position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;padding:14px;}
+.rules-modal.open{display:flex;}
+.rules-modal-card{background:var(--bg, #0b1220);border:1px solid var(--border-strong);border-radius:14px;width:min(860px,100%);max-height:88vh;display:flex;flex-direction:column;overflow:hidden;}
+.rules-modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border-strong);}
+.rules-modal-head b{font-family:'Oswald',sans-serif;font-size:18px;}
+.rules-modal-body{overflow:auto;padding:16px 18px;}
+.rules-modal-foot{padding:12px 18px;border-top:1px solid var(--border-strong);display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;}
+@media(max-width:900px){.rules-hero{grid-template-columns:minmax(0,1fr);}.rules-layout{grid-template-columns:minmax(0,1fr);}.rules-toc{position:static;max-height:none;}.rules-steps{grid-template-columns:minmax(0,1fr);}}
+@media(max-width:520px){.rules-facts{grid-template-columns:minmax(0,1fr);}.rules-item{grid-template-columns:38px minmax(0,1fr);}}
+@media print{
+  body *{visibility:hidden !important;}
+  #pub-kurallar,#pub-kurallar *{visibility:visible !important;}
+  #pub-kurallar{position:absolute;left:0;top:0;width:100%;display:block !important;background:#fff !important;color:#000 !important;}
+  #pub-kurallar .rules-toc,#pub-kurallar .no-print{display:none !important;}
+  #pub-kurallar .rules-layout{grid-template-columns:1fr;}
+  #pub-kurallar .rules-body,#pub-kurallar .rules-sec>summary .t,#pub-kurallar p,#pub-kurallar span,#pub-kurallar b,#pub-kurallar td{color:#000 !important;}
+  #pub-kurallar .rules-sec{border-color:#999;break-inside:avoid-page;}
+}
 </style>
 </head>
 <body>
@@ -708,7 +770,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
     <button class="pub-nav-toggle" id="pubNavToggle" data-i18n-aria="nav_menu" aria-label="Menü">☰</button>
     <div class="pub-nav-links" id="pubNavLinks">
       <button data-pubnav="pub-home" data-i18n="nav_yarisma">YARIŞMA</button>
-      <button data-pubnav="kurallar" data-i18n="nav_kurallar">KURALLAR</button>
+      <button data-pubnav="pub-kurallar" data-i18n="nav_kurallar">KURALLAR</button>
       <button data-pubnav="pub-sonuclar" data-i18n="nav_sonuclar">SONUÇLAR</button>
       <button data-pubnav="pub-zirve" data-i18n="nav_zirve">ZİRVE</button>
       <button data-pubnav="iletisim" data-i18n="nav_iletisim">İLETİŞİM</button>
@@ -791,6 +853,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
     <footer class="pub-footer" id="pubFooter">
       <div style="font-family:'Oswald',sans-serif;font-weight:700;">FinTeLig</div>
       <div data-i18n="home_footer_sub">FinTeClub / ZİRVE / OptiPulseLab</div>
+      <div class="ytd-line" style="margin-top:6px;" data-i18n="sonuc_ytd">Yatırım tavsiyesi değildir · Yarışma eğitim ve simülasyon amaçlıdır · Gerçek para kullanılmaz</div>
     </footer>
   </section>
 
@@ -837,8 +900,55 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
         </div>
         <button class="btn btn-blue btn-go" data-pubnav="pub-basvuru" data-i18n="home_join_btn">YARIŞMAYA KATIL</button>
       </div>
+      <div class="ytd-line" data-i18n="sonuc_ytd">Yatırım tavsiyesi değildir · Yarışma eğitim ve simülasyon amaçlıdır · Gerçek para kullanılmaz</div>
     </div>
   </section>
+
+
+  <!-- ============ PUBLIC: KURALLAR (26 Eylül 2026 — resmî yarışma kuralları) ============ -->
+  <section id="pub-kurallar" class="pub-page">
+    <div class="pub-page-inner">
+      <div class="rules-hero">
+        <div>
+          <div class="pub-section-label" data-i18n="rules_label">FINTELIG YARIŞMA KURALLARI</div>
+          <h1 style="font-size:44px;" data-i18n="rules_h1">YARIŞMA KURALLARI<br><span class="accent">VE UYGULAMA ESASLARI</span></h1>
+          <p id="rulesEnNote" style="color:var(--yellow);margin-top:12px;font-size:13px;display:none;">The official rules are published in Turkish.</p>
+          <p style="color:var(--text-dim);margin-top:14px;line-height:1.7;font-size:15px;" data-i18n="rules_p">FinTeLig Borsa Simülasyon Yarışması'na başvuran her öğrenci bu kuralları okumuş ve kabul etmiş sayılır (kural 22). Sorun yaşarsan yarışma görevlisine hemen bildir.</p>
+          <div class="no-print" style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-blue" id="rulesPrintBtn" data-i18n="rules_print">YAZDIR / PDF</button>
+            <button type="button" class="btn" id="rulesExpandBtn" data-i18n="rules_expand">TÜMÜNÜ AÇ</button>
+            <button type="button" class="btn" data-pubnav="pub-basvuru" data-i18n="home_join_btn">YARIŞMAYA KATIL</button>
+          </div>
+          <p style="color:var(--text-dimmer);font-size:12px;margin-top:14px;" data-i18n="rules_updated">Son güncelleme: Eylül 2026 · Sürüm 2026-1</p>
+        </div>
+        <div class="card" style="margin:0;">
+          <div class="field-label" style="margin-bottom:10px;" data-i18n="rules_facts_h">ÖNEMLİ SAATLER VE TARİHLER</div>
+          <div class="rules-facts">
+            <div class="rules-fact"><b>20 DK</b><span data-i18n="rules_f1">Yarışma saatinden önce laboratuvarda ol (15.1)</span></div>
+            <div class="rules-fact"><b>15 DK</b><span data-i18n="rules_f2">Geç giriş hakkı; kaçan süre telafi edilmez (15.2–15.3)</span></div>
+            <div class="rules-fact"><b>10:00–18:00</b><span data-i18n="rules_f3">BIST seans saatleri; hafta sonu ve tatilde işlem yok (6.1, 7)</span></div>
+            <div class="rules-fact"><b>5 HAFTA</b><span data-i18n="rules_f4">Her haftanın birincisi Zirve 27 finalisti (16)</span></div>
+            <div class="rules-fact"><b>1 KEZ</b><span data-i18n="rules_f5">Aynı dönemde yalnızca bir hafta yarışılır (2.15)</span></div>
+            <div class="rules-fact"><b>2 İŞ GÜNÜ</b><span data-i18n="rules_f6">Sonuç ilanından sonra yazılı itiraz süresi (17.4)</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="ytd-box" style="margin-bottom:22px;"><b style="color:var(--yellow);">YATIRIM TAVSİYESİ DEĞİLDİR.</b> <span data-i18n="rules_ytd">Yarışma kapsamında gerçekleştirilen hiçbir işlem, analiz, strateji, tahmin veya değerlendirme yatırım tavsiyesi niteliğinde değildir. Yarışma tamamen eğitim ve simülasyon amaçlıdır; gerçek para kullanılmaz (kural 18).</span></div>
+      <div class="rules-layout">
+        <nav class="rules-toc" aria-label="Kurallar içindekiler"><details id="rulesTocDetails" open><summary data-i18n="rules_toc">İÇİNDEKİLER</summary><div id="rulesToc"></div></details></nav>
+        <div id="rulesRoot"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Kurallar / KVKK modalı (başvuru formundan açılır, form verisi kaybolmaz) -->
+  <div class="rules-modal" id="rulesModal" role="dialog" aria-modal="true" aria-labelledby="rulesModalTitle">
+    <div class="rules-modal-card">
+      <div class="rules-modal-head"><b id="rulesModalTitle">Yarışma Kuralları</b><button type="button" class="btn" id="rulesModalClose" aria-label="Kapat">✕</button></div>
+      <div class="rules-modal-body" id="rulesModalBody"></div>
+      <div class="rules-modal-foot"><button type="button" class="btn" id="rulesModalCancel" data-i18n="rules_modal_close">KAPAT</button><button type="button" class="btn btn-blue" id="rulesModalAccept" data-i18n="rules_modal_accept">OKUDUM, KABUL EDİYORUM</button></div>
+    </div>
+  </div>
 
   <!-- ============ PUBLIC: BAŞVURU FORMU ============ -->
   <section id="pub-basvuru" class="pub-page">
@@ -879,6 +989,12 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
             </div>
             <p style="color:var(--text-dimmer);font-size:11.5px;margin:-4px 0 14px;line-height:1.6;" data-i18n="basvuru_pw_note">Bu şifreyle, başvurun onaylandıktan sonra OPLab (alım-satım platformu) üzerinde FinteLig Yarışmacısı olarak giriş yapacaksın. Ayrıca e-postana bir doğrulama bağlantısı göndereceğiz.</p>
             <div class="field"><label data-i18n="basvuru_field_motivation">Kısa Motivasyon</label><textarea id="pbMotivation" rows="3" data-i18n-placeholder="basvuru_ph_motivation" placeholder="Fintelig yarışmasına neden katılmak istediğinizi kısaca yazın."></textarea></div>
+            <div class="consent-box" id="pbConsentBox">
+              <label class="consent-row"><input type="checkbox" id="pbRulesConsent"><span><span class="req">*</span> <span data-i18n="consent_rules_a">FinTeLig</span> <a data-open-rules="rules" data-i18n="consent_rules_link">Yarışma Kurallarını</a> <span data-i18n="consent_rules_b">okudum, anladım ve kabul ediyorum (kural 22).</span></span></label>
+              <label class="consent-row"><input type="checkbox" id="pbKvkkConsent"><span><span class="req">*</span> <a data-open-rules="kvkk" data-i18n="consent_kvkk_link">KVKK Aydınlatma Metni</a> <span data-i18n="consent_kvkk_b">kapsamında kişisel verilerimin yarışmanın başvuru, doğrulama, iletişim, kura ve sıralama süreçleri için işlenmesini kabul ediyorum (kural 19).</span></span></label>
+              <label class="consent-row"><input type="checkbox" id="pbImageConsent"><span data-i18n="consent_image">Yarışma sırasında çekilen fotoğraf/video görüntülerimin FinTeClub'ın resmi iletişim kanallarında kullanılmasına izin veriyorum (isteğe bağlı, kural 19.3–19.4).</span></label>
+              <div class="consent-err" id="pbConsentErr" role="alert"></div>
+            </div>
             <div class="g-recaptcha-slot" data-form-id="basvuru" style="margin:14px 0;"></div>
             <div id="basvuruConnNotice"></div>
             <button type="submit" class="btn btn-blue" id="pbSubmitBtn" data-i18n="basvuru_submit">KAYIT OL</button>
@@ -1117,6 +1233,30 @@ const I18N_EN = {
   nav_menu: 'Menu',
   nav_yarisma: 'COMPETITION',
   nav_kurallar: 'RULES',
+  rules_label: 'FINTELIG COMPETITION RULES',
+  rules_h1: 'COMPETITION RULES<br><span class="accent">AND PROCEDURES</span>',
+  rules_p: 'Every student who applies to the FinTeLig Stock Market Simulation Competition is deemed to have read and accepted these rules (rule 22). Report any problem to the competition staff immediately.',
+  rules_print: 'PRINT / PDF',
+  rules_expand: 'EXPAND ALL',
+  rules_updated: 'Last updated: September 2026 · Version 2026-1',
+  rules_facts_h: 'KEY TIMES AND DATES',
+  rules_f1: 'Be at the lab before the start time (15.1)',
+  rules_f2: 'Late entry window; missed time is not compensated (15.2–15.3)',
+  rules_f3: 'BIST session hours; no trading on weekends/holidays (6.1, 7)',
+  rules_f4: 'Each week\'s winner is a Summit 27 finalist (16)',
+  rules_f5: 'Only one week per term (2.15)',
+  rules_f6: 'Written objection period after results (17.4)',
+  rules_ytd: 'No trade, analysis, strategy, forecast or evaluation in this competition constitutes investment advice. The competition is purely educational and simulated; no real money is used (rule 18).',
+  rules_toc: 'CONTENTS',
+  rules_modal_close: 'CLOSE',
+  rules_modal_accept: 'I HAVE READ AND ACCEPT',
+  consent_rules_a: 'I have read, understood and accept the FinTeLig',
+  consent_rules_link: 'Competition Rules',
+  consent_rules_b: '(rule 22).',
+  consent_kvkk_link: 'Personal Data (KVKK) Notice',
+  consent_kvkk_b: '— I consent to my personal data being processed for application, verification, communication, lottery and ranking purposes (rule 19).',
+  consent_image: 'I allow photos/videos taken during the competition to be used on FinTeClub\'s official channels (optional, rules 19.3–19.4).',
+  sonuc_ytd: 'Not investment advice · The competition is for education and simulation purposes · No real money is used',
   nav_sonuclar: 'RESULTS',
   nav_zirve: 'SUMMIT',
   nav_iletisim: 'CONTACT',
@@ -1371,7 +1511,7 @@ const T = {
   basvuru_toast_required: {tr:'Lütfen zorunlu alanları (ad soyad, e-posta, kurum, öğrenci numarası) doldurun.', en:'Please fill in the required fields (full name, email, institution, student number).'},
   basvuru_toast_pwlen: {tr:'Lütfen en az 6 karakterli bir şifre belirle. Bu şifreyle OPLab\'a giriş yapacaksın.', en:'Please set a password of at least 6 characters. You\'ll use this password to log in to OPLab.'},
   basvuru_toast_dupemail: {tr:'Bu e-posta adresiyle daha önce başvuru yapılmış. Bir e-posta ile yalnızca bir kez başvurulabilir.', en:'An application has already been made with this email address. Only one application is allowed per email.'},
-  basvuru_toast_dupstudent: {tr:'Bu öğrenci numarasıyla daha önce başvuru yapılmış. Bir öğrenci numarası ile yalnızca bir kez başvurulabilir.', en:'An application has already been made with this student number. Only one application is allowed per student number.'},
+  basvuru_toast_dupstudent: {tr:'Bu öğrenci numarasıyla daha önce başvuru yapılmış. Aynı dönem içinde yarışmaya yalnızca bir kez katılabilirsin (kural 2.15).', en:'An application has already been made with this student number. Only one application is allowed per student number.'},
   basvuru_toast_success: {tr:(name)=>`Başvurunuz alındı, ${name}! E-postana gönderdiğimiz doğrulama bağlantısına tıkla, sonra admin onayını bekle.`, en:(name)=>`Your application has been received, ${name}! Click the verification link we sent to your email, then wait for admin approval.`},
   // (22 Eylül 2026 — Madde 3 "sessiz e-posta hatası" düzeltmesi) Önceden
   // başvuru her zaman yukarıdaki "başarılı" mesajıyla kapanıyordu, doğrulama
@@ -1447,6 +1587,12 @@ const T = {
   durum_zirve_date_prefix: {tr:(date)=>`Kayıt tarihi: ${date}`, en:(date)=>`Registration date: ${date}`},
   durum_resend_success: {tr:'Doğrulama bağlantısı tekrar gönderildi, gelen kutunu (ve spam klasörünü) kontrol et.', en:'The verification link was sent again, check your inbox (and spam folder).'},
   durum_resend_fail: {tr:'Gönderilemedi, tekrar dener misin?', en:'Could not send it, could you try again?'},
+  consent_err_rules: {tr:'Başvuru için yarışma kurallarını okuyup kabul etmen gerekiyor (kural 22.2).', en:'You must read and accept the competition rules to apply (rule 22.2).'},
+  consent_err_kvkk: {tr:'Başvuru için KVKK aydınlatma metnini onaylaman gerekiyor.', en:'You must accept the personal data (KVKK) notice to apply.'},
+  rules_modal_rules: {tr:'FinTeLig Yarışma Kuralları', en:'FinTeLig Competition Rules (Turkish)'},
+  rules_modal_kvkk: {tr:'KVKK Aydınlatma Metni', en:'Personal Data Notice (KVKK)'},
+  rules_expand: {tr:'TÜMÜNÜ AÇ', en:'EXPAND ALL'},
+  rules_collapse: {tr:'TÜMÜNÜ KAPAT', en:'COLLAPSE ALL'},
 };
 
 function t(key, ...args){
@@ -2075,8 +2221,105 @@ function processCheckinParam(){
   saveShared();
 }
 
+
+/* ============ (26 Eylül 2026) KURALLAR SAYFASI + KVKK + BAŞVURU ONAYLARI ============
+   Kaynak: FinTeLig Borsa Simülasyon Yarışması — Yarışma Kuralları ve Uygulama
+   Esasları (Word belgesi). Metin birebir aktarıldı; yalnızca numaralandırma
+   yazım hataları (9.11.., bölüm 12'deki 13.2 → 12.2) ve bir tekrar düzeltildi. */
+const FTL_RULES = [{"no": "1", "title": "Yarışmanın Amacı", "intro": ["FinTeLig Borsa Simülasyon Yarışması’nın amacı, Ankara Yıldırım Beyazıt Üniversitesi öğrencilerinin gerçek piyasa koşullarına mümkün olduğunca yakın bir simülasyon ortamında finansal piyasaları, yatırım araçlarını ve alım-satım süreçlerini deneyimlemelerini sağlamak; piyasa takibi, yatırım kararları ve portföy yönetimi konularında uygulamalı deneyim kazanmalarına katkıda bulunmaktır.", "Yarışma kapsamında öğrencilerin finansal okuryazarlıklarını geliştirmeleri, risk ve getiri ilişkisini deneyimleyerek öğrenmeleri ve gerçek piyasa dinamiklerine dayalı karar alma becerilerini geliştirmeleri hedeflenmektedir."], "items": [{"no": "1.1", "text": "Yarışmanın Kapsamı", "paras": ["Fintelig Borsa Simülasyon Yarışması, Ankara Yıldırım Beyazıt Üniversitesi öğrencileri arasından başvuruları onaylanan katılımcılarla gerçekleştirilecek ve yarışma süreci Borsa İstanbul Laboratuvarı’nın kapasitesi doğrultusunda haftalık yarışma grupları şeklinde yürütülecektir. Her hafta laboratuvar kapasitesine uygun sayıda katılımcı, kendilerine eşit miktarda tanımlanan sanal sermaye ile belirlenen piyasalarda ve ilgili borsaların resmi işlem gün ve saatleri içerisinde alım-satım işlemleri gerçekleştirecektir. Her yarışma haftasının sonunda, yarışma kuralları doğrultusunda en yüksek portföy değerine ulaşan katılımcı haftanın kazananı olarak belirlenecek ve ödüllendirilecektir. Yarışma sürecinde belirlenen haftalık kazananlar, Zirve 27 kapsamında temsil edecek ekibin oluşturulmasında yer alacaktır."], "bullets": []}, {"no": "1.2", "text": "Temel Yarışma Prensibi", "paras": ["Fintelig'in temel prensibi, katılımcılara gerçek bir borsa yatırımcısının karşılaşabileceği karar alma sürecini simülasyon ortamında deneyimletmektir. Bu nedenle yarışmada başarı yalnızca işlem sayısına değil; doğru zamanda doğru yatırım aracını seçme, portföyü yönetme, nakit ve yatırım dağılımını belirleme, piyasa hareketlerini takip etme ve yarışma sonunda portföy değerini en yüksek seviyeye taşıma becerisine göre değerlendirilir.", "Yarışma kapsamında gerçekleştirilen hiçbir işlem, analiz, strateji, tahmin veya değerlendirme yatırım tavsiyesi niteliğinde değildir.", "Yarışma tamamen eğitim ve simülasyon amacı taşımaktadır."], "bullets": []}]}, {"no": "2", "title": "Katılım Şartları", "intro": [], "items": [{"no": "2.1", "text": "Yarışmaya yalnızca Ankara Yıldırım Beyazıt Üniversitesi'nde aktif olarak öğrenim gören öğrenciler başvurabilir.", "paras": [], "bullets": []}, {"no": "2.2", "text": "Katılımcının AYBÜ öğrencisi olduğunun doğrulanması için başvurular öğrenci numarası ile yapılacaktır. Yarışma günü katılımcıların öğrenci kimlik kartı kontrolü yarışma alanında görevliler tarafından yapılacaktır. Bilgilerinde uyuşmazlık bulunan yarışmacılar yarışmaya dahil edilmeyecektir.", "paras": [], "bullets": []}, {"no": "2.3", "text": "Yarışmaya katılmak için dijital başvuru formunun eksiksiz şekilde doldurulması gerekmektedir. Eksik veya doğru olmayan bilgiler içeren başvurular geçersiz sayılacaktır.", "paras": [], "bullets": []}, {"no": "2.4", "text": "Yarışmaya başvuru yapan tüm katılımcılar, başvuru formunu tamamlamakla birlikte yarışma kurallarını ve yarışma kapsamında belirlenen tüm uygulama esaslarını okumuş, anlamış ve kabul etmiş sayılır. Yarışmaya katılım sağlayan her yarışmacı, yarışma süresince belirtilen kurallara ve uygulama esaslarına uymayı kabul ve taahhüt eder.", "paras": [], "bullets": []}, {"no": "2.5", "text": "Başvuru formunun doldurulması yarışmaya kesin katılım hakkı sağlamaz.", "paras": [], "bullets": []}, {"no": "2.6", "text": "Tüm başvurular yarışma admini tarafından incelenir ve admin onayı verilen başvurular kesin katılımcı olarak kabul edilir.", "paras": [], "bullets": []}, {"no": "2.7", "text": "Admin tarafından onaylanmayan başvurular yarışmaya dahil edilmez.", "paras": [], "bullets": []}, {"no": "2.8", "text": "Admin onayının ardından her hafta yarışacak yarışmacıların listesi, yarışma tarihinden önce FinTeClub resmi Instagram hesabı üzerinden ilan edilecektir.", "paras": [], "bullets": []}, {"no": "2.9", "text": "Yarışmacıların, kendilerine ilan edilen yarışma gün ve saatinden en az 20 dakika önce Borsa İstanbul Laboratuvarı'nda hazır bulunmaları beklenmektedir.", "paras": [], "bullets": []}, {"no": "2.10", "text": "Yarışmanın başlamasının ardından geç kalan yarışmacılar, yarışma başlangıcından itibaren ilk 15 dakika içerisinde laboratuvara alınarak yarışmaya dahil edilebilir.", "paras": [], "bullets": []}, {"no": "2.11", "text": "Yarışmanın başlamasından itibaren 15 dakikalık sürenin geçmesi halinde geç kalan yarışmacı laboratuvara alınmayacak ve yarışmaya dahil edilemeyecektir.", "paras": [], "bullets": []}, {"no": "2.12", "text": "Geç kalan yarışmacılar için kaçırılan süre telafi edilmeyecek ve yarışma süresi uzatılmayacaktır.", "paras": [], "bullets": []}, {"no": "2.13", "text": "Yarışma kontenjanı Borsa İstanbul Laboratuvarı'nın kapasitesi ve yarışma organizasyonunun teknik imkânları doğrultusunda sınırlandırılabilir.", "paras": [], "bullets": []}, {"no": "2.14", "text": "Başvuru sayısının belirlenen kontenjanı aşması durumunda, yarışmaya katılacak öğrenciler arasından kura yöntemiyle seçim yapılacaktır.", "paras": [], "bullets": []}, {"no": "2.15", "text": "Her bir öğrenci, yarışmacı olarak yalnızca yarışmaya aynı dönem içerisinde bir kez katılabilir. Aynı dönem içerisinde yarışmada birden fazla hafta yarışamaz", "paras": [], "bullets": []}]}, {"no": "3", "title": "Başvuru ve Hesap Oluşturma", "intro": [], "items": [{"no": "3.1", "text": "Onaylanan her katılımcı adına yarışma sistemi üzerinde yalnızca bir adet kullanıcı hesabı oluşturulur.", "paras": [], "bullets": []}, {"no": "3.2", "text": "Her yarışmacı yalnızca kendi hesabını kullanabilir.", "paras": [], "bullets": []}, {"no": "3.3", "text": "Hesap bilgileri üçüncü kişilerle paylaşılamaz.", "paras": [], "bullets": []}, {"no": "3.4", "text": "Bir kişinin birden fazla hesap açması, birden fazla hesap kullanması,çoklu hesap kullanımı veya başka bir yarışmacının hesabını kullanması kesinlikle yasaktır. Bu durumun tespit edilmesi halinde ilgili yarışmacı herhangi bir uyarıya gerek olmaksızın yarışmadan diskalifiye edilir.", "paras": [], "bullets": []}]}, {"no": "4", "title": "Yarışmanın İşleyişi", "intro": [], "items": [{"no": "4.1", "text": "Tüm yarışmacılara yarışma başlangıcında eşit miktarda sanal başlangıç sermayesi tanımlanır.", "paras": [], "bullets": []}, {"no": "4.2", "text": "Yarışmacılar bu sermayeyi kullanarak sistemde tanımlanan yatırım araçlarında alım-satım işlemlerini belirlenen süre içerisinde gerçekleştirir.", "paras": [], "bullets": []}, {"no": "4.3", "text": "Yarışma, gerçek bir yatırım hesabında işlem yapılıyormuş gibi simülasyon üzerinden kurgulanır.", "paras": [], "bullets": []}, {"no": "4.4", "text": "Yarışmacının portföy değeri; sahip olduğu yatırım araçlarının güncel piyasa değeri ile kullanılabilir nakit bakiyesinin toplamı üzerinden hesaplanır.", "paras": [], "bullets": []}, {"no": "4.5", "text": "Gerçek para ile işlem yapılmaz. Tüm işlemler sanal sermaye ile gerçekleştirilir.", "paras": [], "bullets": []}, {"no": "4.6", "text": "Yarışmacılar sahip oldukları sanal sermayeyi istedikleri şekilde yatırım araçları arasında değerlendirebilir.", "paras": [], "bullets": []}, {"no": "4.7", "text": "Yarışmacılar yatırım araçlarını satın aldıktan sonra portföylerinde tutabilir veya uygun gördükleri zamanda satabilir.", "paras": [], "bullets": []}, {"no": "4.8", "text": "Yarışmacıların gerçekleştirdiği alış ve satış işlemleri sistem üzerinde kayıt altına alınır.", "paras": [], "bullets": []}, {"no": "4.9", "text": "Yarışmacıların birbirlerinin portföylerini, verdikleri emirleri veya işlem geçmişlerini görmeleri, incelemeleri ya da bu bilgilere erişmeye çalışmaları kesinlikle yasaktır.", "paras": [], "bullets": []}, {"no": "4.10", "text": "Başka bir yarışmacının portföyüne, emirlerine veya işlem geçmişine yetkisiz şekilde erişilmesi kural ihlali olarak değerlendirilir. Bu kuralın ihlal edilmesi halinde, yarışmacıya “Kural İhlalleri ve Yaptırımlar” bölümünde belirtilen yaptırımlar uygulanır.", "paras": [], "bullets": []}]}, {"no": "5", "title": "Piyasalar ve Yatırım Araçları", "intro": [], "items": [{"no": "5.1", "text": "Yarışmada kullanılacak piyasalar yarışma başlamadan önce katılımcılara duyurulur.", "paras": [], "bullets": []}, {"no": "5.2", "text": "Yarışma kapsamında BORSA İSTANBUL piyasası kullanılabilir. İşlemler bu piyasada gerçekleştirilecektir.", "paras": [], "bullets": []}, {"no": "5.3", "text": "Yarışma yönetimi, teknik altyapıya ve simülasyon sistemine bağlı olarak kullanılacak piyasa ve yatırım araçlarını sınırlandırma hakkına sahiptir.", "paras": [], "bullets": []}, {"no": "5.4", "text": "Yarışmacılar yalnızca sistemde işlem yapılmasına izin verilen yatırım araçlarında işlem gerçekleştirebilir.", "paras": [], "bullets": []}]}, {"no": "6", "title": "Gerçek Borsa İşleyişine Uygun İşlem Esasları", "intro": [], "items": [{"no": "6.1", "text": "Yarışmanın temel amacı gerçek borsa deneyimini simüle etmek olduğundan, işlemler sistemde mevcut piyasa verileri ve işlem kuralları doğrultusunda gerçekleştirilir. Bu doğrultuda yarışmanın işlem günleri ve işlem saatleri, işlem yapılan ilgili borsanın resmi işlem takvimi ve çalışma saatleri esas alınarak belirlenecektir. Bu kapsamda, ilgili borsanın hafta sonları, resmi tatilleri veya işlem yapılmayan diğer günlerinde yarışma gerçekleştirilmeyecek; yarışma seansları yalnızca ilgili borsanın açık olduğu işlem gün ve saatlerinde yürütülecektir. Yarışmanın başlangıç ve bitiş saatleri de ilgili borsanın resmi işlem seanslarının başlangıç ve bitiş saatlerine göre uygulanacaktır.", "paras": [], "bullets": []}, {"no": "6.2", "text": "Yarışmacı tarafından verilen alış veya satış emri, sistemin işlem kurallarına uygun şekilde gerçekleşir.", "paras": [], "bullets": []}, {"no": "6.3", "text": "Bir yatırım aracının piyasa fiyatında meydana gelen değişiklikler yarışmacının portföy değerini doğrudan etkiler.", "paras": [], "bullets": []}, {"no": "6.4", "text": "Yarışmacı, satın aldığı yatırım aracının fiyatının yükselmesi halinde değer artışından; fiyatının düşmesi halinde ise değer kaybından etkilenir.", "paras": [], "bullets": []}, {"no": "6.5", "text": "Gerçekleşmemiş kâr veya zarar portföy değerine yansıtılır, yarışmacının sahip olduğu yatırım araçlarının güncel piyasa değerinde meydana gelen artış veya azalışlar, ilgili yatırım aracı satılmamış olsa dahi yarışmacının toplam portföy değerine yansıtılır.", "paras": [], "bullets": []}, {"no": "6.6", "text": "Bir yatırım aracından elde edilen kazancın kesinleşmesi, ilgili pozisyonun satış işleminin gerçekleşmesiyle sağlanır.", "paras": [], "bullets": []}, {"no": "6.7", "text": "Yarışmacıların sahip oldukları yatırım araçlarının güncel piyasa değerleri yarışma sıralamasının hesaplanmasında dikkate alınır.", "paras": [], "bullets": []}, {"no": "6.8", "text": "Sistem tarafından desteklenmesi halinde emir türleri ve diğer işlem fonksiyonları gerçek piyasa işlem mantığına uygun olarak kullanılabilir.", "paras": [], "bullets": []}, {"no": "6.9", "text": "Yarışmacılar tarafından verilen emirlerin gerçekleşip gerçekleşmediği sistem kayıtları üzerinden belirlenir.", "paras": [], "bullets": []}, {"no": "6.10", "text": "Yarışmacılar, yarışma süresince oluşturacakları portföy ve gerçekleştirecekleri alım-satım işlemlerine ilişkin yatırım kararlarını kendi değerlendirmeleri doğrultusunda bireysel olarak verir. Yarışmacılar yatırım kararlarını oluştururken temel analiz, teknik analiz, piyasa haberleri, şirket ve sektör verileri veya kendi belirleyecekleri diğer analiz yöntemlerinden yararlanabilir. Yarışma yönetimi tarafından herhangi bir analiz yöntemi zorunlu tutulmamakta olup, yarışmacıların portföy tercihleri ve işlem stratejileri tamamen kendi karar ve sorumluluklarındadır. Yarışma kapsamında gerçekleştirilen analiz ve değerlendirmeler yatırım tavsiyesi niteliğinde değildir.", "paras": [], "bullets": []}, {"no": "6.11", "text": "Yarışmacıların oluşturdukları portföyler, gerçekleştirdikleri alım-satım işlemleri, verdikleri emirler ve işlem geçmişleri yarışma süresince diğer yarışmacılara açıklanmaz ve erişime açılmaz. Bir yarışmacının başka bir yarışmacının portföyüne, emirlerine veya işlem geçmişine erişmeye çalışması kural ihlali olarak değerlendirilir ve Kural İhlalleri ve Yaptırımlar bölümünde belirtilen yaptırımlar uygulanır.", "paras": [], "bullets": []}]}, {"no": "7", "title": "İşlem Zamanları", "intro": [], "items": [{"no": "7.1", "text": "Yarışma belirlenen başlangıç ve bitiş tarihleri arasında gerçekleştirilir.", "paras": [], "bullets": []}, {"no": "7.2", "text": "Katılımcılar yalnızca kendilerine duyurulan işlem seansları içerisinde işlem gerçekleştirebilir.", "paras": [], "bullets": []}, {"no": "7.3", "text": "Piyasanın kapalı olduğu dönemlerde, sistemin gerçek piyasa işleyişine uygun olması amacıyla ilgili yatırım araçlarında işlem yapılamaz.", "paras": [], "bullets": []}, {"no": "7.4", "text": "Yarışmacıların işlem saatlerine belirlenen zamanda hazır bulunmaları zorunludur.", "paras": [], "bullets": []}, {"no": "7.5", "text": "İşlem seanslarının başlangıcında yoklama alınabilir.", "paras": [], "bullets": []}]}, {"no": "8", "title": "İşlem Sayısı ve Portföy Yönetimi", "intro": [], "items": [{"no": "8.1", "text": "Yarışmacılara aksi belirtilmediği sürece işlem sayısı sınırı uygulanmaz.", "paras": [], "bullets": []}, {"no": "8.2", "text": "Yarışmacılar sahip oldukları sanal bakiye ve portföyleri doğrultusunda istedikleri sayıda alış ve satış işlemi gerçekleştirebilir.", "paras": [], "bullets": []}, {"no": "8.3", "text": "Yarışmacılar portföylerini bireysel olarak yönetmek zorundadır.", "paras": [], "bullets": []}, {"no": "8.4", "text": "Ortak yatırım kararı, ortak hesap kullanımı veya başka bir yarışmacı adına işlem yapılması kesinlikle yasaktır ve tespiti halinde kural ihlalleri bölümünde belirtilen yaptırımlar ilgili kişilere uygulanır.", "paras": [], "bullets": []}, {"no": "8.5", "text": "Yarışmacıların yatırım kararları ve gerçekleştirdikleri işlemlerden kendileri sorumludur.", "paras": [], "bullets": []}]}, {"no": "9", "title": "Yarışma Sıralaması ve Kazananın Belirlenmesi", "intro": [], "items": [{"no": "9.1", "text": "Yarışmacıların yarışma içerisindeki performansı, başlangıçta kendilerine tanımlanan sanal sermaye ile yarışma sonunda sahip oldukları toplam portföy değeri arasındaki fark esas alınarak değerlendirilir.", "paras": [], "bullets": []}, {"no": "9.2", "text": "Yarışma sonunda toplam portföy değeri; yarışmacının kullanılabilir nakit bakiyesi ile sahip olduğu yatırım araçlarının yarışmanın sona erdiği andaki güncel piyasa değerlerinin toplamı üzerinden hesaplanır.", "paras": [], "bullets": []}, {"no": "9.3", "text": "Yarışmacının yarışma süresince gerçekleştirdiği işlemler sonucunda başlangıç sermayesinin üzerinde bir toplam portföy değerine ulaşması halinde aradaki fark kâr olarak değerlendirilir. Örneğin, yarışmacıya yarışma başlangıcında 100.000 TL sanal sermaye tanımlanmış ve yarışma sonunda toplam portföy değeri 115.000 TL olarak hesaplanmışsa, yarışmacının elde ettiği kâr 15.000 TL olarak kabul edilir.", "paras": [], "bullets": []}, {"no": "9.4", "text": "Yarışmacının portföyünde bulunan ve yarışma sonunda henüz satılmamış olan yatırım araçlarının güncel piyasa değerleri de toplam portföy değerinin hesaplanmasına dahil edilir. Dolayısıyla, henüz satış işlemi gerçekleşmemiş olsa dahi yatırım aracının piyasa değerindeki artış veya azalış yarışmacının yarışma sonundaki performansına yansıtılır. Yarışmacıların yaptıkları işlemleri içeren Excel (CSV) dosyasındaki özkaynak bakiyesi esas alınır.", "paras": [], "bullets": []}, {"no": "9.5", "text": "Yarışmacının yarışma sonunda toplam portföy değeri başlangıç sermayesinin üzerinde ise pozitif getiri elde etmiş kabul edilir. Yarışmacılar arasında en yüksek kârı elde eden yarışmacı, ilgili yarışma haftasının birincisi ve kazananı olarak belirlenir.", "paras": ["İPTAL MADDE"], "bullets": []}, {"no": "9.6", "text": "Yarışmacıların elde ettiği kâr, yalnızca gerçekleştirdikleri satış işlemlerinden elde ettikleri tutar üzerinden değil, yarışmanın sona erdiği andaki toplam portföy değerleri üzerinden belirlenir. Bu nedenle yarışma sonunda portföyünde yatırım aracı bulunduran bir yarışmacının söz konusu yatırım araçlarının güncel piyasa değeri de performans hesabına dahil edilir.", "paras": [], "bullets": []}, {"no": "9.7", "text": "Yarışma sonuçlarının belirlenmesinde yarışma sisteminin yarışma bitiş anında oluşturduğu portföy ve işlem kayıtları esas alınır. Yarışma sona erdikten sonra piyasa fiyatlarında meydana gelen değişiklikler yarışma sonucuna dahil edilmez.", "paras": [], "bullets": []}, {"no": "9.8", "text": "Yarışmanın temel başarı kriteri, yarışmacının kendisine verilen eşit başlangıç sermayesini yarışma süresi içerisinde en yüksek değere ulaştırmasıdır. Bu doğrultuda yarışmacılar; piyasa hareketlerini takip etme, yatırım araçlarını değerlendirme, alım-satım zamanlamasını belirleme ve portföylerini etkin şekilde yönetme becerileri üzerinden performans gösterir.", "paras": [], "bullets": []}, {"no": "9.9", "text": "Yarışma sonunda hiçbir yarışmacının başlangıç sermayesinin üzerinde bir toplam portföy değerine ulaşamaması ve dolayısıyla hiçbir yarışmacının kâr elde edememesi durumunda, başlangıç sermayesine kıyasla en düşük zararı gerçekleştiren yarışmacı haftanın kazananı olarak belirlenir. Örneğin, tüm yarışmacılara 100.000 TL başlangıç sermayesi verilmiş ve yarışma sonunda;", "paras": ["olarak hesaplanmışsa, hiçbir yarışmacı kâr elde etmediğinden A yarışmacısı 2.000 TL ile en düşük zarara sahip yarışmacı olarak haftanın kazananı ilan edilir."], "bullets": ["A yarışmacısının portföy değeri 98.000 TL,", "B yarışmacısının portföy değeri 95.000 TL,", "C yarışmacısının portföy değeri 92.000 TL"]}, {"no": "9.10", "text": "Bir veya birden fazla yarışmacının kâr elde ettiği durumda ise sıralama, başlangıç sermayesine göre elde edilen net portföy artışı esas alınarak yapılır. En yüksek kârı elde eden yarışmacı birinci olur.", "paras": [], "bullets": []}, {"no": "9.11", "text": "Yarışma sonunda iki veya daha fazla yarışmacının toplam portföy değerlerinin eşit olması halinde, eşitlik bozma kriterleri arasında işlem zamanlaması, gerçekleştirilen işlem sayısı veya sistem kayıtlarında bulunan diğer objektif veriler kullanılabilir. Yalnızca eşit durumda bulunan yarışmacılara eşitliğin bozulması amacıyla yarışma yönetimi tarafından belirlenecek ek bir işlem süresi tanımlanabilir.", "paras": ["Ek süre sonunda eşitliğin devam etmesi halinde, kazananın belirlenmesine ilişkin uygulanacak yöntem yarışma yönetimi tarafından ayrıca belirlenir. Yarışma yönetimi, yarışmanın adil ve sağlıklı şekilde yürütülmesini sağlamak amacıyla gerekli gördüğü durumlarda bu madde ve ilgili uygulama esaslarında değişiklik yapma, yeni bir eşitlik bozma kriteri belirleme ve uygulanacak yöntemi yeniden düzenleme hakkını saklı tutar."], "bullets": []}, {"no": "9.12", "text": "Her yarışma haftasının sonunda yapılan değerlendirme sonucunda belirlenen haftanın kazananı ödüllendirilir ve ilgili yarışma haftasının kazananı olarak Zirve 27’de temsil edecek ekibin oluşturulmasına dahil edilir. Haftanın kazananının herhangi bir nedenle Zirve 27 temsil ekibine katılamaması halinde, temsil hakkı aynı haftanın yarışma sıralamasında ikinci sırada yer alan yarışmacıya devredilir. İkinci sıradaki yarışmacının da herhangi bir nedenle katılamaması halinde bu hak üçüncü sırada yer alan yarışmacıya devredilir. Üçüncü sıradaki yarışmacının da katılamaması durumunda, temsil hakkının devrine ilişkin uygulanacak yöntem yarışma yönetimi tarafından belirlenir. Yarışma yönetimi, temsil ekibinin oluşturulması ve yarışmanın yürütülmesine ilişkin gerekli gördüğü durumlarda ilgili uygulama esaslarında değişiklik yapma hakkını saklı tutar.", "paras": [], "bullets": []}]}, {"no": "10", "title": "Manipülasyon ve Haksız Rekabet Yasağı", "intro": [], "items": [{"no": "10.1", "text": "Yarışmacıların diğer katılımcıları yanıltmaya yönelik bilgi, tüyo veya sahte yönlendirme paylaşması yasaktır.", "paras": [], "bullets": []}, {"no": "10.2", "text": "Yarışmacıların organize şekilde belirli yatırım araçlarının fiyatını etkilemeye yönelik hareketlerde bulunması yasaktır.", "paras": [], "bullets": []}, {"no": "10.3", "text": "Yarışmacıların başka bir katılımcıyla anlaşarak işlem gerçekleştirmesi yasaktır.", "paras": [], "bullets": []}, {"no": "10.4", "text": "Birden fazla hesap kullanarak veya başka bir yarışmacının hesabını kullanarak avantaj elde etmek yasaktır.", "paras": [], "bullets": []}, {"no": "10.5", "text": "Sistem açıklarından yararlanarak haksız avantaj sağlamak kesinlikle yasaktır.", "paras": [], "bullets": []}, {"no": "10.6", "text": "Şüpheli işlemler yarışma admini tarafından incelenebilir.", "paras": [], "bullets": []}, {"no": "10.7", "text": "Kural ihlali yaptığı tespit edilen kişi/kişiler hakkında, kural ihlalleri bölümünde de belirtilen aşağıdaki yaptırım sistemi uygulanır:", "paras": [], "bullets": ["Birinci ihlal: 2 dakika işlem kısıtlaması,", "İkinci ihlal: Yarışmacının sanal bakiyesinde yarışma yönetimi tarafından özkaynaktan %10 kesinti yapılır.", "Üçüncü ihlal: Yarışmacı yarışmadan diskalifiye edilir"]}]}, {"no": "11", "title": "Dışarıdan Yardım ve Bilgi Kullanımı", "intro": [], "items": [{"no": "11.1", "text": "Yarışmacılar yatırım kararlarını bireysel olarak vermelidir.", "paras": [], "bullets": []}, {"no": "11.2", "text": "Yarışma sırasında başka bir kişiden, yarışmacıdan doğrudan veya dolaylı herhangi bir destek, işlem desteği almak yasaktır.", "paras": [], "bullets": []}, {"no": "11.3", "text": "Başka bir kişinin yarışmacı adına işlem gerçekleştirmesi yasaktır.", "paras": [], "bullets": []}, {"no": "11.4", "text": "Yarışmacıların yarışma sırasında birbirlerinin portföylerini veya işlem kararlarını yönlendirmesi yasaktır.", "paras": [], "bullets": []}]}, {"no": "12", "title": "Admin Yetkisi ve Şüpheli İşlemler", "intro": [], "items": [{"no": "12.1", "text": "Yarışma sistemi ve işlemler yarışma admini tarafından takip edilebilir.", "paras": [], "bullets": []}, {"no": "12.2", "text": "Sistem açığı, olağan dışı işlem, teknik manipülasyon veya kurallara aykırı işlem şüphesi oluşması halinde admin inceleme başlatabilir. Admin düzenleme hakkını saklı tutar.", "paras": [], "bullets": []}, {"no": "12.3", "text": "İnceleme süresince gerekli görülmesi halinde ilgili hesabın işlem yapması geçici olarak durdurulabilir.", "paras": [], "bullets": []}, {"no": "12.4", "text": "İnceleme sonucunda herhangi bir kural ihlali tespit edilmezse yarışmacının işlemleri geçerli kabul edilir.", "paras": [], "bullets": []}, {"no": "12.5", "text": "Kural ihlalinin tespit edilmesi halinde yarışma yönetmeliğinde belirtilen yaptırımlar uygulanır.", "paras": [], "bullets": []}]}, {"no": "13", "title": "Teknik Sorunlar", "intro": [], "items": [{"no": "13.1", "text": "Platform, bilgisayar veya internet kaynaklı teknik sorunlar derhal yarışma görevlisine bildirilmelidir.", "paras": [], "bullets": []}, {"no": "13.2", "text": "Yarışma görevlisine bildirilmeyen teknik sorunlardan yarışma yönetimi sorumlu tutulamaz.", "paras": [], "bullets": []}, {"no": "13.3", "text": "Genel sistem arızası yaşanması halinde yarışma admini yarışmayı geçici olarak durdurabilir.", "paras": [], "bullets": []}, {"no": "13.4", "text": "Yarışmanın durdurulması halinde yarışmacıların mevcut portföyleri ve sistem kayıtları korunur.", "paras": [], "bullets": []}, {"no": "13.5", "text": "Teknik problemin niteliğine göre yarışma yönetimi işlem süresinin uzatılmasına veya yarışmanın yeniden başlatılmasına karar verebilir.", "paras": [], "bullets": []}]}, {"no": "14", "title": "Borsa İstanbul Laboratuvarı Kuralları", "intro": [], "items": [{"no": "14.1", "text": "Yarışmacılar kendilerine tahsis edilen bilgisayarlarda işlem gerçekleştirmelidir.", "paras": [], "bullets": []}, {"no": "14.2", "text": "Borsa İstanbul Laboratuvarı içerisinde cihazların güvenliği açısından yiyecek ve içecek tüketilmesi yasaktır. Kapalı su istisnadır.", "paras": [], "bullets": []}, {"no": "14.3", "text": "Yarışmacıların laboratuvar ekipmanlarına zarar vermemesi zorunludur.", "paras": [], "bullets": []}, {"no": "14.4", "text": "Yarışma sırasında görevlilerin talimatlarına uyulması zorunludur.", "paras": [], "bullets": []}]}, {"no": "15", "title": "Zamanında Katılım", "intro": [], "items": [{"no": "15.1", "text": "Yarışmacılar kendilerine bildirilen tarih ve saattinden 20 dakika önce laboratuvarda hazır bulunmalıdır.", "paras": [], "bullets": []}, {"no": "15.2", "text": "Yarışmanın başlamasının ardından geç kalan yarışmacılar, yarışma başlangıcından itibaren ilk 15 dakika içerisinde laboratuvara alınarak yarışmaya dahil edilebilir.Geç kalınması nedeniyle kullanılamayan işlem süresi yarışmacıya ayrıca tanımlanmaz.", "paras": [], "bullets": []}, {"no": "15.3", "text": "Yarışmanın başlamasından itibaren 15 dakikalık sürenin geçmesi halinde geç kalan yarışmacı laboratuvara alınmayacak ve yarışmaya dahil edilemeyecektir.", "paras": [], "bullets": []}, {"no": "15.4", "text": "Yarışma yönetimi tarafından ayrıca duyurulmadıkça yarışma süresi uzatılmaz.", "paras": [], "bullets": []}]}, {"no": "16", "title": "Yarışma Haftaları ve Finalistler", "intro": [], "items": [{"no": "16.1", "text": "Yarışma, ilan edilen yarışma takvimine göre haftalık seanslar halinde gerçekleştirilebilir.", "paras": [], "bullets": []}, {"no": "16.2", "text": "Her yarışma haftasının sonunda en yüksek performansı gösteren yarışmacı haftanın birincisi olarak belirlenir.", "paras": [], "bullets": []}, {"no": "16.3", "text": "Beş yarışma haftasının her birinden bir yarışmacı finalist olarak belirlenir.", "paras": [], "bullets": []}, {"no": "16.4", "text": "Belirlenen finalistler Zirve 27’de temsil edecek ekibi oluşturur.", "paras": [], "bullets": []}]}, {"no": "17", "title": "Sonuçların İlanı", "intro": [], "items": [{"no": "17.1", "text": "Yarışma sonuçları sistem kayıtları kontrol edildikten sonra kesinleştirilir.", "paras": [], "bullets": []}, {"no": "17.2", "text": "Haftalık birinciler yarışma yönetimi tarafından ilan edilir.", "paras": [], "bullets": []}, {"no": "17.3", "text": "Yarışmacının adı, yarışma haftası ve derecesi FinTeClub'ın resmi iletişim kanallarında paylaşılabilir.", "paras": [], "bullets": []}, {"no": "17.4", "text": "Sonuçlara ilişkin itirazlar, sonuçların ilan edilmesinden itibaren 2 iş günü içerisinde yazılı olarak yapılmalıdır.", "paras": [], "bullets": []}]}, {"no": "18", "title": "Yatırım Tavsiyesi Değildir (YTD)", "intro": [], "items": [{"no": "18.1", "text": "Yarışma kapsamında gerçekleştirilen hiçbir işlem, analiz, strateji, tahmin veya değerlendirme yatırım tavsiyesi niteliğinde değildir.", "paras": [], "bullets": []}, {"no": "18.2", "text": "Yarışma tamamen eğitim ve simülasyon amacı taşımaktadır.", "paras": [], "bullets": []}, {"no": "18.3", "text": "Yarışmacıların yarışma sırasında gerçekleştirdiği sanal işlemler gerçek yatırım işlemi değildir.", "paras": [], "bullets": []}, {"no": "18.4", "text": "Yarışma alanında ve ilgili tanıtım materyallerinde gerekli yasal uyarılar bulundurulur.", "paras": [], "bullets": []}]}, {"no": "19", "title": "Kişisel Veriler ve Görüntü Kullanımı", "intro": [], "items": [{"no": "19.1", "text": "Katılımcılardan alınan kişisel bilgiler yarışmanın başvuru, doğrulama, iletişim, kura, sıralama süreçlerinin yürütülmesi amacıyla kullanılabilir.", "paras": [], "bullets": []}, {"no": "19.2", "text": "Kişisel verilerin işlenmesi ilgili mevzuata uygun şekilde gerçekleştirilir.", "paras": [], "bullets": []}, {"no": "19.3", "text": "Yarışma sırasında fotoğraf ve video çekimleri gerçekleştirilebilir.", "paras": [], "bullets": []}, {"no": "19.4", "text": "Katılımcılara görüntü kullanımına ilişkin gerekli bilgilendirme ve onay süreçleri başvuru formunda sunulur.", "paras": [], "bullets": []}]}, {"no": "20", "title": "İletişim ve Duyurular", "intro": [], "items": [{"no": "20.1", "text": "Yarışmacıların yarışma yönetimi tarafından belirlenen resmi iletişim kanalını takip etmeleri zorunludur.", "paras": [], "bullets": []}, {"no": "20.2", "text": "Yarışma takvimi, işlem saatleri, kura sonuçları, sıralamalar, teknik duyurular ve diğer bilgilendirmeler resmi iletişim kanallarından paylaşılır.", "paras": [], "bullets": []}, {"no": "20.3", "text": "Resmi iletişim kanalından ayrılan veya duyuruları takip etmeyen yarışmacılar, kendilerine yapılan duyurulardan haberdar olmadıkları gerekçesiyle hak talebinde bulunamaz.", "paras": [], "bullets": []}]}, {"no": "21", "title": "Kural İhlalleri ve Yaptırımlar", "intro": [], "items": [{"no": "21.1", "text": "Yarışmacıların kurallara aykırı davranması halinde yarışma yönetimi tarafından yaptırım uygulanabilir.", "paras": [], "bullets": []}, {"no": "21.2", "text": "Kural ihlallerinde aşağıdaki yaptırım sistemi uygulanır:", "paras": [], "bullets": ["Birinci ihlal: 2 dakika işlem kısıtlaması,", "İkinci ihlal: Yarışmacının sanal bakiyesinde yarışma yönetimi tarafından belirlenen oranda kesinti,", "Üçüncü ihlal: Yarışmadan diskalifiye."]}, {"no": "21.3", "text": "Hesap paylaşımı, çoklu hesap kullanımı, sistem açığından bilinçli şekilde yararlanma, manipülasyon ve haksız avantaj sağlama gibi ağır ihlallerde yarışma yönetimi kademeli yaptırım uygulamaksızın doğrudan diskalifiye kararı verebilir.", "paras": [], "bullets": []}, {"no": "21.4", "text": "Yaptırım uygulanmasına ilişkin nihai değerlendirme yarışma admini ve yarışma yönetimine aittir.", "paras": [], "bullets": []}]}, {"no": "22", "title": "Kuralların Kabulü", "intro": [], "items": [{"no": "22.1", "text": "Yarışmaya başvuran her öğrenci, başvuru formunda yer alan yarışma kurallarını okuduğunu ve kabul ettiğini beyan eder.", "paras": [], "bullets": []}, {"no": "22.2", "text": "Başvuru formunda yarışma kurallarının kabul edildiğine ilişkin zorunlu onay kutusu bulunur.", "paras": [], "bullets": []}, {"no": "22.3", "text": "Başvurunun admin tarafından onaylanmasıyla birlikte katılımcının yarışma kurallarını kabul ettiği ve bu kurallara uymayı taahhüt ettiği kabul edilir.", "paras": [], "bullets": []}, {"no": "22.4", "text": "Yarışmaya katılan tüm yarışmacılar eşit şartlar altında değerlendirilir.", "paras": [], "bullets": []}]}, {"no": "23", "title": "Değişiklik ve Düzenleme Hakkı", "intro": ["FinTeClub, yarışmanın adil, güvenli ve sağlıklı bir şekilde yürütülmesini sağlamak amacıyla yarışma kurallarında, uygulama esaslarında, yarışma takviminde, katılım koşullarında ve ödüllendirme süreçlerinde gerekli gördüğü durumlarda değişiklik yapma hakkını saklı tutar. Yapılacak değişiklikler, yarışmanın niteliği ve koşulları doğrultusunda değerlendirilerek katılımcılara resmi iletişim kanalları aracılığıyla duyurulur. Yarışmaya başvuran ve katılımı onaylanan tüm yarışmacılar, bu düzenleme ve değişikliklerin yarışmanın yürütülmesi açısından uygulanabileceğini kabul etmiş sayılır. Yarışmanın yürütülmesi, değerlendirilmesi ve sonuçlandırılması konusunda nihai karar yetkisi FinTeClub’a aittir.", "Yarışma kapsamında gerçekleştirilen hiçbir işlem, analiz, strateji, tahmin veya değerlendirme yatırım tavsiyesi niteliğinde değildir.", "Yarışma tamamen eğitim ve simülasyon amacı taşımaktadır."], "items": []}];
+const FTL_KVKK_HTML = `
+  <p><b>Veri sorumlusu:</b> FinTeClub (Ankara Yıldırım Beyazıt Üniversitesi Finans ve Teknoloji Kulübü). Bu metin 6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) 10. maddesi uyarınca FinTeLig Borsa Simülasyon Yarışması başvuru sahiplerini bilgilendirmek amacıyla hazırlanmıştır.</p>
+  <p><b>İşlenen veriler:</b> ad-soyad, e-posta adresi, öğrenci numarası, üniversite/bölüm bilgisi, deneyim seviyesi, motivasyon metni, yüklenen öğrenci belgesi; yarışma sırasında sanal portföy ve işlem kayıtları, yoklama bilgisi; izin verilmesi halinde fotoğraf/video görüntüleri.</p>
+  <p><b>İşleme amaçları:</b> başvurunun alınması ve değerlendirilmesi, AYBÜ öğrenciliğinin doğrulanması, kura ve hafta planlaması, yarışmacıyla iletişim (e-posta bildirimleri), yarışmanın yürütülmesi, sıralamaların ve sonuçların belirlenmesi ve ilanı (kural 17.3: ad, yarışma haftası ve derece), kural ihlallerinin incelenmesi ve Zirve 27 temsil ekibinin oluşturulması.</p>
+  <p><b>Hukuki sebep:</b> başvurunun ve yarışma katılımının gerektirdiği işlemler için KVKK m.5/2-c; görüntülerin tanıtım amaçlı kullanımı için açık rızan (başvuru formundaki isteğe bağlı kutu).</p>
+  <p><b>Aktarım:</b> Veriler, yarışma altyapısını sağlayan hizmet sağlayıcılar (Google Firebase — kimlik doğrulama ve veri tabanı, Vercel — barındırma, e-posta gönderim hizmeti) aracılığıyla işlenir; bu hizmetlerin sunucuları yurt dışında bulunabilir. Veriler bunun dışında üçüncü kişilerle paylaşılmaz, ticari amaçla kullanılmaz.</p>
+  <p><b>Saklama süresi:</b> Yarışma döneminin sonuna ve itiraz/sonuç süreçlerinin tamamlanmasına kadar; sonrasında silinir veya anonim hale getirilir (yalnızca ilan edilmiş sonuçlar kulüp arşivinde kalabilir).</p>
+  <p><b>Hakların (KVKK m.11):</b> verilerinin işlenip işlenmediğini öğrenme, bilgi talep etme, düzeltilmesini veya silinmesini isteme, itiraz etme ve zararın giderilmesini talep etme. Başvurularını FinTeClub'ın resmi iletişim kanalları üzerinden yazılı olarak iletebilirsin.</p>
+  <p style="font-size:12px;color:var(--text-dimmer);">Not: Bu aydınlatma metni kulüp yönetimi tarafından gözden geçirilip güncellenebilir.</p>`;
+function ftlEsc(v){ return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function ftlRulesItemHtml(it){
+  const cancel = /İPTAL MADDE/i.test((it.paras || []).join(' ') + ' ' + it.text);
+  let extra = '';
+  if(it.no === '9.9' && it.bullets && it.bullets.length){
+    const rows = it.bullets.map(b => { const m = b.match(/^(\S+) yarışmacısının portföy değeri ([\d.]+) TL/); return m ? { n: m[1], v: m[2] } : null; }).filter(Boolean);
+    extra = `<table class="rules-ex"><thead><tr><th>Yarışmacı</th><th>Portföy değeri</th><th>Başlangıca göre</th></tr></thead><tbody>${rows.map((r, i) => { const v = Number(r.v.replace(/\./g,'')); return `<tr class="${i === 0 ? 'win' : ''}"><td>${ftlEsc(r.n)}${i === 0 ? ' — kazanan' : ''}</td><td>${ftlEsc(r.v)} TL</td><td>${(v - 100000).toLocaleString('tr-TR')} TL</td></tr>`; }).join('')}</tbody></table>`;
+  } else if((it.no === '21.2' || it.no === '10.7') && it.bullets && it.bullets.length === 3){
+    extra = `<div class="rules-steps">${it.bullets.map(b => { const k = b.split(':'); return `<div class="rules-step"><b>${ftlEsc(k[0])}</b>${ftlEsc(k.slice(1).join(':').trim().replace(/[,.]$/, ''))}</div>`; }).join('')}</div>`;
+  } else if(it.bullets && it.bullets.length){
+    extra = `<ul>${it.bullets.map(b => `<li>${ftlEsc(b)}</li>`).join('')}</ul>`;
+  }
+  const paras = (it.paras || []).filter(p => !/İPTAL MADDE/i.test(p)).map(p => `<p style="margin:6px 0 0;">${ftlEsc(p)}</p>`).join('');
+  return `<div class="rules-item${cancel ? ' cancel' : ''}"><div class="no">${ftlEsc(it.no)}</div><div><span class="tx">${ftlEsc(it.text)}</span>${cancel ? ' <i style="color:var(--text-dimmer);">(iptal edilmiş madde)</i>' : ''}${extra}${paras}</div></div>`;
+}
+function ftlRulesHtml(prefix, openAll){
+  return FTL_RULES.map((sec, i) => `<details class="rules-sec" id="${prefix}-${sec.no}" ${openAll || i < 2 ? 'open' : ''}>
+    <summary><span class="n">${ftlEsc(sec.no)}</span><span class="t">${ftlEsc(sec.title)}</span><span class="c" aria-hidden="true">▾</span></summary>
+    <div class="rules-body">${(sec.intro || []).map(p => `<p>${ftlEsc(p)}</p>`).join('')}${(sec.items || []).map(ftlRulesItemHtml).join('')}</div>
+  </details>`).join('');
+}
+function renderRulesPage(){
+  const root = document.getElementById('rulesRoot');
+  if(!root || root.dataset.done) return;
+  root.innerHTML = ftlRulesHtml('kural', false);
+  document.getElementById('rulesToc').innerHTML = FTL_RULES.map(sec => `<a href="#kural-${sec.no}" data-rule-jump="${sec.no}"><i>${ftlEsc(sec.no)}</i>${ftlEsc(sec.title)}</a>`).join('');
+  root.dataset.done = '1';
+  if(window.matchMedia && window.matchMedia('(max-width:900px)').matches) document.getElementById('rulesTocDetails').open = false;
+}
+document.addEventListener('click', function(e){
+  const j = e.target.closest('[data-rule-jump]');
+  if(j){
+    e.preventDefault();
+    const sec = document.getElementById('kural-' + j.dataset.ruleJump);
+    if(sec){ sec.open = true; sec.scrollIntoView({behavior:'smooth', block:'start'}); }
+    document.querySelectorAll('#rulesToc a').forEach(a => a.classList.toggle('on', a === j));
+    if(window.matchMedia && window.matchMedia('(max-width:900px)').matches) document.getElementById('rulesTocDetails').open = false;
+    return;
+  }
+  const o = e.target.closest('[data-open-rules]');
+  if(o){ e.preventDefault(); openRulesModal(o.dataset.openRules); }
+});
+document.getElementById('rulesPrintBtn')?.addEventListener('click', function(){
+  document.querySelectorAll('#rulesRoot details').forEach(d => d.open = true);
+  window.print();
+});
+document.getElementById('rulesExpandBtn')?.addEventListener('click', function(){
+  const all = document.querySelectorAll('#rulesRoot details');
+  const openAll = Array.from(all).some(d => !d.open);
+  all.forEach(d => d.open = openAll);
+  this.textContent = t(openAll ? 'rules_collapse' : 'rules_expand');
+});
+let rulesModalKind = null, rulesModalReturnFocus = null;
+function openRulesModal(kind){
+  rulesModalKind = kind;
+  rulesModalReturnFocus = document.activeElement;
+  document.getElementById('rulesModalTitle').textContent = t(kind === 'kvkk' ? 'rules_modal_kvkk' : 'rules_modal_rules');
+  document.getElementById('rulesModalBody').innerHTML = kind === 'kvkk'
+    ? `<div class="rules-body" style="padding:0;">${FTL_KVKK_HTML}</div>`
+    : `${currentLang === 'en' ? '<p style="color:var(--yellow);font-size:13px;">The official rules are published in Turkish.</p>' : ''}<div class="ytd-box" style="margin-bottom:12px;">Yatırım tavsiyesi değildir — yarışma eğitim ve simülasyon amaçlıdır (kural 18).</div>${ftlRulesHtml('mkural', true)}`;
+  const m = document.getElementById('rulesModal');
+  m.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('rulesModalClose').focus(), 30);
+}
+function closeRulesModal(){
+  document.getElementById('rulesModal').classList.remove('open');
+  document.body.style.overflow = '';
+  if(rulesModalReturnFocus && rulesModalReturnFocus.focus) rulesModalReturnFocus.focus();
+}
+document.getElementById('rulesModalClose')?.addEventListener('click', closeRulesModal);
+document.getElementById('rulesModalCancel')?.addEventListener('click', closeRulesModal);
+document.getElementById('rulesModalAccept')?.addEventListener('click', function(){
+  const cb = document.getElementById(rulesModalKind === 'kvkk' ? 'pbKvkkConsent' : 'pbRulesConsent');
+  if(cb){ cb.checked = true; document.getElementById('pbConsentErr')?.classList.remove('show'); }
+  closeRulesModal();
+});
+document.getElementById('rulesModal')?.addEventListener('click', function(e){ if(e.target === this) closeRulesModal(); });
+document.addEventListener('keydown', function(e){ if(e.key === 'Escape' && document.getElementById('rulesModal')?.classList.contains('open')) closeRulesModal(); });
+['pbRulesConsent', 'pbKvkkConsent'].forEach(id => document.getElementById(id)?.addEventListener('change', () => document.getElementById('pbConsentErr')?.classList.remove('show')));
+
 /* ============ PUBLIC SITE NAVIGATION ============ */
 function navigatePublic(pageId){
+  if(pageId === 'pub-kurallar' && typeof renderRulesPage === 'function'){ renderRulesPage(); const n = document.getElementById('rulesEnNote'); if(n) n.style.display = currentLang === 'en' ? '' : 'none'; }
   document.querySelectorAll('.pub-page').forEach(p=>p.classList.remove('active'));
   document.getElementById(pageId).classList.add('active');
   document.querySelectorAll('#pubNavLinks button').forEach(b=>b.classList.toggle('active', b.dataset.pubnav===pageId));
@@ -2548,6 +2791,19 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
   const motivation = document.getElementById('pbMotivation').value.trim();
   if(!name || !email || !org || !studentNumber){ showToast(t('basvuru_toast_required'), 'error'); return; }
   if(!password || password.length < 6){ showToast(t('basvuru_toast_pwlen'), 'error'); return; }
+  // (26 Eylül 2026 — kural 22.2 ve 19.4) Kurallar + KVKK onayı zorunlu, görüntü izni isteğe bağlı.
+  const rulesOk = document.getElementById('pbRulesConsent').checked;
+  const kvkkOk = document.getElementById('pbKvkkConsent').checked;
+  const imageConsent = document.getElementById('pbImageConsent').checked;
+  const consentErr = document.getElementById('pbConsentErr');
+  if(!rulesOk || !kvkkOk){
+    consentErr.textContent = t(!rulesOk ? 'consent_err_rules' : 'consent_err_kvkk');
+    consentErr.classList.add('show');
+    showToast(consentErr.textContent, 'error');
+    document.getElementById('pbConsentBox').scrollIntoView({behavior:'smooth', block:'center'});
+    return;
+  }
+  consentErr.classList.remove('show');
   if(state.applications.some(a => (a.email||'').toLowerCase() === email.toLowerCase())){
     showToast(t('basvuru_toast_dupemail'), 'error');
     return;
@@ -2591,7 +2847,8 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
     // henüz state.applications'a eklenmemiş bir başvuruyla aynı e-postanın
     // yerel yinelenen-başvuru kontrolünü atlatabilirdi).
     return reserveNextId('appIdCounter', () => appIdCounter, (v) => { appIdCounter = v; }).then(function(newId){
-      state.applications.push({id: newId, name, email, org, level: level || 'Belirtilmedi', studentNumber, motivation, status:'bekliyor', date: new Date().toLocaleDateString('tr-TR'), emailVerified: false, emailVerifyToken});
+      const consentAt = new Date().toISOString();
+      state.applications.push({id: newId, name, email, org, level: level || 'Belirtilmedi', studentNumber, motivation, status:'bekliyor', date: new Date().toLocaleDateString('tr-TR'), emailVerified: false, emailVerifyToken, rulesAcceptedAt: consentAt, kvkkAcceptedAt: consentAt, imageConsent: imageConsent, rulesVersion: '2026-1'});
       form.reset();
       resetRecaptcha('basvuru');
       hasSubmittedApplication = true;
