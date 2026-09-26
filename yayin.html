@@ -24,7 +24,8 @@
   kazanan ve yarışmacı adı geçen haber gösterilmez.
 
   Admin sahne sabitleme (data.scene): auto | leaderboard | podium | countdown |
-  finalists | info | winner | vsmarket | distribution | race | review | ceremony
+  finalists | info | winner | distribution | race | track | review | ceremony
+  Yönetim panelinden data.config: { scenes[], sceneSec, topN, effects } (otomatik akış).
 
   İsteğe bağlı yeni alanlar: rows[i].spark, rows[i].prevRank, stats, series,
   session, ceremonyAt, resultsPublishedAt, objectionDeadline, finalized,
@@ -449,6 +450,62 @@ svg{display:block}
 .demobar button.on{background:#7c3aed;border-color:#a78bfa;color:#fff}
 .demobar button.x{background:transparent;color:#fca5a5;border-color:rgba(252,165,165,.45)}
 body.idle-demo .demobar{opacity:.12}
+
+/* ── (26 Eylül 2026 v3) Yalnızca yarışma: piyasa paneli/bandı kaldırıldı ── */
+.side,.ticker,.strip,#modeBtn,.brand-sub{display:none!important}
+.main{grid-template-columns:minmax(0,1fr)!important}
+.app,.app.sade{grid-template-rows:auto minmax(0,1fr) auto!important}
+.demobar{right:14px!important;max-width:min(760px,calc(100vw - 28px))!important}
+
+.in-preview .demobar{display:none!important}
+.in-preview .legal .lg-r{display:none}
+/* ── YARIŞ PİSTİ: soldan sağa yarışan, kâr ettikçe öne geçen yarışmacılar ── */
+.trk-wrap{flex:1;display:flex;flex-direction:column;min-height:0}
+.trk{position:relative;flex:1;min-height:0;border-radius:12px;overflow:hidden;border:1px solid var(--line2);
+  background:
+    repeating-linear-gradient(180deg,transparent 0 calc(var(--lh,60px) - 2px),rgba(255,255,255,.07) calc(var(--lh,60px) - 2px) var(--lh,60px)),
+    radial-gradient(1200px 400px at 70% 0%,rgba(67,166,255,.07),transparent 70%),
+    linear-gradient(180deg,#0c121d,#070a11)}
+.trk-grid{position:absolute;inset:0;pointer-events:none}
+.trk-grid i{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.05)}
+.trk-grid b{position:absolute;bottom:4px;transform:translateX(-50%);font:600 clamp(10px,1.3vh,14px) var(--f-num);color:var(--dimmer)}
+.trk-start{position:absolute;top:0;bottom:0;width:4px;background:repeating-linear-gradient(180deg,#fff 0 12px,transparent 12px 24px);opacity:.6;transition:left 1s cubic-bezier(.3,.8,.3,1)}
+.trk-start span{position:absolute;bottom:4px;left:10px;white-space:nowrap;font-family:var(--f-disp);font-weight:800;letter-spacing:1.5px;font-size:clamp(11px,1.5vh,16px);color:var(--dim);text-transform:uppercase}
+.trk-fin{position:absolute;top:0;bottom:0;right:0;width:clamp(22px,1.8vw,36px);background:conic-gradient(#e9eef6 25%,#0b0f16 0 50%,#e9eef6 0 75%,#0b0f16 0) 0 0/18px 18px;opacity:.8;box-shadow:-10px 0 30px rgba(255,255,255,.08)}
+.ln{position:absolute;left:0;right:0;height:var(--lh,60px);transition:transform 1s cubic-bezier(.3,.8,.3,1),opacity .6s}
+.ln-rank{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:calc(var(--lh,60px) * .66);height:calc(var(--lh,60px) * .66);display:grid;place-items:center;border-radius:8px;background:#172131;border:1px solid var(--line3);font:700 calc(var(--lh,60px) * .34)/1 var(--f-num);color:var(--text)}
+.ln.k1 .ln-rank{background:var(--gold);color:#111;border-color:var(--gold)}
+.ln.k2 .ln-rank{background:var(--silver);color:#111;border-color:var(--silver)}
+.ln.k3 .ln-rank{background:var(--bronze);color:#111;border-color:var(--bronze)}
+.ln-trail{position:absolute;top:50%;height:calc(var(--lh,60px) * .2);transform:translateY(-50%);border-radius:99px;transition:left 1.1s cubic-bezier(.3,.8,.3,1),width 1.1s cubic-bezier(.3,.8,.3,1);background:linear-gradient(90deg,rgba(25,210,124,0),rgba(25,210,124,.8))}
+.ln-trail.neg{background:linear-gradient(270deg,rgba(255,79,95,0),rgba(255,79,95,.8))}
+.car{position:absolute;top:50%;left:0;transform:translate(-100%,-50%);transition:left 1.1s cubic-bezier(.3,.8,.3,1);display:flex;align-items:center;gap:calc(var(--lh,60px) * .16);height:calc(var(--lh,60px) * .76);max-width:var(--tokw,380px);padding:0 calc(var(--lh,60px) * .1) 0 calc(var(--lh,60px) * .3);border-radius:14px 999px 999px 14px;background:linear-gradient(90deg,#16273f,#2a5e9e);border:1px solid #3f82d4;box-shadow:0 6px 20px rgba(0,0,0,.45);white-space:nowrap;min-width:0}
+.car .nm{font-weight:800;font-size:calc(var(--lh,60px) * .34);overflow:hidden;text-overflow:ellipsis;min-width:0;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.car .pc{flex:none;font:700 calc(var(--lh,60px) * .28)/1 var(--f-num);padding:.25em .45em;border-radius:7px;background:rgba(0,0,0,.3)}
+.car .pc.up{color:#7dffb9}.car .pc.dn{color:#ff9aa3}
+.car svg{flex:none;height:calc(var(--lh,60px) * .5);width:auto;color:#fff}
+.car::before{content:'';position:absolute;right:100%;top:22%;bottom:22%;width:0;opacity:0;background:repeating-linear-gradient(180deg,rgba(255,255,255,.55) 0 2px,transparent 2px 7px);transition:width .4s,opacity .4s}
+.trk.replay .ln{transition:transform .55s cubic-bezier(.3,.8,.3,1),opacity .4s}
+.trk.replay .car,.trk.replay .ln-trail{transition-duration:.65s}
+.ln.moving .car::before{width:calc(var(--lh,60px) * 1.4);opacity:.7}
+.ln.k1 .car{background:linear-gradient(90deg,#4d3a0c,#c79a20);border-color:var(--gold);animation:lead 1.6s ease-in-out infinite alternate}
+.ln.k2 .car{background:linear-gradient(90deg,#2b3340,#7d8a9c);border-color:var(--silver)}
+.ln.k3 .car{background:linear-gradient(90deg,#3d2616,#9c5f33);border-color:var(--bronze)}
+.ln.k1 .car .nm::before{content:'👑 ';font-size:.9em}
+@keyframes lead{from{box-shadow:0 0 0 2px rgba(245,197,66,.25),0 0 18px rgba(245,197,66,.35)}to{box-shadow:0 0 0 3px rgba(245,197,66,.45),0 0 42px rgba(245,197,66,.65)}}
+.ln.upx .car{animation:ovUp 1.1s ease}
+.ln.dnx .car{animation:ovDn 1.1s ease}
+@keyframes ovUp{0%{filter:brightness(1)}25%{filter:brightness(1.6);box-shadow:0 0 0 4px rgba(25,210,124,.6),0 0 40px rgba(25,210,124,.7)}100%{filter:brightness(1)}}
+@keyframes ovDn{0%{filter:brightness(1)}25%{filter:brightness(.7);box-shadow:0 0 0 4px rgba(255,79,95,.6)}100%{filter:brightness(1)}}
+.bump{position:absolute;top:50%;font:800 calc(var(--lh,60px) * .3)/1 var(--f-num);padding:.2em .45em;border-radius:6px;transform:translate(12px,-50%);opacity:0;pointer-events:none;white-space:nowrap}
+.bump.up{background:var(--green);color:#03150b}.bump.dn{background:var(--red);color:#fff}
+.bump.show{animation:bump 2.4s ease forwards}
+@keyframes bump{0%{opacity:0;transform:translate(0,-50%) scale(.6)}12%{opacity:1;transform:translate(12px,-50%) scale(1.15)}75%{opacity:1;transform:translate(12px,-50%) scale(1)}100%{opacity:0;transform:translate(12px,-90%)}}
+.trk-foot{display:flex;justify-content:space-between;gap:14px;color:var(--dim);font-family:var(--f-num);font-size:clamp(12px,1.6vh,17px);padding-top:8px}
+.trk-foot .lg2{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.trk-foot .lg2 i{display:inline-block;width:22px;height:6px;border-radius:9px;margin-right:6px;vertical-align:middle}
+@media (max-width:760px),(orientation:portrait){.trk{flex:none;height:560px}.car .pc{display:none}}
+@media (prefers-reduced-motion:reduce){.ln,.car,.ln-trail{transition:none}.ln.k1 .car{animation:none}}
 @media (max-width:760px),(orientation:portrait){.demobar{right:8px;left:8px;max-width:none;bottom:calc(var(--legal-h) + 8px)}}
 body.idle-demo .demobar:hover{opacity:1}
 @media (max-width:760px),(orientation:portrait){
@@ -629,6 +686,13 @@ body.idle-demo .demobar:hover{opacity:1}
           </div>
         </section>
 
+        <section class="scene" data-scene="track">
+          <div class="scene-title"><h2>Yarış Pisti</h2><span class="sub" id="trSub"></span></div>
+          <div class="trk-wrap">
+            <div class="trk" id="trk"><div class="trk-grid" id="trkGrid"></div><div class="trk-start" id="trkStart"><span>Başlangıç</span></div><div class="trk-fin"></div></div>
+            <div class="trk-foot"><div class="lg2"><span><i style="background:var(--green)"></i>Kârda — başlangıç çizgisinin sağında</span><span><i style="background:var(--red)"></i>Zararda — solunda</span></div><span id="trkLbl"></span></div>
+          </div>
+        </section>
         <section class="scene" data-scene="race">
           <div class="scene-title"><h2>Çubuk Yarışı · İlk 5</h2><span class="sub" id="raceSub"></span></div>
           <div class="race"><div class="race-box" id="raceBox"></div><div class="race-foot"><span id="raceLbl"></span><div class="race-prog"><i id="raceProg"></i></div></div></div>
@@ -941,6 +1005,7 @@ function setCrawlSpeed(tr, pxs){
 
 /* ── "son dakika" kartı + konfeti ─────────────────────────────────── */
 function breaking(kicker, title, sub, ms){
+  if (!fx()) return;
   $('bkK').innerHTML = IC.bolt + esc(kicker);
   $('bkT').textContent = title; $('bkS').textContent = sub || '';
   const b = $('bk'); b.classList.add('show');
@@ -1427,6 +1492,101 @@ function renderRace(replay){
   race.timer = setInterval(() => { race.idx++; if (race.idx >= race.frames.length) { clearInterval(race.timer); return; } raceRender(race.frames[race.idx], race.idx, race.frames.length); }, stepMs);
 }
 
+
+/* ── YARIŞ PİSTİ ─────────────────────────────────────────────────────
+   Her yarışmacı kendi şeridinde bir araç: başlangıç çizgisi = başlangıç
+   sermayesi, kâr ettikçe sağa (bitiş bayrağına doğru), zarar ettikçe sola
+   gider. Şeritler sıraya göre dizilir; biri öne geçince şeridi yukarı kayar,
+   "▲ geçti" rozeti ve parlama efekti çıkar. Sahneye girişte yarış, bu haftanın
+   kayıtlı ölçümlerinden başlangıç çizgisinden itibaren yeniden oynatılır. */
+const trk = { els: new Map(), timer: null, prev: new Map(), frames: [], idx: 0 };
+const CAR_SVG = '<svg viewBox="0 0 64 26" aria-hidden="true"><path fill="currentColor" d="M2 17.5 9 10h13l7-5.5h15.5L54 12h5.5a3.5 3.5 0 0 1 3.5 3.5V19H2z"/><path fill="rgba(0,0,0,.35)" d="M31 7h12.5l6 5H26z"/><circle cx="15" cy="20" r="5" fill="#0b0f16" stroke="currentColor" stroke-width="2"/><circle cx="49" cy="20" r="5" fill="#0b0f16" stroke="currentColor" stroke-width="2"/></svg>';
+function topN(){ const n = Number(cfg().topN); return n >= 3 && n <= 20 ? Math.round(n) : 10; }
+function trackRender(frame, fi, total, live){
+  const box = $('trk'); if (!box) return;
+  const W = box.clientWidth || 1200, H = box.clientHeight || 600;
+  const start = (data && data.startBalance) || 100000;
+  const all = frame.filter(f => isNum(f.eq)).map(f => ({ name: f.name, eq: f.eq, pct: (f.eq / start - 1) * 100 })).sort((a, b) => b.pct - a.pct);
+  const N = Math.min(topN(), all.length), list = all.slice(0, N);
+  const lh = Math.max(34, Math.min(Math.floor(H / Math.max(N, 1)), Math.floor(H / 4)));
+  box.style.setProperty('--lh', lh + 'px');
+  const tokW = Math.min(isNarrow() ? W * 0.62 : W * 0.3, 440);
+  box.style.setProperty('--tokw', tokW + 'px');
+  const ref = trk.frames.length ? trk.frames : [frame];
+  const allP = [0].concat(...ref.map(fr => fr.filter(f => isNum(f.eq)).map(f => (f.eq / start - 1) * 100)));
+  let lo = Math.min(0, ...allP), hi = Math.max(0.5, ...allP);
+  const span = hi - lo || 1; lo -= lo < 0 ? span * 0.06 : 0; hi += span * 0.06;
+  const gutter = lh * 0.66 + 26, finW = box.querySelector('.trk-fin').offsetWidth || 30;
+  const x0 = gutter + tokW + 8, x1 = W - finW - 16;
+  const X = p => x0 + (p - lo) / (hi - lo) * Math.max(40, x1 - x0);
+  const zx = X(0);
+  $('trkStart').style.left = zx + 'px';
+  // ızgara çizgileri (her %1 / %2 / %5)
+  const stepP = niceStep(hi - lo, 6);
+  let g = '';
+  for (let p = Math.ceil(lo / stepP) * stepP; p <= hi; p += stepP) { if (Math.abs(p) < 1e-9) continue; const x = X(p); g += '<i style="left:' + x + 'px"></i><b style="left:' + x + 'px">' + (p > 0 ? '+' : '−') + Math.abs(p).toFixed(stepP < 1 ? 1 : 0).replace('.', ',') + '%</b>'; }
+  $('trkGrid').innerHTML = g;
+  const keep = new Set(list.map(f => f.name));
+  list.forEach((f, i) => {
+    let o = trk.els.get(f.name);
+    if (!o) {
+      const el = document.createElement('div'); el.className = 'ln';
+      el.innerHTML = '<div class="ln-rank"></div><div class="ln-trail"></div><div class="car"><span class="nm"></span><span class="pc"></span>' + CAR_SVG + '</div><div class="bump"></div>';
+      el.style.transform = 'translateY(' + (i * lh) + 'px)'; el.style.opacity = '0';
+      el.querySelector('.car').style.left = zx + 'px';
+      box.appendChild(el); o = { el, x: zx, mv: null }; trk.els.set(f.name, o);
+      el.querySelector('.nm').textContent = f.name;
+    }
+    const el = o.el, x = X(f.pct);
+    el.className = 'ln' + (i < 3 ? ' k' + (i + 1) : '') + (el.classList.contains('moving') ? ' moving' : '');
+    el.querySelector('.ln-rank').textContent = String(i + 1);
+    const pcEl = el.querySelector('.pc'); pcEl.textContent = fmtPct(f.pct); pcEl.className = 'pc ' + cls(f.pct);
+    const tr = el.querySelector('.ln-trail');
+    tr.className = 'ln-trail' + (f.pct < 0 ? ' neg' : '');
+    tr.style.left = Math.min(zx, x) + 'px'; tr.style.width = Math.abs(x - zx) + 'px';
+    const car = el.querySelector('.car');
+    requestAnimationFrame(() => { el.style.opacity = '1'; el.style.transform = 'translateY(' + (i * lh) + 'px)'; car.style.left = x + 'px'; });
+    if (Math.abs(x - o.x) > 6) { el.classList.add('moving'); clearTimeout(o.mv); o.mv = setTimeout(() => el.classList.remove('moving'), 1200); }
+    o.x = x;
+    const bump = el.querySelector('.bump'); bump.style.left = x + 'px';
+    const pr = trk.prev.get(f.name);
+    if (live && isNum(pr) && pr !== i + 1 && fx()) {
+      const up = pr > i + 1;
+      el.classList.remove('upx', 'dnx'); void el.offsetWidth; el.classList.add(up ? 'upx' : 'dnx');
+      bump.className = 'bump ' + (up ? 'up' : 'dn'); bump.textContent = (up ? '▲ ' : '▼ ') + Math.abs(pr - (i + 1));
+      void bump.offsetWidth; bump.classList.add('show');
+    }
+  });
+  trk.els.forEach((o, name) => { if (!keep.has(name)) { o.el.style.opacity = '0'; o.el.style.transform = 'translateY(' + (N * lh) + 'px)'; } });
+  trk.prev = new Map(list.map((f, i) => [f.name, i + 1]));
+  $('trkLbl').textContent = total > 1 && fi < total - 1 ? 'Yarışın tekrarı · ölçüm ' + (fi + 1) + ' / ' + total : 'Şimdi · ilk ' + N + ' yarışmacı';
+}
+function renderTrack(replay){
+  clearInterval(trk.timer);
+  const rows = rowsOk();
+  const box = $('trk');
+  if (!rows.length) { trk.els.forEach(o => o.el.remove()); trk.els.clear(); trk.prev.clear(); $('trkLbl').textContent = 'Henüz veri yok'; return; }
+  const start = (data && data.startBalance) || 100000;
+  $('trSub').textContent = 'Başlangıç çizgisi ' + fmtTL(start) + ' · kâr ettikçe sağa, öne geçen üste çıkar';
+  let fr = raceFrames();
+  // tekrar en fazla 16 kare (okunaklı, sahne süresine sığar); son kare = şimdi
+  if (fr.length > 16) { const k = fr.length - 1, out = []; for (let j = 0; j < 16; j++) out.push(fr[Math.round(j * k / 15)]); fr = out; }
+  trk.frames = fr;
+  box.classList.remove('replay');
+  if (!replay || fr.length < 2 || RM.matches || !fx()) { trackRender(fr[fr.length - 1], fr.length - 1, fr.length, true); return; }
+  box.classList.add('replay');
+  // start: herkes başlangıç çizgisinde
+  trk.prev.clear();
+  trackRender(fr[0].map(f => ({ name: f.name, eq: start })), 0, fr.length, false);
+  trk.idx = 0;
+  const stepMs = 700;
+  trk.timer = setInterval(() => {
+    if (trk.idx >= trk.frames.length) { clearInterval(trk.timer); box.classList.remove('replay'); return; }
+    trackRender(trk.frames[trk.idx], trk.idx, trk.frames.length, trk.idx > 0);
+    trk.idx++;
+  }, stepMs);
+}
+
 /* ── kontrol aşaması ──────────────────────────────────────────────── */
 function renderReview(){ $('rvK').innerHTML = '<span lang="en">FinTeLig</span>' + esc((data && data.weekLabel ? ' · ' + data.weekLabel : '') + (data && data.participantCount ? ' · ' + data.participantCount + ' yarışmacı' : '')); }
 
@@ -1509,8 +1669,18 @@ function checkCeremony(prev){
 }
 
 /* ── sahne akışı ──────────────────────────────────────────────────── */
-const DUR = { leaderboard: 24000, race: 16000, vsmarket: 15000, podium: 11000, countdown: 10000, distribution: 13000, finalists: 11000, info: 10000, winner: 15000, review: 20000, ceremony: 60000 };
-const RANKED = new Set(['leaderboard', 'podium', 'winner', 'race', 'distribution', 'ceremony', 'vsmarket']);
+const DUR = { track: 22000, leaderboard: 24000, race: 16000, podium: 11000, countdown: 10000, distribution: 13000, finalists: 11000, info: 10000, winner: 15000, review: 20000, ceremony: 60000 };
+const RANKED = new Set(['track', 'leaderboard', 'podium', 'winner', 'race', 'distribution', 'ceremony']);
+const DEF_AUTO = ['track', 'leaderboard', 'race', 'podium', 'distribution', 'countdown', 'finalists', 'info'];
+const cfg = () => (data && data.config && typeof data.config === 'object') ? data.config : {};
+function autoList(){ const l = Array.isArray(cfg().scenes) ? cfg().scenes.filter(n => DUR[n] && DEF_AUTO.indexOf(n) >= 0) : []; return l.length ? l : DEF_AUTO; }
+function fx(){ return cfg().effects !== false; }
+function sceneMs(name){
+  if (name === 'ceremony') return DUR.ceremony;
+  const sec = Number(cfg().sceneSec);
+  const base = isFinite(sec) && sec >= 5 && sec <= 120 ? sec * 1000 : (DUR[name] || 10000);
+  return name === 'track' ? Math.max(base, 16000) : base;
+}
 function allowed(name, ph){
   if (name === 'winner' || name === 'ceremony') return ph === 'published';
   if (name === 'review') return ph === 'review';
@@ -1523,8 +1693,8 @@ function playlist(){
   const ov = data.scene && data.scene !== 'auto' ? String(data.scene) : null;
   if (ov === 'ceremony' && ph === 'published') return ['winner'];
   if (ov && DUR[ov] && ov !== 'ceremony' && allowed(ov, ph)) return [ov];
-  if (ph === 'active') return hasRows ? ['leaderboard', 'race', 'vsmarket', 'podium', 'countdown', 'leaderboard', 'distribution', 'finalists', 'info'] : ['countdown', 'info', 'finalists'];
-  if (ph === 'published') return ['winner', 'podium', 'leaderboard', 'race', 'distribution', 'vsmarket', 'finalists', 'info'];
+  if (ph === 'active') { const l = autoList().filter(n => allowed(n, ph)); return hasRows && l.length ? l : ['countdown', 'info', 'finalists']; }
+  if (ph === 'published') { const l = ['winner', 'podium']; autoList().forEach(n => { if (n !== 'countdown' && l.indexOf(n) < 0 && allowed(n, ph)) l.push(n); }); return l; }
   if (ph === 'review') return ['review', 'countdown', 'finalists', 'info'];
   return ['info', 'finalists', 'countdown'];
 }
@@ -1540,6 +1710,7 @@ function renderScene(name, entering){
   else if (name === 'vsmarket') renderVsMarket();
   else if (name === 'distribution') renderDistribution();
   else if (name === 'race') renderRace(entering);
+  else if (name === 'track') renderTrack(entering);
   else if (name === 'review') renderReview();
 }
 let current = null, sceneTimer = null, manualUntil = 0, playlistIdx = 0, prevKey = null;
@@ -1549,6 +1720,7 @@ function show(name){
     document.querySelectorAll('.scene').forEach(s => s.classList.toggle('active', s.dataset.scene === name));
     current = name;
     if (name !== 'race') clearInterval(race.timer);
+    if (name !== 'track') clearInterval(trk.timer);
   }
   renderScene(name, entering);
   const list = cer.running ? ['ceremony'] : playlist();
@@ -1558,7 +1730,7 @@ function scheduleNext(){
   clearTimeout(sceneTimer);
   if (cer.running) return;
   const list = playlist(), name = list[playlistIdx % list.length];
-  let dur = DUR[name] || 10000;
+  let dur = sceneMs(name);
   const pages = Math.max(1, Math.ceil(rowsAll().length / PAGE_SIZE));
   if (name === 'leaderboard' && pages > 1) dur = 9000;
   sceneTimer = setTimeout(() => {
@@ -1710,7 +1882,7 @@ const cv = $('confetti'), cx = cv.getContext('2d');
 let parts = [], confRaf = null;
 function resizeCanvas(){ cv.width = innerWidth * devicePixelRatio; cv.height = innerHeight * devicePixelRatio; }
 function confettiBurst(n){
-  if (RM.matches) return;
+  if (RM.matches || !fx()) return;
   const colors = ['#ffab1a', '#ffd27a', '#f5c542', '#19d27c', '#ffffff', '#43a6ff'];
   for (let i = 0; i < n; i++) parts.push({ x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * .3, vx: (Math.random() - .5) * 3 * devicePixelRatio, vy: (2 + Math.random() * 4) * devicePixelRatio, r: (4 + Math.random() * 6) * devicePixelRatio, a: Math.random() * 6.28, va: (Math.random() - .5) * .3, c: colors[i % colors.length] });
   if (!confRaf) confRaf = requestAnimationFrame(drawConfetti);
@@ -1744,7 +1916,6 @@ addEventListener('keydown', (e) => {
   if (e.key === 'f' || e.key === 'F') toggleFs();
   else if (e.key === 'ArrowRight') step(1);
   else if (e.key === 'ArrowLeft') step(-1);
-  else if (e.key === 'd' || e.key === 'D') $('modeBtn').click();
 });
 
 /* ── (26 Eylül 2026) GÖRÜNÜM: sade (varsayılan) / detaylı ─────────── */
@@ -1804,7 +1975,7 @@ function demoPayload(){
     v: 1, demo: true, compName: 'FinteLig 2026', weekLabel: 'Hafta 2',
     competitionActive: true, competitionStartedAt: demo.t0, competitionEndsAt: demo.endsAt, competitionTotalMs: demo.endsAt - demo.t0,
     tradingHalted: demo.halted, broadcastLive: true, resultsPublished: false, startBalance: 100000, participantCount: rows.length,
-    rows, weeklyWinners: demo.winners, scene: 'auto', announcement: '',
+    rows, weeklyWinners: demo.winners, scene: 'auto', announcement: '', config: (demo.real && demo.real.config) || null,
     stats: { count: ok.length, profitable: pcts.filter(x => x > 0).length, losing: pcts.filter(x => x < 0).length, avgPct: +(pcts.reduce((a, b) => a + b, 0) / pcts.length).toFixed(2), bestPct: Math.max.apply(null, pcts), worstPct: Math.min.apply(null, pcts) },
     series: { t: demo.series.t.slice(), avgPct: demo.series.avgPct.slice() },
     session: { weekNo: 2, weeksTotal: 5, sessionStart: '10:00', sessionEnd: '18:00', tradingDays: demoWeekdays(5) },
@@ -1880,13 +2051,12 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { me
 makeQr($('qrMini'), 4);
 renderCrawl();
 tick(); setInterval(tick, 1000);
-loadTicker(); setInterval(loadTicker, 60000);
-loadQuotes(); setInterval(loadQuotes, 60000);
-loadBars(); setInterval(loadBars, 5 * 60000);
+// (26 Eylül 2026 v3) Yayın ekranı yalnızca yarışmayı gösterir — piyasa verisi çekilmez.
 setInterval(burnIn, 180000);
 show('info'); scheduleNext();
-try { setMode(localStorage.getItem(MODE_KEY) === 'detay' ? 'detay' : 'sade'); } catch (e) { setMode('sade'); }
+setMode('sade');
 if (/[?&]demo=1\b/.test(location.search)) setTimeout(demoStart, 300);
+if (/[?&]preview=1\b/.test(location.search)) document.documentElement.classList.add('in-preview');
 try {
   const app = firebase.initializeApp(FIREBASE_CONFIG, 'yayin');
   app.firestore().collection('finteclub').doc('public_leaderboard').onSnapshot(
@@ -1896,7 +2066,7 @@ try {
 } catch (e) { console.warn('[Yayın] Firebase başlatılamadı', e); connErr = true; }
 // test/önizleme kancası
 window.__yayin = {
-  onData, step, demoStart, demoStop, demoScenario, setMode,
+  onData, step, demoStart, demoStop, demoScenario, setMode, playlist: () => playlist(),
   get demo(){ return { on: demo.on, scen: demo.scen }; },
   get current(){ return current; },
   get phase(){ return phase(); },
