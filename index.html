@@ -1865,6 +1865,7 @@ function processEmailVerifyParam(){
     btn.disabled = true;
     btn.textContent = t('verify_confirming');
     app.emailVerified = true;
+    markAppChange(app.id, { emailVerified: true });
     saveShared();
     updateEmailVerifyStatusUI();
     showState('✓', t('verify_success_title'), t('verify_success_desc', app.name), 'var(--green)', false);
@@ -2056,26 +2057,38 @@ function reserveNextId(counterField, getLocalCounter, setLocalCounter){
     return id;
   });
 }
+// (26 Eylül 2026 — entegrasyon denetimi) Herkese açık site artık finteclub/shared_state'e
+// YALNIZCA kendi yaptığı değişiklikleri yazar: yeni başvuru / zirve kaydı ve bu sayfada
+// değiştirilen tek tek alanlar (e-posta doğrulama, zirve yoklaması, CV adresi).
+// Önceden ziyaretçinin (belki birkaç dakika eski) tüm başvuru listesi ve yarışma
+// durumu (competitionActive, oplabEnabled, tarihler…) belgeye geri yazılıyordu:
+// admin'in o arada yaptığı onay/yoklama/ihlal kayıtları veya yarışmayı başlatması,
+// bir ziyaretçinin başvuru göndermesiyle sessizce geri alınabiliyordu.
+const pendingAppPatches = new Map();    // id → { __new:true } | { alan: değer }
+const pendingZirvePatches = new Map();
+function markAppChange(id, fields){ const k = String(id); pendingAppPatches.set(k, Object.assign(pendingAppPatches.get(k) || {}, fields)); }
+function markZirveChange(id, fields){ const k = String(id); pendingZirvePatches.set(k, Object.assign(pendingZirvePatches.get(k) || {}, fields)); }
+function applyOwnChanges(localArr, remoteArr, patches, tomb){
+  tomb = tomb || {};
+  const remote = Array.isArray(remoteArr) ? remoteArr.filter(x => x && !tomb[String(x.id)]) : [];
+  const remoteIds = new Set(remote.map(x => String(x.id)));
+  const out = remote.map(r => {
+    const p = patches.get(String(r.id));
+    if(!p) return r;
+    const f = Object.assign({}, p); delete f.__new;
+    return Object.assign({}, r, f);
+  });
+  // yeni kayıtlar: kuyruktaki nesnenin kendisi (bu arada gelen bir anlık görüntü
+  // state dizisini yenilemiş olsa bile kaybolmaz)
+  patches.forEach((p, k) => {
+    if(p && p.__new && typeof p.__new === 'object' && !remoteIds.has(k) && !tomb[k]){
+      const f = Object.assign({}, p); delete f.__new;
+      out.push(Object.assign({}, p.__new, f));
+    }
+  });
+  return out;
+}
 function saveShared(){
-  const payload = {
-    applicationsOpen: state.applicationsOpen,
-    zirveOpen: state.zirveOpen,
-    oplabEnabled: state.oplabEnabled,
-    competitionActive: state.competitionActive,
-    broadcastLive: state.broadcastLive,
-    compName: state.compName,
-    startDate: state.startDate,
-    endDate: state.endDate,
-    applications: state.applications,
-    zirveRegistrations: state.zirveRegistrations,
-    deletedApplicationIds: state.deletedApplicationIds,
-    deletedZirveIds: state.deletedZirveIds,
-    appIdCounter: appIdCounter,
-    zirveIdCounter: zirveIdCounter
-  };
-  // (Düzeltme) admin.html'de olup burada olmayan alanları (balance, viewMode,
-  // resultsPublished vb.) yanlışlıkla silmemek için mevcut veriyle merge
-  // ediyoruz — bkz. admin.html'deki aynı düzeltmenin yorumu.
   function persistLocal(finalPayload){
     try{
       const existing = loadShared() || {};
@@ -2083,45 +2096,39 @@ function saveShared(){
     }catch(e){}
   }
   if(!fsSharedDoc || !FIREBASE_ENABLED){
-    persistLocal(payload);
+    persistLocal({ applications: state.applications, zirveRegistrations: state.zirveRegistrations, appIdCounter: appIdCounter, zirveIdCounter: zirveIdCounter });
     return Promise.resolve();
   }
-  // (24 Eylül 2026) saveShared artık bir Promise döndürüyor — başvuru/zirve
-  // e-postaları, kayıt Firestore'a GERÇEKTEN yazıldıktan SONRA isteniyor,
-  // çünkü sunucu (api/send-email.js) alıcıyı artık kaydın kendisinden okuyor.
-  //
-  // (6 Ağustos 2026 — "bulut köprüsünü daha da güçlendir") "önce oku, sonra
-  // yaz" deseninden Firestore'un GERÇEK transaction API'sine geçildi — bkz.
-  // admin.html'deki aynı düzeltmenin yorumu. runTransaction, okuma ile
-  // yazma arasında belge değişirse otomatik olarak en güncel veriyle
-  // yeniden çalışır; hiçbir ara yazma artık sessizce kaybolamaz.
-  return firebase.firestore().runTransaction(function(transaction){
-    return transaction.get(fsSharedDoc).then(function(doc){
-      const remote = doc.exists ? (doc.data() || {}) : {};
-      const deletedIds = Object.assign({}, remote.deletedApplicationIds, state.deletedApplicationIds);
-      // (9 Ağustos 2026 — Madde #124) applications'la BİREBİR aynı mezar
-      // taşı birleştirmesi, artık zirveRegistrations için de — bkz.
-      // admin.html'deki aynı düzeltmenin yorumu.
-      const deletedZirveIdsMerged = Object.assign({}, remote.deletedZirveIds, state.deletedZirveIds);
-      const finalPayload = Object.assign({}, payload, {
-        applications: reconcileArrayFieldById(payload.applications, remote.applications, deletedIds),
-        zirveRegistrations: reconcileArrayFieldById(payload.zirveRegistrations, remote.zirveRegistrations, deletedZirveIdsMerged),
-        deletedApplicationIds: deletedIds,
-        deletedZirveIds: deletedZirveIdsMerged
+  const appKeys = Array.from(pendingAppPatches.keys()), zirveKeys = Array.from(pendingZirvePatches.keys());
+  function attempt(){
+    return firebase.firestore().runTransaction(function(transaction){
+      return transaction.get(fsSharedDoc).then(function(doc){
+        const remote = doc.exists ? (doc.data() || {}) : {};
+        const finalPayload = {
+          applications: applyOwnChanges(state.applications, remote.applications, pendingAppPatches, remote.deletedApplicationIds),
+          zirveRegistrations: applyOwnChanges(state.zirveRegistrations, remote.zirveRegistrations, pendingZirvePatches, remote.deletedZirveIds),
+          appIdCounter: Math.max(Number(remote.appIdCounter) || 1, appIdCounter || 1),
+          zirveIdCounter: Math.max(Number(remote.zirveIdCounter) || 1, zirveIdCounter || 1)
+        };
+        transaction.set(fsSharedDoc, finalPayload, {merge:true});
+        return finalPayload;
       });
-      transaction.set(fsSharedDoc, finalPayload, {merge:true});
-      return finalPayload;
     });
+  }
+  return attempt().catch(function(e){
+    console.warn('Firestore yazma hatası, 1,5 sn sonra bir kez daha deneniyor:', e);
+    return new Promise(function(r){ setTimeout(r, 1500); }).then(attempt);
   }).then(function(finalPayload){
-    if(finalPayload.applications !== state.applications) state.applications = finalPayload.applications;
-    if(finalPayload.zirveRegistrations !== state.zirveRegistrations) state.zirveRegistrations = finalPayload.zirveRegistrations;
-    state.deletedApplicationIds = finalPayload.deletedApplicationIds;
-    state.deletedZirveIds = finalPayload.deletedZirveIds;
+    // yazılan değişiklikleri kuyruktan düş (bu sırada eklenen yenileri koru)
+    appKeys.forEach(function(k){ pendingAppPatches.delete(k); });
+    zirveKeys.forEach(function(k){ pendingZirvePatches.delete(k); });
+    state.applications = finalPayload.applications;
+    state.zirveRegistrations = finalPayload.zirveRegistrations;
     persistLocal(finalPayload);
-  }).catch(function(e){
-    console.warn('Firestore transaction hatası, düz yazmaya düşülüyor:', e);
-    persistLocal(payload);
-    return fsSharedDoc.set(payload, {merge:true}).catch(e2=>console.warn('Yedek düz yazma da başarısız:', e2));
+    return true;
+  }).catch(function(e2){
+    console.warn('Firestore yazması başarısız (değişiklikler kuyrukta bekliyor, bir sonraki kayıtta tekrar denenecek):', e2);
+    return false;
   });
 }
 function hydrateFromShared(){
@@ -2217,6 +2224,7 @@ function processCheckinParam(){
   }
   z.checkedIn = true;
   z.checkedInAt = new Date().toISOString();
+  markZirveChange(z.id, { checkedIn: true, checkedInAt: z.checkedInAt });
   showCheckinState('✓', t('checkin_success_title'), t('checkin_success_desc', z.club), 'var(--green)');
   saveShared();
 }
@@ -2849,6 +2857,7 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
     return reserveNextId('appIdCounter', () => appIdCounter, (v) => { appIdCounter = v; }).then(function(newId){
       const consentAt = new Date().toISOString();
       state.applications.push({id: newId, name, email, org, level: level || 'Belirtilmedi', studentNumber, motivation, status:'bekliyor', date: new Date().toLocaleDateString('tr-TR'), emailVerified: false, emailVerifyToken, rulesAcceptedAt: consentAt, kvkkAcceptedAt: consentAt, imageConsent: imageConsent, rulesVersion: '2026-1'});
+      markAppChange(newId, { __new: state.applications[state.applications.length - 1] });
       form.reset();
       resetRecaptcha('basvuru');
       hasSubmittedApplication = true;
@@ -2995,6 +3004,7 @@ document.getElementById('pubZirveForm').addEventListener('submit', function(e){
   // reserveNextId() ve finishApplication() içindeki aynı düzeltmenin yorumu.
   reserveNextId('zirveIdCounter', () => zirveIdCounter, (v) => { zirveIdCounter = v; }).then(function(zirveId){
   state.zirveRegistrations.push({id: zirveId, club, org, contact, contactEmail, contactPhone, area, reason, fileName: selectedFile ? selectedFile.name : document.getElementById('pzFileName').textContent, fileUrl: null, students, status:'incelemede', date: new Date().toLocaleDateString('tr-TR'), checkInCode: null, checkedIn: false, checkedInAt: null});
+  markZirveChange(zirveId, { __new: state.zirveRegistrations[state.zirveRegistrations.length - 1] });
   formEl.reset();
   resetRecaptcha('zirve');
   document.getElementById('pzFileName').textContent = t('common_no_file');
@@ -3020,7 +3030,7 @@ document.getElementById('pubZirveForm').addEventListener('submit', function(e){
       return snapshot.ref.getDownloadURL();
     }).then(function(url){
       const reg = state.zirveRegistrations.find(z => z.id === zirveId);
-      if(reg) reg.fileUrl = url;
+      if(reg){ reg.fileUrl = url; markZirveChange(zirveId, { fileUrl: url }); }
       saveShared();
     }).catch(function(e){
       console.warn('[Zirve CV] Dosya yüklenemedi (Storage kuralları henüz yayınlanmamış olabilir):', e);

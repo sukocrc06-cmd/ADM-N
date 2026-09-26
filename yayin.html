@@ -1975,7 +1975,7 @@ function demoPayload(){
     v: 1, demo: true, compName: 'FinteLig 2026', weekLabel: 'Hafta 2',
     competitionActive: true, competitionStartedAt: demo.t0, competitionEndsAt: demo.endsAt, competitionTotalMs: demo.endsAt - demo.t0,
     tradingHalted: demo.halted, broadcastLive: true, resultsPublished: false, startBalance: 100000, participantCount: rows.length,
-    rows, weeklyWinners: demo.winners, scene: 'auto', announcement: '', config: (demo.real && demo.real.config) || null,
+    rows, weeklyWinners: demo.winners, scene: (demo.real && demo.real.scene) || 'auto', announcement: (demo.real && demo.real.announcement) || '', config: (demo.real && demo.real.config) || null,
     stats: { count: ok.length, profitable: pcts.filter(x => x > 0).length, losing: pcts.filter(x => x < 0).length, avgPct: +(pcts.reduce((a, b) => a + b, 0) / pcts.length).toFixed(2), bestPct: Math.max.apply(null, pcts), worstPct: Math.min.apply(null, pcts) },
     series: { t: demo.series.t.slice(), avgPct: demo.series.avgPct.slice() },
     session: { weekNo: 2, weeksTotal: 5, sessionStart: '10:00', sessionEnd: '18:00', tradingDays: demoWeekdays(5) },
@@ -2019,7 +2019,7 @@ function demoScenario(sc){
 function demoStart(){
   if (demo.on) return;
   demo.on = true;
-  $('app').classList.add('demo'); $('demoBar').classList.add('on'); $('demoBtn').classList.add('on'); $('demoBtn').textContent = 'Demo açık';
+  $('app').classList.add('demo'); $('demoBar').classList.add('on'); $('demoBtn').classList.add('on'); $('demoBtn').textContent = 'Demodan çık';
   demoInit(); resetView(); demo.scen = 'active';
   demoScenario('active');
   clearInterval(demo.timer);
@@ -2060,7 +2060,7 @@ if (/[?&]preview=1\b/.test(location.search)) document.documentElement.classList.
 try {
   const app = firebase.initializeApp(FIREBASE_CONFIG, 'yayin');
   app.firestore().collection('finteclub').doc('public_leaderboard').onSnapshot(
-    (snap) => { demo.real = snap.exists ? snap.data() : {}; if (!demo.on) onData(demo.real); },
+    (snap) => { demo.real = snap.exists ? snap.data() : {}; if (!demo.on) onData(demo.real); else demoPush(false); },
     (err) => { console.warn('[Yayın] veri okunamadı', err); connErr = true; tick(); }
   );
 } catch (e) { console.warn('[Yayın] Firebase başlatılamadı', e); connErr = true; }
