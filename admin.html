@@ -2833,7 +2833,7 @@ function subscribeOplabPortfolio(){
       if(recTs >= ov.ts){ delete optimisticOplabOverrides[id]; return; }
       competitors[id] = Object.assign({}, rec || {}, ov.changes);
     });
-    oplabPortfolioData = Object.keys(competitors).map(id => Object.assign({id: id}, competitors[id]));
+    oplabPortfolioData = Object.keys(competitors).filter(id => !(state.deletedApplicationIds || {})[String(id)]).map(id => Object.assign({id: id}, competitors[id]));
     if(window.LIG) LIG.applyPenalties(oplabPortfolioData); // kural 21.2: ihlal kesintileri sıralamaya yansır
     renderCanliIzleme();
     renderKullaniciPortfoyleri();
@@ -3358,7 +3358,7 @@ function syncYarismaSettingsUI(){
   // haftaya henüz kimse onaylanmadıysa (cohortStartedAt yok) bitirilecek
   // bir şey olmadığından buton devre dışı kalır.
   const endCohortBtn = document.getElementById('endCohortNowBtn');
-  if(endCohortBtn) endCohortBtn.disabled = !state.cohortStartedAt;
+  if(endCohortBtn) endCohortBtn.disabled = !state.cohortStartedAt && !state.competitionActive;
   if(window.LIG) LIG.fillYarismaCards();
 }
 
@@ -3879,6 +3879,8 @@ function deleteApplications(ids){
   renderDashboardDynamic();
   renderKullaniciVeritabani();
   saveShared();
+  schedulePublicLeaderboard(true); // yayın ekranından hemen düşsün
+  renderCanliIzleme(); renderKullaniciPortfoyleri();
   const msg = removed.length === 1 ? `${removed[0].name} sistemden silindi.` : `${removed.length} yarışmacı sistemden silindi.`;
   addActivity(msg);
   // (OPLab hayalet veri temizliği + GERÇEK Firebase hesap silme) BİLEREK
@@ -3933,7 +3935,31 @@ function finalizeApplicationDeletion(removedApps, ids){
   // finteclubBridge.js'e özel belgeler) Admin SDK ile temizliyor — bu,
   // Firestore güvenlik kurallarını atladığı için admin'in tarayıcı
   // sekmesi "GERİ AL" penceresi dolmadan kapansa bile güvenilir çalışır.
+  purgeAppsEverywhere(ids, (removedApps || []).map(a => a.email));
   deleteFirebaseAuthAccounts((removedApps || []).map(a => a.email), ids);
+}
+// (27 Eylül 2026) "Sistemden sil" = kişi HER YERDEN çıkar: geçmiş yarışma sıralamaları, hafta arşivi,
+// Yaptırım & Sonuç kayıtları/finalist, yayın ekranı ve kişisel OPLab portföy/çizim belgeleri.
+function purgeAppsEverywhere(ids, emails){
+  const set = new Set((ids || []).map(String));
+  if(!set.size) return;
+  (state.competitionHistory || []).forEach(h => {
+    if(Array.isArray(h.ranking)){ const n = h.ranking.length; h.ranking = h.ranking.filter(r => !set.has(String(r.appId))); if(h.ranking.length !== n) h.participantCount = h.ranking.length; }
+  });
+  (state.cohortHistory || []).forEach(h => { if(Array.isArray(h.competitors)) h.competitors = h.competitors.filter(c => !set.has(String(c.id))); });
+  if(state.season && Array.isArray(state.season.weeks)) state.season.weeks.forEach(w => {
+    if(w.finalist && set.has(String(w.finalist.appId))) w.finalist = null;
+    if(Array.isArray(w.waitlist)) w.waitlist = w.waitlist.filter(x => !set.has(String(x)));
+  });
+  if(state.tieBreak && Array.isArray(state.tieBreak.appIds)) state.tieBreak.appIds = state.tieBreak.appIds.filter(x => !set.has(String(x)));
+  saveShared();
+  schedulePublicLeaderboard(true);
+  try{ renderYarismaGecmisi(); renderCohortHistory(); renderGenelSiralama(); renderSonuclar(); if(window.LIG) LIG.render(true); }catch(e){}
+  if(FIREBASE_ENABLED && AUTH_ENABLED && firebase.auth().currentUser){
+    (emails || []).filter(Boolean).map(e => String(e).trim().toLowerCase()).forEach(e => {
+      ['oplab_portfolios', 'oplab_drawings'].forEach(c => firebase.firestore().collection(c).doc(e).delete().catch(err => console.warn('[Silme] ' + c + '/' + e + ' silinemedi:', err)));
+    });
+  }
 }
 function restoreDeletedApplications(removedApps){
   // Geri eklenenler listenin başına konuyor — id'ler zaten benzersiz
@@ -3947,6 +3973,7 @@ function restoreDeletedApplications(removedApps){
   const msg = removedApps.length === 1 ? `${removedApps[0].name} başvurusu geri alındı.` : `${removedApps.length} yarışmacı geri alındı.`;
   function finishRestore(){
     saveShared();
+    schedulePublicLeaderboard(true);
     addActivity(msg);
     showToast(msg, 'success');
   }
@@ -5387,6 +5414,9 @@ function checkCohortRotation(){
 // büyük bir anahtarı; haftalık rotasyon site açıkken KESİNTİSİZ devam eder.
 function rotateCohort(reason){
   const cohortId = state.currentCohortId || 1;
+  // Hafta = o haftanın yarışması: hafta biterken yarışma sürüyorsa önce o biter (final sıralama bu haftanın
+  // yarışmacılarıyla alınır, yayın ekranı ve OPLab anında kapanır), sonra hafta arşivlenir.
+  if(state.competitionActive) finishCompetition(`Hafta ${cohortId} bitti — ${reason}`);
   const affected = state.applications.filter(a => a.status==='onayli' && !a.pastCompetitor && a.cohortId===cohortId);
   if(affected.length === 0){
     // Kimse onaylanmamışsa arşivlenecek bir şey yok — yine de yeni haftaya
@@ -5394,6 +5424,9 @@ function rotateCohort(reason){
     state.currentCohortId = cohortId + 1;
     state.cohortStartedAt = null;
     saveShared();
+    schedulePublicLeaderboard(true);
+    syncYarismaSettingsUI();
+    addActivity(`Hafta ${cohortId} sona erdi (${reason}) — onaylı yarışmacı yoktu, Hafta ${cohortId+1} açıldı.`);
     return;
   }
   const perfById = {};
@@ -5428,6 +5461,7 @@ function rotateCohort(reason){
   addActivity(`Hafta ${cohortId} sona erdi (${reason}) — ${affected.length} yarışmacı geçmiş yarışmacı statüsüne alındı, Hafta ${cohortId+1} için kota açıldı.`);
   showToast(`Hafta ${cohortId} sona erdi — ${affected.length} yarışmacı arşivlendi, yeni hafta başladı.`, 'success');
   saveShared();
+  schedulePublicLeaderboard(true);
 }
 
 // (11 Ağustos 2026 — Madde #131: manuel hafta bitirme) Otomatik zamanlayıcı
@@ -5435,10 +5469,10 @@ function rotateCohort(reason){
 // hedeflemek isteyen admin için (örn. ilk hafta 5-9 Ekim gibi kısa/özel bir
 // pencere olacaksa) haftayı elle, süresi dolmadan bitirebilme imkânı.
 document.getElementById('endCohortNowBtn')?.addEventListener('click', function(){
-  if(!state.cohortStartedAt) return;
+  if(!state.cohortStartedAt && !state.competitionActive) return;
   const cohortId = state.currentCohortId || 1;
   const activeCount = state.applications.filter(a => a.status==='onayli' && !a.pastCompetitor && a.cohortId===cohortId).length;
-  const ok = confirm(`Hafta ${cohortId} şimdi bitirilsin mi?\n\nBu haftanın ${activeCount} onaylı yarışmacısı hemen "geçmiş yarışmacı" statüsüne alınır, performansları Yarışma Geçmişi'ne kaydedilir ve Hafta ${cohortId+1} için kota anında açılır. Bu işlem geri alınamaz.`);
+  const ok = confirm(`Hafta ${cohortId} şimdi bitirilsin mi?\n\n${state.competitionActive ? 'Süren yarışma da HEMEN biter: yayın ekranı "bitti · kontrol" aşamasına geçer, OPLab işlemleri kapanır, final sıralaması Yaptırım & Sonuç\'a düşer.\n' : ''}Bu haftanın ${activeCount} onaylı yarışmacısı "geçmiş yarışmacı" statüsüne alınır, performansları Yarışma Geçmişi'ne kaydedilir ve Hafta ${cohortId+1} için kota anında açılır. Bu işlem geri alınamaz.`);
   if(!ok) return;
   rotateCohort('admin tarafından elle bitirildi');
 });
