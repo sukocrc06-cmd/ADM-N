@@ -1049,6 +1049,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 .yy-legacy>summary::-webkit-details-marker{display:none}
 .yy-legacy>summary::before{content:'▸ ';}
 .yy-legacy[open]>summary::before{content:'▾ ';}
+#yayinSceneShortcuts .yy-grp{grid-column:1/-1;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);margin:8px 2px 0;font-weight:700;}
 
 .yy-pub{margin:10px 0 0;font-size:12.5px;line-height:1.5;padding:8px 12px;border-radius:8px;border:1px solid var(--border-strong);color:var(--text-dim);}
 .yy-pub::before{content:'● ';}
@@ -6138,6 +6139,86 @@ showScreen('login');
    OPLab tarafı (finteclubBridge.js) bu alanları okuyup işlem kilidini uygular. */
 (function(){
 'use strict';
+/* FINM — FinTeLig finansal metrikleri (27 Eylül 2026). Admin paneli (yayın belgesini üretirken)
+   ve yayin.html (demo veride) AYNI kodu kullanır. Girdi: örnek zamanları (ms) ve aynı hizadaki
+   portföy değerleri (eksik örnek = null). Yalnızca portföy DEĞERİNDEN türetilir — pozisyon/işlem
+   bilgisi kullanılmaz ve üretilmez (kural 4.9). */
+var FINM = (function(){
+  var H = 3600e3;
+  function r2(x){ return Math.round(x * 100) / 100; }
+  function ok(x){ return typeof x === 'number' && isFinite(x) && x > 0; }
+  // Kişi metrikleri: son 30 dk değişim, zirveden düşüş, maksimum düşüş, oynaklık (saatlik), getiri/risk
+  function person(t, v, start, now){
+    var idx = [];
+    for (var i = 0; i < v.length && i < t.length; i++) if (ok(v[i])) idx.push(i);
+    if (!idx.length) return null;
+    var last = idx[idx.length - 1], cur = v[last];
+    var base0 = ok(start) ? start : v[idx[0]];
+    var cut = (now || t[last]) - 30 * 60e3, base = v[idx[0]];
+    for (var a = 0; a < idx.length; a++) { if (t[idx[a]] <= cut) base = v[idx[a]]; else break; }
+    var peak = base0, mdd = 0;
+    for (var b = 0; b < idx.length; b++) { var x = v[idx[b]]; if (x > peak) peak = x; var d = (x / peak - 1) * 100; if (d < mdd) mdd = d; }
+    var z = [];
+    for (var k = 1; k < idx.length; k++) {
+      var p0 = v[idx[k - 1]], p1 = v[idx[k]], dt = (t[idx[k]] - t[idx[k - 1]]) / 60e3;
+      if (dt > 0) z.push(Math.log(p1 / p0) / Math.sqrt(dt));
+    }
+    var vol = null;
+    if (z.length >= 5) {
+      var m = 0; z.forEach(function(q){ m += q; }); m /= z.length;
+      var s2 = 0; z.forEach(function(q){ s2 += (q - m) * (q - m); }); s2 /= (z.length - 1);
+      vol = Math.sqrt(s2) * Math.sqrt(60) * 100;
+    }
+    var pct = (cur / base0 - 1) * 100;
+    return { c30: (cur / base - 1) * 100, dd: (cur / peak - 1) * 100, mdd: mdd, vol: vol, rr: vol != null && vol >= 0.01 ? pct / vol : null, pct: pct, peak: peak };
+  }
+  // En fazla n noktaya eşit aralıkla seyreltilmiş değerler (grafikler için)
+  function spark(v, n){
+    var a = v.filter(ok);
+    if (a.length <= n) return a.map(function(x){ return Math.round(x); });
+    var out = [];
+    for (var i = 0; i < n; i++) out.push(Math.round(a[Math.round(i * (a.length - 1) / (n - 1))]));
+    return out;
+  }
+  // FinTeLig Endeksi: ortalama getiriden saatlik mumlar [t, açılış, en yüksek, en düşük, kapanış]
+  function candles(t, avg){
+    var out = [];
+    for (var i = 0; i < t.length; i++) {
+      var x = avg[i]; if (typeof x !== 'number' || !isFinite(x)) continue;
+      var key = Math.floor((t[i] + 3 * H) / H), c = out[out.length - 1];
+      if (!c || c.k !== key) out.push({ k: key, t: key * H - 3 * H, o: x, h: x, l: x, c: x });
+      else { if (x > c.h) c.h = x; if (x < c.l) c.l = x; c.c = x; }
+    }
+    var f = [];
+    out.forEach(function(c){ var p = f[f.length - 1]; if (p && c.o === c.h && c.h === c.l && c.l === c.c && c.c === p.c) return; f.push(c); }); // hareketsiz (seans dışı) saatler
+    return f.slice(-60).map(function(c){ return [c.t, r2(c.o), r2(c.h), r2(c.l), r2(c.c)]; });
+  }
+  // Liderlik: kim ne zaman lider, kaç kez değişti, kişi başı liderlik süresi (dk)
+  function leadSegs(t, lead, names, now){
+    var seg = [];
+    for (var i = 0; i < lead.length && i < t.length; i++) {
+      var id = lead[i]; if (id == null) continue;
+      var end = i + 1 < t.length ? t[i + 1] : Math.max(t[i], now || t[i]);
+      var s = seg[seg.length - 1];
+      if (s && s.id === id && s.b >= t[i] - 1) s.b = end; else seg.push({ id: id, a: t[i], b: end });
+    }
+    var mins = {};
+    seg.forEach(function(s){ mins[s.id] = (mins[s.id] || 0) + (s.b - s.a) / 60e3; });
+    Object.keys(mins).forEach(function(k){ mins[k] = Math.round(mins[k]); });
+    return { seg: seg.slice(-80).map(function(s){ return [String(names[s.id] || s.id), s.a, s.b]; }), changes: Math.max(0, seg.length - 1), mins: mins };
+  }
+  // Düello: iki kişinin getiri (%) çizgileri, ortak zaman ekseninde en fazla n nokta
+  function duel(t, va, vb, start, n){
+    var ix = [];
+    for (var i = 0; i < t.length; i++) if (ok(va[i]) && ok(vb[i])) ix.push(i);
+    if (ix.length > n) { var o = []; for (var j = 0; j < n; j++) o.push(ix[Math.round(j * (ix.length - 1) / (n - 1))]); ix = o; }
+    return { t: ix.map(function(i){ return t[i]; }), a: ix.map(function(i){ return r2((va[i] / start - 1) * 100); }), b: ix.map(function(i){ return r2((vb[i] / start - 1) * 100); }) };
+  }
+  function median(a){ if (!a.length) return 0; var s = a.slice().sort(function(x, y){ return x - y; }), m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
+  function std(a){ if (a.length < 2) return 0; var m = 0; a.forEach(function(x){ m += x; }); m /= a.length; var s = 0; a.forEach(function(x){ s += (x - m) * (x - m); }); return Math.sqrt(s / (a.length - 1)); }
+  return { person: person, spark: spark, candles: candles, leadSegs: leadSegs, duel: duel, median: median, std: std, r2: r2 };
+})();
+
 const IST_OFF = 3 * 3600000; // Türkiye 2016'dan beri sabit UTC+3
 const LIG_SCENES_NOTE = 'vsmarket, distribution, race, review, ceremony';
 
@@ -6696,18 +6777,33 @@ async function exportTradesCsv(n){
   showToast(`İşlem dökümü indirildi (${out.length} kayıt; OPLab her defterde son 50 işlemi tutar).`, 'success');
 }
 
-/* ---------- Yayın sayfası için örnekleme (spark / seri) ---------- */
-const SAMPLE_KEY = 'fintelig_lig_samples_v1';
-const SAMPLE_EVERY_MS = 5 * 60000;
-let samples = null;
+/* ---------- Yayın sayfası için örnekleme (27 Eylül 2026: dakikalık, tüm hafta) ----------
+   Her dakika aktif yarışmacıların portföy değeri + ortalama getiri + lider kaydedilir. Son 3 saat dakikalık,
+   daha eskisi 10 dakikalık aralıklarla seyreltilir (tüm hafta ≈ 1000 örnek). Yayın belgesine ham seri değil,
+   FINM ile türetilmiş küçük metrikler gider (son 30 dk, düşüş, oynaklık, endeks mumları, liderlik). */
+const SAMPLE_KEY = 'fintelig_lig_samples_v2';
+const SAMPLE_EVERY_MS = 60000;
+let samples = null, leadCache = null;
+function blankSamples(wk){ return { v: 2, weekNo: wk, t: [], eq: {}, nm: {}, lead: [], avg: [], rank: {}, prevRank: {}, lastAt: 0 }; }
 function loadSamples(){
   if(samples) return samples;
   try{ samples = JSON.parse(localStorage.getItem(SAMPLE_KEY) || 'null'); }catch(e){ samples = null; }
-  if(!samples || typeof samples !== 'object') samples = { weekNo: null, pts: {}, rank: {}, prevRank: {}, series: { t: [], avgPct: [] }, lastAt: 0 };
+  if(!samples || typeof samples !== 'object' || samples.v !== 2 || !Array.isArray(samples.t)) samples = blankSamples(null);
   return samples;
 }
 function saveSamples(){ try{ localStorage.setItem(SAMPLE_KEY, JSON.stringify(samples)); }catch(e){} }
-function resetSamples(weekNo){ samples = { weekNo: weekNo, pts: {}, rank: {}, prevRank: {}, series: { t: [], avgPct: [] }, lastAt: 0 }; saveSamples(); }
+function resetSamples(weekNo){ samples = blankSamples(weekNo); leadCache = null; saveSamples(); }
+function thinSamples(){
+  const sm = samples, n = sm.t.length;
+  if(n <= 1200) return;
+  const keep = []; let lastT = -Infinity;
+  for(let i = 0; i < n; i++){
+    if(i >= n - 180 || sm.t[i] - lastT >= 10 * 60000){ keep.push(i); lastT = sm.t[i]; }
+  }
+  const pick = arr => keep.map(i => arr[i]);
+  sm.t = pick(sm.t); sm.avg = pick(sm.avg); sm.lead = pick(sm.lead);
+  Object.keys(sm.eq).forEach(id => { sm.eq[id] = pick(sm.eq[id]); });
+}
 function sampleTick(){
   if(!state.competitionActive) return;
   const sm = loadSamples();
@@ -6715,30 +6811,43 @@ function sampleTick(){
   if(sm.weekNo !== wk) resetSamples(wk);
   const now = Date.now();
   if(now - samples.lastAt < SAMPLE_EVERY_MS) return;
-  const pool = rankingPool().filter(c => typeof c.equity === 'number');
+  const pool = rankingPool().filter(c => typeof c.equity === 'number' && c.equity > 0);
   if(!pool.length) return;
   const sorted = pool.slice().sort((a, b) => (b.equity || 0) - (a.equity || 0));
   samples.prevRank = samples.rank || {};
   samples.rank = {};
-  sorted.forEach((c, i) => {
+  sorted.forEach((c, i) => { samples.rank[String(c.id)] = i + 1; });
+  const n = samples.t.length;
+  samples.t.push(now);
+  pool.forEach(c => {
     const id = String(c.id);
-    samples.rank[id] = i + 1;
-    const arr = samples.pts[id] || (samples.pts[id] = []);
-    arr.push(Math.round(c.equity));
-    if(arr.length > 40) arr.splice(0, arr.length - 40);
+    if(!samples.eq[id]) samples.eq[id] = new Array(n).fill(null);
+    samples.eq[id].push(Math.round(c.equity * 100) / 100);
+    samples.nm[id] = String(c.name || 'İsimsiz').slice(0, 60);
   });
-  const avg = pool.reduce((s, c) => s + pctReturn(c.equity), 0) / pool.length;
-  samples.series.t.push(now); samples.series.avgPct.push(Math.round(avg * 100) / 100);
-  if(samples.series.t.length > 160){ samples.series.t.splice(0, samples.series.t.length - 160); samples.series.avgPct.splice(0, samples.series.avgPct.length - 160); }
-  samples.lastAt = now;
+  Object.keys(samples.eq).forEach(id => { while(samples.eq[id].length < n + 1) samples.eq[id].push(null); });
+  samples.lead.push(String(sorted[0].id));
+  samples.avg.push(Math.round(pool.reduce((s, c) => s + pctReturn(c.equity), 0) / pool.length * 100) / 100);
+  thinSamples();
+  samples.lastAt = now; leadCache = null;
   saveSamples();
 }
+function samplesForWeek(){ const sm = loadSamples(); return sm && sm.weekNo === (state.currentCohortId || null) && sm.t.length ? sm : null; }
+function leadInfo(){
+  const sm = samplesForWeek(); if(!sm) return null;
+  if(!leadCache || leadCache.at !== sm.lastAt) leadCache = { at: sm.lastAt, v: FINM.leadSegs(sm.t, sm.lead, sm.nm, Date.now()) };
+  return leadCache.v;
+}
 function rowExtras(id){
-  const sm = loadSamples();
-  if(!sm || sm.weekNo !== (state.currentCohortId || null)) return {};
-  const k = String(id);
-  const out = {};
-  if(sm.pts[k] && sm.pts[k].length > 1) out.spark = sm.pts[k].slice(-40);
+  const sm = samplesForWeek();
+  if(!sm) return {};
+  const k = String(id), v = sm.eq[k], out = {};
+  if(v){
+    const sp = FINM.spark(v, 40); if(sp.length > 1) out.spark = sp;
+    const m = FINM.person(sm.t, v, getBaslangicBakiyesi(), Date.now());
+    if(m){ out.c30 = FINM.r2(m.c30); out.dd = FINM.r2(m.dd); out.mdd = FINM.r2(m.mdd); if(m.vol != null) out.vol = FINM.r2(m.vol); if(m.rr != null) out.rr = FINM.r2(m.rr); }
+  }
+  const L = leadInfo(); if(L && L.mins[k]) out.lead = L.mins[k];
   if(sm.prevRank && sm.prevRank[k]) out.prevRank = sm.prevRank[k];
   return out;
 }
@@ -6770,8 +6879,23 @@ function extendPublic(p){
     p.stats = { count: rows.length, profitable: pcts.filter(x => x > 0).length, losing: pcts.filter(x => x < 0).length,
       avgPct: Math.round(pcts.reduce((a, b) => a + b, 0) / pcts.length * 100) / 100, bestPct: Math.max.apply(null, pcts), worstPct: Math.min.apply(null, pcts) };
   } else p.stats = null;
-  const sm = loadSamples();
-  p.series = sm && sm.weekNo === (state.currentCohortId || null) && sm.series.t.length > 1 ? { t: sm.series.t.slice(-160), avgPct: sm.series.avgPct.slice(-160) } : null;
+  // Finansal sahneler (27 Eylül 2026): endeks mumları, liderlik zaman çizelgesi, düello, genişletilmiş istatistik
+  const sm = samplesForWeek();
+  p.series = sm && sm.t.length > 1 ? { t: sm.t.slice(-160), avgPct: sm.avg.slice(-160) } : null;
+  p.idx = sm && sm.t.length > 1 ? FINM.candles(sm.t, sm.avg) : null;
+  const L = leadInfo();
+  p.lead = L && L.seg.length ? { seg: L.seg, changes: L.changes } : null;
+  p.duel = null;
+  if(sm){
+    const top = (p.rows || []).filter(r => !r.dq).slice(0, 2);
+    const idOf = name => Object.keys(sm.nm).find(id => sm.nm[id] === name);
+    if(top.length === 2){ const ia = idOf(top[0].name), ib = idOf(top[1].name); if(ia && ib) p.duel = FINM.duel(sm.t, sm.eq[ia], sm.eq[ib], getBaslangicBakiyesi(), 120); }
+  }
+  if(p.stats){
+    const okRows = (p.rows || []).filter(r => !r.dq), pcts2 = okRows.map(r => Number(r.pct) || 0);
+    p.stats.median = FINM.r2(FINM.median(pcts2)); p.stats.std = FINM.r2(FINM.std(pcts2));
+    p.stats.total = Math.round(okRows.reduce((a, r) => a + (Number(r.equity) || 0), 0));
+  }
   const winners = s.weeks.filter(x => x.finalist).map(x => ({ week: 'Hafta ' + x.no, name: x.finalist.name, pct: x.finalist.pct, status: x.finalist.status === 'katilacak' ? 'katilacak' : 'devredildi' }));
   if(winners.length) p.weeklyWinners = winners;
   return p;
@@ -7384,9 +7508,15 @@ const YY_SCENES = [
   { id:'race', t:'Çubuk Yarışı', i:'📊', auto:true }, { id:'podium', t:'İlk Üç', i:'🏆', auto:true },
   { id:'distribution', t:'Kâr / Zarar Dağılımı', i:'⚖️', auto:true }, { id:'countdown', t:'Geri Sayım', i:'⏱️', auto:true },
   { id:'finalists', t:'Zirve 27 Yolu', i:'🎯', auto:true }, { id:'info', t:'Bilgi + Başvuru QR', i:'ℹ️', auto:true },
+  { id:'duel', t:'Düello', i:'⚔️', auto:true, fin:true }, { id:'index', t:'FinTeLig Endeksi', i:'🕯️', auto:true, fin:true },
+  { id:'momentum', t:'Momentum', i:'🚀', auto:true, fin:true }, { id:'heatmap', t:'Isı Haritası', i:'🟩', auto:true, fin:true },
+  { id:'riskmap', t:'Risk – Getiri', i:'🎯', auto:true, fin:true }, { id:'sharpe', t:'En Verimli', i:'💎', auto:true, fin:true },
+  { id:'drawdown', t:'Sağlam Portföy', i:'🛡️', auto:true, fin:true }, { id:'leadtime', t:'Liderlik Süresi', i:'⏳', auto:true, fin:true },
   { id:'review', t:'Kontrol Ediliyor', i:'🔎' }, { id:'winner', t:'Kazanan', i:'🥇' }, { id:'ceremony', t:'Sonuç Töreni', i:'🎬' }
 ];
-const YY_RANKED = ['track','leaderboard','race','podium','distribution','winner','ceremony'];
+const YY_RANKED = ['track','leaderboard','race','podium','distribution','winner','ceremony','duel','momentum','heatmap','riskmap','sharpe','drawdown','leadtime'];
+// (27 Eylül 2026) Finansal sahneler eklenmeden önce kaydedilmiş ayarlara yeni sahneler otomatik eklenir (sv:2).
+const YY_NEW_V2 = ['duel','index','momentum','heatmap','riskmap','sharpe','drawdown','leadtime'];
 function yyHasLive(){ return !!(state.competitionActive || state.resultsPublished || (typeof rankingPool === 'function' && rankingPool().length)); }
 function yySetPrev(mode){
   document.querySelectorAll('#yyPrevMode .toggle-opt').forEach(o => o.classList.toggle('active', o.dataset.src === mode));
@@ -7396,19 +7526,19 @@ const YY_DEF = { scenes: YY_SCENES.filter(x => x.auto).map(x => x.id), sceneSec:
 function yyCfg(){
   const c = state.yayinConfig && typeof state.yayinConfig === 'object' ? state.yayinConfig : {};
   return {
-    scenes: Array.isArray(c.scenes) ? c.scenes.filter(id => YY_SCENES.some(x => x.id === id && x.auto)) : YY_DEF.scenes.slice(),
+    scenes: Array.isArray(c.scenes) ? c.scenes.concat(Number(c.sv) >= 2 ? [] : YY_NEW_V2.filter(id => c.scenes.indexOf(id) < 0)).filter(id => YY_SCENES.some(x => x.id === id && x.auto)) : YY_DEF.scenes.slice(),
     sceneSec: [8,12,15,20,30,45].indexOf(Number(c.sceneSec)) >= 0 ? Number(c.sceneSec) : YY_DEF.sceneSec,
     topN: [5,8,10,12,15,20].indexOf(Number(c.topN)) >= 0 ? Number(c.topN) : YY_DEF.topN,
     effects: c.effects !== false
   };
 }
-function yySave(c){ state.yayinConfig = c; saveShared(); schedulePublicLeaderboard(true); yyRender(); }
+function yySave(c){ c.sv = 2; state.yayinConfig = c; saveShared(); schedulePublicLeaderboard(true); yyRender(); }
 let yyBuilt = false;
 function yyBuild(){
   const sc = document.getElementById('yayinSceneShortcuts'), au = document.getElementById('yyAuto');
   if(!sc || !au) return;
   sc.innerHTML = '<button class="shortcut-btn" data-scene="auto"><span class="ic">▶</span>Otomatik akış</button>' +
-    YY_SCENES.map(x => `<button class="shortcut-btn" data-scene="${x.id}"><span class="ic">${x.i}</span>${escapeHtml(x.t)}</button>`).join('');
+    YY_SCENES.map((x, i) => (x.fin && !(YY_SCENES[i - 1] || {}).fin ? '<div class="yy-grp">Finansal sahneler</div>' : (!x.fin && !x.auto && (YY_SCENES[i - 1] || {}).auto ? '<div class="yy-grp">Sonuç sahneleri</div>' : '')) + `<button class="shortcut-btn" data-scene="${x.id}"><span class="ic">${x.i}</span>${escapeHtml(x.t)}</button>`).join('');
   au.innerHTML = YY_SCENES.filter(x => x.auto).map(x => `<label data-auto="${x.id}"><input type="checkbox" value="${x.id}">${x.i} ${escapeHtml(x.t)}</label>`).join('');
   sc.addEventListener('click', (e) => {
     const b = e.target.closest('[data-scene]');

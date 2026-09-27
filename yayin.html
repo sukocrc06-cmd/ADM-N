@@ -568,6 +568,147 @@ body.idle-demo .demobar:hover{opacity:1}
 .car .nm{flex:0 1 auto;min-width:3.4em;font-size:calc(var(--lh,60px) * .3)}
 .car .pc{font-size:calc(var(--lh,60px) * .25)}
 .car svg{flex:0 0 auto}
+
+/* ── (27 Eylül 2026) Finansal sahneler + geliştirmeler ── */
+.fin-note{margin-top:clamp(6px,1vh,12px);color:var(--dimmer);font-family:var(--f-num);font-size:clamp(11px,1.45vh,15px);text-align:right}
+.dim{color:var(--dimmer)}
+.gold{color:var(--gold)}
+/* canlı sıralama: finansal sütunlar */
+.lbcols{grid-template-columns:clamp(46px,3.4vw,76px) clamp(48px,3.4vw,76px) minmax(0,1fr) clamp(118px,9vw,196px) clamp(100px,7.6vw,160px) clamp(92px,7vw,148px) clamp(78px,6vw,122px) clamp(78px,5.8vw,120px) clamp(74px,5.6vw,116px) clamp(78px,6.6vw,144px)!important;gap:clamp(6px,.75vw,16px)!important}
+.c-pl,.c-c30,.c-dd,.c-gap{text-align:right;font-family:var(--f-num);font-variant-numeric:tabular-nums;white-space:nowrap;font-size:clamp(13px,1.9vh,21px);font-weight:600}
+.c-gap{color:var(--dim)}
+.c-dd .up,.c-gap .gold{font-family:var(--f-disp);letter-spacing:1px;text-transform:uppercase;font-weight:800}
+@media (max-width:760px),(orientation:portrait){
+  .lbcols{grid-template-columns:34px 40px minmax(0,1fr) 84px!important}
+  .lb-head span:nth-child(5),.lb-head span:nth-child(7),.lb-head span:nth-child(8),.lb-head span:nth-child(9),.lb-head span:nth-child(10),.row .c-pl,.row .c-c30,.row .c-dd,.row .c-gap{display:none}
+  .lb-head span:nth-child(6){display:block!important}
+}
+/* yarış pisti: ₺, momentum izi, lider farkı */
+.car .pc small{display:block;font-size:.66em;opacity:.9;margin-top:.18em;text-align:right}
+.ln.mup .ln-trail{box-shadow:0 0 calc(var(--lh,60px) * .3) rgba(25,210,124,.65)}
+.ln.mdn .ln-trail{box-shadow:0 0 calc(var(--lh,60px) * .3) rgba(255,79,95,.65)}
+.ln .mom{position:absolute;left:calc(12px + var(--lh,60px) * .72);top:6%;font:800 calc(var(--lh,60px) * .2)/1 var(--f-num);opacity:0;transition:opacity .4s}
+.ln.mup .mom{opacity:1;color:var(--green)}.ln.mdn .mom{opacity:1;color:var(--red)}
+/* dağılım: ek karolar */
+.ds .tiles{grid-template-columns:1fr 1fr}
+.ds .tile .v{font-size:clamp(22px,3.7vh,46px)}
+.ds .tile .v small{font-size:.5em;color:var(--dim);margin-left:.3em}
+/* podyum: finansal satır */
+.pfin{font-family:var(--f-num);font-size:clamp(11px,1.5vh,17px);color:var(--dim);line-height:1.45}
+.pfin b{font-weight:700}
+/* üst bant endeks */
+.pill.ixp b{color:var(--dim);font-weight:700}
+.pill.ixp span{font-family:var(--f-num);font-weight:700;letter-spacing:0}
+.pill.ixp.up{border-color:rgba(25,210,124,.55);color:var(--green)}.pill.ixp.dn{border-color:rgba(255,79,95,.55);color:var(--red)}
+.pill.ixp em{font-style:normal}.pill.ixp em.up{color:var(--green)}.pill.ixp em.dn{color:var(--red)}.pill.ixp em.flat{color:var(--dim)}
+/* düello */
+.du{flex:1;display:flex;flex-direction:column;min-height:0;gap:clamp(8px,1.4vh,16px)}
+.du-top{display:grid;grid-template-columns:1fr auto 1fr;gap:clamp(12px,2vw,40px);align-items:center}
+.du-card{background:linear-gradient(180deg,var(--panel3),var(--panel));border:1px solid var(--line2);border-top:4px solid var(--gold);padding:clamp(10px,1.8vh,22px) clamp(12px,1.4vw,26px);min-width:0}
+.du-card.b{border-top-color:var(--silver);text-align:right}
+.du-rk{font-family:var(--f-disp);font-weight:800;color:var(--dim);font-size:clamp(16px,2.4vh,28px);letter-spacing:1px}
+.du-nm{font-family:var(--f-disp);font-weight:800;font-size:clamp(28px,5.2vh,64px);line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase;letter-spacing:.5px}
+.du-pc{font-family:var(--f-num);font-weight:700;font-size:clamp(28px,5.4vh,66px);line-height:1.1}
+.du-pl{font-family:var(--f-num);font-weight:600;font-size:clamp(15px,2.3vh,27px)}
+.du-m{color:var(--dim);font-family:var(--f-num);font-size:clamp(12px,1.6vh,18px);margin-top:4px}
+.du-mid{text-align:center}
+.du-vs{font-family:var(--f-disp);font-weight:800;font-size:clamp(34px,7vh,86px);color:var(--amber);line-height:1;text-shadow:0 0 30px rgba(255,171,26,.35)}
+.du-gap{font-family:var(--f-num);font-weight:700;font-size:clamp(26px,4.6vh,56px);line-height:1.1}
+.du-gapk{font-family:var(--f-disp);letter-spacing:2px;text-transform:uppercase;color:var(--dim);font-size:clamp(12px,1.7vh,19px)}
+.du-gaptl{font-family:var(--f-num);color:var(--dim);font-size:clamp(13px,1.8vh,20px)}
+.du-chart{flex:1;min-height:clamp(140px,26vh,420px)}
+.du-chart svg,.ix-chart svg,.rk svg{width:100%;height:100%;display:block}
+.du-note{color:var(--dim);font-size:clamp(14px,2vh,23px);text-align:center}
+.du-note b{color:var(--amber);font-family:var(--f-num)}
+/* endeks */
+.ix{flex:1;display:grid;grid-template-columns:clamp(220px,20vw,380px) minmax(0,1fr);gap:clamp(12px,1.6vw,30px);min-height:0}
+.ix-kpis{display:flex;flex-direction:column;gap:clamp(8px,1.3vh,16px);justify-content:center}
+.ix-kpi{background:var(--panel2);border:1px solid var(--line);border-left:4px solid var(--amber);padding:clamp(8px,1.3vh,16px) clamp(10px,1vw,18px)}
+.ix-kpi .k{font-family:var(--f-disp);font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--dim);font-size:clamp(12px,1.75vh,19px)}
+.ix-kpi .v{font-family:var(--f-num);font-weight:700;font-size:clamp(22px,4vh,48px);line-height:1.15;white-space:nowrap}
+.ix-kpi .s{font-family:var(--f-num);color:var(--dim);font-size:clamp(12px,1.6vh,17px)}
+.ix-chart{min-height:0}
+.ix-last{animation:ixp 1.6s ease-in-out infinite alternate}
+@keyframes ixp{to{filter:brightness(1.6)}}
+/* momentum */
+.mo{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:clamp(14px,2vw,40px);min-height:0}
+.mo-col{display:flex;flex-direction:column;gap:clamp(8px,1.4vh,16px);min-width:0}
+.mo-h{font-family:var(--f-disp);font-weight:800;letter-spacing:2px;text-transform:uppercase;font-size:clamp(20px,3.2vh,38px)}
+.mo-col.up .mo-h{color:var(--green)}.mo-col.dn .mo-h{color:var(--red)}
+.mo-card{background:linear-gradient(90deg,var(--panel3),var(--panel));border:1px solid var(--line2);border-left:6px solid var(--line3);padding:clamp(10px,1.8vh,22px) clamp(12px,1.2vw,22px);min-width:0;animation:moIn .6s ease both}
+.mo-card.up{border-left-color:var(--green)}.mo-card.dn{border-left-color:var(--red)}
+.mo-card:nth-child(2){animation-delay:.12s}.mo-card:nth-child(3){animation-delay:.24s}
+@keyframes moIn{from{opacity:0;transform:translateX(-18px)}}
+.mo-nm{font-family:var(--f-disp);font-weight:800;font-size:clamp(22px,3.8vh,46px);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mo-v{font-family:var(--f-num);font-weight:700;font-size:clamp(26px,4.8vh,58px);line-height:1.1}
+.mo-card.up .mo-v{color:var(--green)}.mo-card.dn .mo-v{color:var(--red)}
+.mo-s{color:var(--dim);font-family:var(--f-num);font-size:clamp(12px,1.7vh,19px)}
+.mo-empty{color:var(--dimmer);font-family:var(--f-num);font-size:clamp(14px,2vh,22px);padding:16px 0}
+/* ısı haritası */
+.hm{position:relative;flex:1;min-height:0}
+.hm-c{position:absolute;border:2px solid var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden;padding:4px;color:#fff;transition:background .8s}
+.hm-nm{font-family:var(--f-disp);font-weight:800;text-transform:uppercase;letter-spacing:.5px;line-height:1.05;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hm-pc{font-family:var(--f-num);font-weight:700;font-size:1.05em;line-height:1.15}
+.hm-pl{font-family:var(--f-num);font-size:.6em;opacity:.9}
+.hm-lg{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:10px;color:var(--dim);font-family:var(--f-num);font-size:clamp(11px,1.5vh,16px)}
+.hm-lg i{width:clamp(160px,22vw,420px);height:12px;border-radius:99px}
+/* risk – getiri */
+.rk{flex:1;min-height:0}
+/* en verimli */
+.sh{flex:1;display:flex;flex-direction:column;justify-content:center;gap:clamp(8px,1.5vh,18px)}
+.sh-row{display:grid;grid-template-columns:clamp(48px,4vw,80px) minmax(0,1.3fr) minmax(0,1fr) clamp(90px,8vw,160px);gap:clamp(10px,1.2vw,24px);align-items:center;background:linear-gradient(90deg,var(--panel3),var(--panel));border:1px solid var(--line2);padding:clamp(8px,1.5vh,18px) clamp(12px,1.2vw,22px);animation:moIn .6s ease both}
+.sh-row.first{border-color:rgba(245,197,66,.6);box-shadow:0 0 34px rgba(245,197,66,.12)}
+.sh-rk{font-family:var(--f-num);font-weight:700;font-size:clamp(24px,4vh,48px);color:var(--dim)}
+.sh-row.first .sh-rk{color:var(--gold)}
+.sh-nm{font-family:var(--f-disp);font-weight:800;font-size:clamp(22px,3.8vh,46px);text-transform:uppercase;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sh-nm small{display:block;font-family:var(--f-num);font-weight:500;text-transform:none;font-size:clamp(11px,1.55vh,17px);color:var(--dim)}
+.sh-bar{height:clamp(12px,2vh,22px);background:var(--panel2);border-radius:99px;overflow:hidden}
+.sh-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#0d7a47,var(--green));transition:width 1s}
+.sh-bar i.dn{background:linear-gradient(90deg,#8a1f2c,var(--red))}
+.sh-v{font-family:var(--f-num);font-weight:700;font-size:clamp(26px,4.6vh,56px);text-align:right}
+/* sağlam portföy */
+.dd{flex:1;display:flex;flex-direction:column;gap:clamp(10px,1.8vh,22px);min-height:0}
+.dd-top{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:clamp(10px,1.4vw,28px)}
+.dd-card{background:linear-gradient(180deg,var(--panel3),var(--panel));border:1px solid var(--line2);border-top:4px solid var(--blue);padding:clamp(10px,1.6vh,20px) clamp(12px,1.2vw,22px);min-width:0}
+.dd-card.first{border-top-color:var(--gold)}
+.dd-k{font-family:var(--f-disp);font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--dim);font-size:clamp(12px,1.75vh,19px)}
+.dd-nm{font-family:var(--f-disp);font-weight:800;text-transform:uppercase;font-size:clamp(22px,3.8vh,46px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dd-v{font-family:var(--f-num);font-weight:700;font-size:clamp(17px,2.8vh,34px);color:var(--blue)}
+.dd-card.first .dd-v{color:var(--gold)}
+.dd-s{font-family:var(--f-num);color:var(--dim);font-size:clamp(12px,1.6vh,18px)}
+.dd-grid{flex:1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:1fr;gap:clamp(8px,1vw,16px);min-height:0}
+.dd-mini{background:var(--panel2);border:1px solid var(--line);padding:clamp(6px,1vh,12px) clamp(8px,.8vw,14px);display:flex;flex-direction:column;min-height:0;min-width:0}
+.dd-mh{display:flex;flex-direction:column;gap:2px;font-size:clamp(12px,1.65vh,18px)}
+.dd-mh b{font-family:var(--f-disp);font-weight:800;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dd-mh span{font-family:var(--f-num);color:var(--dim);font-size:.9em}
+.dd-uw{flex:1;min-height:30px;margin-top:6px}
+.dd-uw svg{width:100%;height:100%;display:block}
+/* liderlik zaman çizelgesi */
+.lt{flex:1;display:flex;flex-direction:column;gap:clamp(8px,1.4vh,16px);min-height:0}
+.lt-bar{position:relative;height:clamp(40px,7vh,84px);background:var(--panel2);border:1px solid var(--line2);overflow:hidden;border-radius:6px}
+.lt-bar i{position:absolute;top:0;bottom:0;box-shadow:inset -1px 0 0 rgba(0,0,0,.45)}
+.lt-ax{position:relative;height:clamp(16px,2.2vh,24px);color:var(--dim);font-family:var(--f-num);font-size:clamp(11px,1.5vh,16px)}
+.lt-ax span{position:absolute;transform:translateX(-50%);white-space:nowrap}
+.lt-ax span:first-child{transform:none}.lt-ax span:last-child{transform:translateX(-100%)}
+.lt-list{flex:1;display:flex;flex-direction:column;justify-content:center;gap:clamp(6px,1.1vh,14px);min-height:0}
+.lt-row{display:grid;grid-template-columns:18px minmax(0,1fr) minmax(0,1.4fr) clamp(150px,13vw,260px);gap:clamp(10px,1vw,18px);align-items:center}
+.lt-row>i{width:18px;height:18px;border-radius:4px}
+.lt-row b{font-family:var(--f-disp);font-weight:800;text-transform:uppercase;font-size:clamp(18px,2.9vh,34px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lt-now{font-family:var(--f-num);font-size:.5em;color:var(--gold);border:1px solid rgba(245,197,66,.6);padding:1px 6px;border-radius:3px;vertical-align:.3em;letter-spacing:0}
+.lt-bar2{height:clamp(10px,1.7vh,18px);background:var(--panel2);border-radius:99px;overflow:hidden}
+.lt-bar2 em{display:block;height:100%;border-radius:99px}
+.lt-v{font-family:var(--f-num);font-weight:600;text-align:right;font-size:clamp(14px,2.1vh,24px)}
+@media (max-width:760px),(orientation:portrait){
+  .du-top,.mo,.ix,.dd-top{grid-template-columns:minmax(0,1fr)}
+  .du-card.b{text-align:left}
+  .dd-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .du-chart,.ix-chart,.rk,.hm{height:320px;flex:none}
+  .sh-row{grid-template-columns:40px minmax(0,1fr) 70px}.sh-bar{display:none}
+  .lt-row{grid-template-columns:14px minmax(0,1fr) 110px}.lt-bar2{display:none}
+}
+.du-chart .ax,.ix-chart .ax,.rk .ax{font-family:var(--f-num);fill:var(--dim)}
+.ix-kpi .v.sm{font-size:clamp(17px,2.9vh,34px)}
+.lt-list{justify-content:flex-start!important;margin-top:clamp(10px,3vh,40px)}
 </style>
 </head>
 <body>
@@ -584,6 +725,7 @@ body.idle-demo .demobar:hover{opacity:1}
       <span class="pill" id="statusChip">Bağlanıyor…</span>
       <span class="pill redo conn" id="connPill"></span>
       <span class="pill cd" id="cdPill"><b id="cdK">Seans</b><span id="cdV">—</span></span>
+      <span class="pill ixp" id="ixChip" style="display:none"></span>
       <span class="pill demo">Demo veri</span>
     </div>
     <div class="clockbox">
@@ -608,7 +750,7 @@ body.idle-demo .demobar:hover{opacity:1}
       <main class="stage" id="stage">
         <section class="scene" data-scene="leaderboard">
           <div class="scene-title"><h2>Canlı Sıralama</h2><span class="sub" id="lbSub"></span></div>
-          <div class="lb-head lbcols"><span>Sıra</span><span>Δ</span><span>Yarışmacı</span><span>Portföy</span><span>Getiri</span><span>Trend</span></div>
+          <div class="lb-head lbcols"><span>Sıra</span><span>Δ</span><span>Yarışmacı</span><span>Portföy</span><span>K/Z ₺</span><span>Getiri</span><span>30 dk</span><span>Düşüş</span><span>Lidere</span><span>Trend</span></div>
           <div class="lb" id="lb"></div>
         </section>
 
@@ -683,6 +825,10 @@ body.idle-demo .demobar:hover{opacity:1}
                 <div class="tile"><div class="k">Yarışmacı</div><div class="v" id="dsCnt">—</div></div>
                 <div class="tile"><div class="k">En iyi getiri</div><div class="v" id="dsBest">—</div></div>
                 <div class="tile"><div class="k">En kötü getiri</div><div class="v" id="dsWorst">—</div></div>
+                <div class="tile"><div class="k">Medyan getiri</div><div class="v" id="dsMed">—</div></div>
+                <div class="tile"><div class="k">Yayılım (std. sapma)</div><div class="v" id="dsStd">—</div></div>
+                <div class="tile"><div class="k">Toplam sanal servet</div><div class="v" id="dsTot">—</div></div>
+                <div class="tile"><div class="k">Kârdakilerin oranı</div><div class="v" id="dsShare">—</div></div>
               </div>
             </div>
             <div class="ds-right"><div class="h">Getiri dağılımı · yarışmacı sayısı</div><div class="chart" id="dsHist"></div></div>
@@ -699,6 +845,45 @@ body.idle-demo .demobar:hover{opacity:1}
         <section class="scene" data-scene="race">
           <div class="scene-title"><h2>Çubuk Yarışı · İlk 5</h2><span class="sub" id="raceSub"></span></div>
           <div class="race"><div class="race-box" id="raceBox"></div><div class="race-foot"><span id="raceLbl"></span><div class="race-prog"><i id="raceProg"></i></div></div></div>
+        </section>
+
+        <section class="scene" data-scene="duel">
+          <div class="scene-title"><h2>Düello</h2><span class="sub" id="duSub"></span></div>
+          <div class="du">
+            <div class="du-top"><div class="du-card a" id="duA"></div><div class="du-mid" id="duMid"></div><div class="du-card b" id="duB"></div></div>
+            <div class="du-chart" id="duChart"></div>
+            <div class="du-note" id="duNote"></div>
+          </div>
+        </section>
+        <section class="scene" data-scene="index">
+          <div class="scene-title"><h2>FinTeLig Endeksi</h2><span class="sub">Tüm yarışmacıların ortalama getirisi · saatlik mumlar (açılış, en yüksek, en düşük, kapanış)</span></div>
+          <div class="ix"><div class="ix-kpis" id="ixK"></div><div class="ix-chart" id="ixChart"></div></div>
+        </section>
+        <section class="scene" data-scene="momentum">
+          <div class="scene-title"><h2>Momentum</h2><span class="sub">Son 30 dakikada portföy değeri en çok değişenler</span></div>
+          <div class="mo"><div class="mo-col up"><div class="mo-h">▲ Yükselenler</div><div id="moUp"></div></div><div class="mo-col dn"><div class="mo-h">▼ Düşenler</div><div id="moDn"></div></div></div>
+        </section>
+        <section class="scene" data-scene="heatmap">
+          <div class="scene-title"><h2>Portföy Isı Haritası</h2><span class="sub" id="hmSub"></span></div>
+          <div class="hm" id="hm"></div>
+          <div class="hm-lg" id="hmLg"></div>
+        </section>
+        <section class="scene" data-scene="riskmap">
+          <div class="scene-title"><h2>Risk – Getiri Haritası</h2><span class="sub">Yukarı: daha çok getiri · Sağa: daha çok oynaklık (risk)</span></div>
+          <div class="rk" id="rk"></div>
+        </section>
+        <section class="scene" data-scene="sharpe">
+          <div class="scene-title"><h2>En Verimli Yatırımcı</h2><span class="sub">Getiri ÷ risk (oynaklık): aldığı riske göre en çok kazananlar</span></div>
+          <div class="sh" id="sh"></div>
+          <div class="fin-note">Gösterim amaçlıdır · Resmi sıralama portföy getirisine göredir (kural 9)</div>
+        </section>
+        <section class="scene" data-scene="drawdown">
+          <div class="scene-title"><h2>Sağlam Portföy</h2><span class="sub">Maksimum düşüş: portföyün zirvesinden gördüğü en büyük kayıp</span></div>
+          <div class="dd"><div class="dd-top" id="ddTop"></div><div class="dd-grid" id="ddGrid"></div></div>
+        </section>
+        <section class="scene" data-scene="leadtime">
+          <div class="scene-title"><h2>Liderlik Zaman Çizelgesi</h2><span class="sub" id="ltSub"></span></div>
+          <div class="lt"><div class="lt-bar" id="ltBar"></div><div class="lt-ax" id="ltAx"></div><div class="lt-list" id="ltList"></div></div>
         </section>
 
         <section class="scene" data-scene="review">
@@ -826,6 +1011,86 @@ function fmtRemain(ms){
   const s = Math.floor(ms / 1000), d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
   return (d > 0 ? d + ' gün ' : '') + pad(h) + ':' + pad(m) + ':' + pad(sec);
 }
+
+/* FINM — FinTeLig finansal metrikleri (27 Eylül 2026). Admin paneli (yayın belgesini üretirken)
+   ve yayin.html (demo veride) AYNI kodu kullanır. Girdi: örnek zamanları (ms) ve aynı hizadaki
+   portföy değerleri (eksik örnek = null). Yalnızca portföy DEĞERİNDEN türetilir — pozisyon/işlem
+   bilgisi kullanılmaz ve üretilmez (kural 4.9). */
+var FINM = (function(){
+  var H = 3600e3;
+  function r2(x){ return Math.round(x * 100) / 100; }
+  function ok(x){ return typeof x === 'number' && isFinite(x) && x > 0; }
+  // Kişi metrikleri: son 30 dk değişim, zirveden düşüş, maksimum düşüş, oynaklık (saatlik), getiri/risk
+  function person(t, v, start, now){
+    var idx = [];
+    for (var i = 0; i < v.length && i < t.length; i++) if (ok(v[i])) idx.push(i);
+    if (!idx.length) return null;
+    var last = idx[idx.length - 1], cur = v[last];
+    var base0 = ok(start) ? start : v[idx[0]];
+    var cut = (now || t[last]) - 30 * 60e3, base = v[idx[0]];
+    for (var a = 0; a < idx.length; a++) { if (t[idx[a]] <= cut) base = v[idx[a]]; else break; }
+    var peak = base0, mdd = 0;
+    for (var b = 0; b < idx.length; b++) { var x = v[idx[b]]; if (x > peak) peak = x; var d = (x / peak - 1) * 100; if (d < mdd) mdd = d; }
+    var z = [];
+    for (var k = 1; k < idx.length; k++) {
+      var p0 = v[idx[k - 1]], p1 = v[idx[k]], dt = (t[idx[k]] - t[idx[k - 1]]) / 60e3;
+      if (dt > 0) z.push(Math.log(p1 / p0) / Math.sqrt(dt));
+    }
+    var vol = null;
+    if (z.length >= 5) {
+      var m = 0; z.forEach(function(q){ m += q; }); m /= z.length;
+      var s2 = 0; z.forEach(function(q){ s2 += (q - m) * (q - m); }); s2 /= (z.length - 1);
+      vol = Math.sqrt(s2) * Math.sqrt(60) * 100;
+    }
+    var pct = (cur / base0 - 1) * 100;
+    return { c30: (cur / base - 1) * 100, dd: (cur / peak - 1) * 100, mdd: mdd, vol: vol, rr: vol != null && vol >= 0.01 ? pct / vol : null, pct: pct, peak: peak };
+  }
+  // En fazla n noktaya eşit aralıkla seyreltilmiş değerler (grafikler için)
+  function spark(v, n){
+    var a = v.filter(ok);
+    if (a.length <= n) return a.map(function(x){ return Math.round(x); });
+    var out = [];
+    for (var i = 0; i < n; i++) out.push(Math.round(a[Math.round(i * (a.length - 1) / (n - 1))]));
+    return out;
+  }
+  // FinTeLig Endeksi: ortalama getiriden saatlik mumlar [t, açılış, en yüksek, en düşük, kapanış]
+  function candles(t, avg){
+    var out = [];
+    for (var i = 0; i < t.length; i++) {
+      var x = avg[i]; if (typeof x !== 'number' || !isFinite(x)) continue;
+      var key = Math.floor((t[i] + 3 * H) / H), c = out[out.length - 1];
+      if (!c || c.k !== key) out.push({ k: key, t: key * H - 3 * H, o: x, h: x, l: x, c: x });
+      else { if (x > c.h) c.h = x; if (x < c.l) c.l = x; c.c = x; }
+    }
+    var f = [];
+    out.forEach(function(c){ var p = f[f.length - 1]; if (p && c.o === c.h && c.h === c.l && c.l === c.c && c.c === p.c) return; f.push(c); }); // hareketsiz (seans dışı) saatler
+    return f.slice(-60).map(function(c){ return [c.t, r2(c.o), r2(c.h), r2(c.l), r2(c.c)]; });
+  }
+  // Liderlik: kim ne zaman lider, kaç kez değişti, kişi başı liderlik süresi (dk)
+  function leadSegs(t, lead, names, now){
+    var seg = [];
+    for (var i = 0; i < lead.length && i < t.length; i++) {
+      var id = lead[i]; if (id == null) continue;
+      var end = i + 1 < t.length ? t[i + 1] : Math.max(t[i], now || t[i]);
+      var s = seg[seg.length - 1];
+      if (s && s.id === id && s.b >= t[i] - 1) s.b = end; else seg.push({ id: id, a: t[i], b: end });
+    }
+    var mins = {};
+    seg.forEach(function(s){ mins[s.id] = (mins[s.id] || 0) + (s.b - s.a) / 60e3; });
+    Object.keys(mins).forEach(function(k){ mins[k] = Math.round(mins[k]); });
+    return { seg: seg.slice(-80).map(function(s){ return [String(names[s.id] || s.id), s.a, s.b]; }), changes: Math.max(0, seg.length - 1), mins: mins };
+  }
+  // Düello: iki kişinin getiri (%) çizgileri, ortak zaman ekseninde en fazla n nokta
+  function duel(t, va, vb, start, n){
+    var ix = [];
+    for (var i = 0; i < t.length; i++) if (ok(va[i]) && ok(vb[i])) ix.push(i);
+    if (ix.length > n) { var o = []; for (var j = 0; j < n; j++) o.push(ix[Math.round(j * (ix.length - 1) / (n - 1))]); ix = o; }
+    return { t: ix.map(function(i){ return t[i]; }), a: ix.map(function(i){ return r2((va[i] / start - 1) * 100); }), b: ix.map(function(i){ return r2((vb[i] / start - 1) * 100); }) };
+  }
+  function median(a){ if (!a.length) return 0; var s = a.slice().sort(function(x, y){ return x - y; }), m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }
+  function std(a){ if (a.length < 2) return 0; var m = 0; a.forEach(function(x){ m += x; }); m /= a.length; var s = 0; a.forEach(function(x){ s += (x - m) * (x - m); }); return Math.sqrt(s / (a.length - 1)); }
+  return { person: person, spark: spark, candles: candles, leadSegs: leadSegs, duel: duel, median: median, std: std, r2: r2 };
+})();
 
 /* ── durum ────────────────────────────────────────────────────────── */
 let data = null;            // son okunan public_leaderboard
@@ -966,6 +1231,7 @@ function updateChips(){
   else txt = 'Yarışma başlamadı';
   if (st.textContent !== txt) { st.textContent = txt; st.className = 'pill ' + c; }
   $('liveBadge').classList.toggle('on', ph === 'active');
+  renderIdxChip();
 }
 
 /* ── olaylar: son dakika bandı ────────────────────────────────────── */
@@ -1167,13 +1433,14 @@ function renderLeaderboard(){
   $('lbSub').textContent = rows.length + ' yarışmacı' + (pages > 1 ? ' · sayfa ' + (lbPage + 1) + '/' + pages : '') + (data.competitionActive ? ' · canlı' : data.resultsPublished ? ' · kesin sonuç' : '');
   const rowH = isNarrow() ? 56 : ((lb.clientHeight / PAGE_SIZE) || 56);
   const seen = new Set();
+  const st0 = startBal(), lead0 = rowsOk()[0];
   visible.forEach((r, i) => {
     let key = r.name || ('#' + i); while (seen.has(key)) key += '·'; seen.add(key);
     let o = rowEls.get(key);
     const isNew = !o;
     if (isNew) {
       const el = document.createElement('div');
-      el.innerHTML = '<div class="c-rank"></div><div class="c-delta"></div><div class="c-name"></div><div class="c-eq"></div><div class="c-pct"><span></span></div><div class="c-spark"></div>';
+      el.innerHTML = '<div class="c-rank"></div><div class="c-delta"></div><div class="c-name"></div><div class="c-eq"></div><div class="c-pl"></div><div class="c-pct"><span></span></div><div class="c-c30"></div><div class="c-dd"></div><div class="c-gap"></div><div class="c-spark"></div>';
       el.style.transform = 'translateY(' + (rowH * PAGE_SIZE) + 'px)'; el.style.opacity = '0';
       lb.appendChild(el);
       o = { el, eq: r.equity, pct: r.pct, sk: '' };
@@ -1188,6 +1455,11 @@ function renderLeaderboard(){
     const pctEl = el.querySelector('.c-pct'), eqEl = el.querySelector('.c-eq');
     pctEl.firstChild.textContent = fmtPct(r.pct);
     pctEl.firstChild.className = cls(r.pct);
+    // (27 Eylül 2026) finansal sütunlar: ₺ kâr/zarar, son 30 dk, zirveden düşüş, lidere fark
+    el.querySelector('.c-pl').innerHTML = '<span class="' + cls(r.pct) + '">' + fmtPL(r.equity - st0) + '</span>';
+    el.querySelector('.c-c30').innerHTML = isNum(r.c30) ? '<span class="' + cls(r.c30) + '">' + arrow(r.c30) + fmtAbs(r.c30) + '</span>' : '<span class="flat">–</span>';
+    el.querySelector('.c-dd').innerHTML = isNum(r.dd) ? (r.dd > -0.005 ? '<span class="up">zirve</span>' : '<span class="dn">' + fmtPct(r.dd) + '</span>') : '<span class="flat">–</span>';
+    el.querySelector('.c-gap').innerHTML = r.dq ? '<span class="flat">–</span>' : (lead0 && r.name !== lead0.name ? '−' + fmtAbs(lead0.pct - r.pct) : '<span class="gold">lider</span>');
     if (!isNew) {
       if (o.eq !== r.equity) { animateNumber(eqEl, o.eq, r.equity); flash(eqEl, r.equity > o.eq); }
       if (o.pct !== r.pct) flash(pctEl, r.pct > o.pct);
@@ -1206,7 +1478,7 @@ function renderPodium(){
   const rows = rowsOk(), pod = $('podium');
   if (!rows.length) { pod.innerHTML = '<div class="empty" style="grid-column:1/-1"><div><b>Henüz ilk üç yok</b>Yarışma başladığında burada görünecek.</div></div>'; return; }
   const slot = (r, n) => r
-    ? '<div class="pcol p' + n + '">' + (n === 1 ? '<div class="pcrown">' + IC.crown + '</div>' : '') + '<div class="pname">' + esc(r.name) + '</div><div class="ppct ' + cls(r.pct) + '">' + fmtPct(r.pct) + '</div><div class="peq">' + fmtTL(r.equity) + '</div><div class="pspark">' + sparkSvg(sparkFor(r), 200, 44) + '</div><div class="pblock">' + n + '</div></div>'
+    ? '<div class="pcol p' + n + '">' + (n === 1 ? '<div class="pcrown">' + IC.crown + '</div>' : '') + '<div class="pname">' + esc(r.name) + '</div><div class="ppct ' + cls(r.pct) + '">' + fmtPct(r.pct) + '</div><div class="peq">' + fmtTL(r.equity) + '</div><div class="pfin"><b class="' + cls(r.pct) + '">' + fmtPL(r.equity - startBal()) + '</b>' + (isNum(r.mdd) ? '<br>Maks. düşüş ' + fmtPct(r.mdd) : '') + (isNum(r.vol) ? ' · Oynaklık ' + fmtVol(r.vol) : '') + '</div><div class="pspark">' + sparkSvg(sparkFor(r), 200, 44) + '</div><div class="pblock">' + n + '</div></div>'
     : '<div class="pcol p' + n + '"><div class="pname" style="color:var(--dimmer)">—</div><div class="pblock">' + n + '</div></div>';
   pod.innerHTML = slot(rows[1], 2) + slot(rows[0], 1) + slot(rows[2], 3);
   $('podSub').textContent = data.competitionActive ? 'Canlı — değişebilir' : (data.resultsPublished ? 'Kesin sonuç' + (data.weekLabel ? ' · ' + data.weekLabel : '') : '');
@@ -1411,7 +1683,7 @@ function renderVsMarket(){
 function renderDistribution(){
   const st = stats();
   const g = (id, v) => { $(id).innerHTML = v; };
-  if (!st) { ['dsPos','dsNeg','dsAvg','dsCnt','dsBest','dsWorst'].forEach(id => g(id, '—')); $('dsHist').innerHTML = ''; return; }
+  if (!st) { ['dsPos','dsNeg','dsAvg','dsCnt','dsBest','dsWorst','dsMed','dsStd','dsTot','dsShare'].forEach(id => g(id, '—')); $('dsHist').innerHTML = ''; return; }
   g('dsPos', String(st.profitable)); g('dsNeg', String(st.losing)); g('dsCnt', String(st.count));
   g('dsAvg', '<span class="' + cls(st.avgPct) + '">' + fmtPct(st.avgPct) + '</span>');
   g('dsBest', '<span class="' + cls(st.bestPct) + '">' + fmtPct(st.bestPct) + '</span>');
@@ -1424,7 +1696,7 @@ function renderDistribution(){
   const cnt = new Array(8).fill(0);
   rowsOk().forEach(r => { const p = Number(r.pct) || 0; for (let i = 0; i < 8; i++) if (p >= edges[i] && p < edges[i + 1]) { cnt[i]++; break; } });
   const box = $('dsHist'), W = box.clientWidth || 360, H = box.clientHeight || 240;
-  const B = 40, T = 30, bw = (W - 24) / 8, mx = Math.max(1, ...cnt), fs = Math.max(11, Math.min(17, H / 26));
+  const B = 40, T = 30 + Math.max(11, Math.min(17, H / 26)) * 1.6, bw = (W - 24) / 8, mx = Math.max(1, ...cnt), fs = Math.max(11, Math.min(17, H / 26));
   let s = '<svg viewBox="0 0 ' + W + ' ' + H + '"><line x1="12" x2="' + (W - 12) + '" y1="' + (H - B) + '" y2="' + (H - B) + '" stroke="#34435c"/>';
   cnt.forEach((c, i) => {
     const bh = c / mx * (H - B - T), x = 12 + i * bw + bw * 0.14, y = H - B - bh, col = i < 4 ? '#ff4f5f' : '#19d27c';
@@ -1433,7 +1705,21 @@ function renderDistribution(){
     const fl = Math.max(9, Math.min(fs, bw / 5.4));
     s += '<text class="ax" x="' + (x + bw * 0.36).toFixed(1) + '" y="' + (H - B + fl + 8) + '" text-anchor="middle" font-size="' + fl.toFixed(1) + '">' + labels[i] + '</text>';
   });
+  const pxOf = (p) => { for (let i = 0; i < 8; i++) if (p >= edges[i] && p < edges[i + 1]) { const lo = edges[i], hi = edges[i + 1], f = isFinite(lo) && isFinite(hi) ? (p - lo) / (hi - lo) : 0.5; return 12 + i * bw + bw * 0.14 + f * bw * 0.72; } return 12; };
+  const okp = rowsOk().map(r => Number(r.pct) || 0), med = isNum(data.stats && data.stats.median) ? data.stats.median : FINM.median(okp);
+  const xa = pxOf(st.avgPct), xm = pxOf(med), aRight = xa >= xm;
+  [[st.avgPct, xa, 'ort.', '#ffab1a', aRight], [med, xm, 'medyan', '#43a6ff', !aRight]].forEach(([v, xx, t, c, right]) => {
+    const x = xx.toFixed(1);
+    s += '<line x1="' + x + '" x2="' + x + '" y1="' + (fs * 1.3).toFixed(1) + '" y2="' + (H - B) + '" stroke="' + c + '" stroke-width="2.5" stroke-dasharray="6 5"/>';
+    s += '<text x="' + (xx + (right ? 6 : -6)).toFixed(1) + '" y="' + (fs + 2).toFixed(1) + '" text-anchor="' + (right ? 'start' : 'end') + '" font-family="IBM Plex Mono,monospace" font-weight="700" font-size="' + fs.toFixed(0) + '" fill="' + c + '">' + t + ' ' + fmtPct(v) + '</text>';
+  });
   box.innerHTML = s + '</svg>';
+  const sd = isNum(data.stats && data.stats.std) ? data.stats.std : FINM.std(okp);
+  const tot = isNum(data.stats && data.stats.total) ? data.stats.total : rowsOk().reduce((a, r) => a + (Number(r.equity) || 0), 0);
+  g('dsMed', '<span class="' + cls(med) + '">' + fmtPct(med) + '</span>');
+  g('dsStd', '±' + fmtAbs(sd) + '<small>puan</small>');
+  g('dsTot', fmtN(Math.round(tot / 1000)) + '<small>bin ₺</small>');
+  g('dsShare', '%' + Math.round(st.profitable / Math.max(1, st.count) * 100));
 }
 
 /* ── çubuk yarışı ─────────────────────────────────────────────────── */
@@ -1509,6 +1795,7 @@ function trackRender(frame, fi, total, live){
   const box = $('trk'); if (!box) return;
   const W = box.clientWidth || 1200, H = box.clientHeight || 600;
   const start = (data && data.startBalance) || 100000;
+  const rowBy = new Map(rowsOk().map(r => [r.name, r]));
   const all = frame.filter(f => isNum(f.eq)).map(f => ({ name: f.name, eq: f.eq, pct: (f.eq / start - 1) * 100 })).sort((a, b) => b.pct - a.pct);
   const N = Math.min(topN(), all.length), list = all.slice(0, N);
   const lh = Math.max(34, Math.min(Math.floor(H / Math.max(N, 1)), Math.floor(H / 4), 104));
@@ -1534,7 +1821,7 @@ function trackRender(frame, fi, total, live){
     let o = trk.els.get(f.name);
     if (!o) {
       const el = document.createElement('div'); el.className = 'ln';
-      el.innerHTML = '<div class="ln-rank"></div><div class="ln-trail"></div><div class="car"><span class="nm"></span><span class="pc"></span>' + CAR_SVG + '</div><div class="bump"></div>';
+      el.innerHTML = '<div class="ln-rank"></div><div class="ln-trail"></div><span class="mom"></span><div class="car"><span class="nm"></span><span class="pc"></span>' + CAR_SVG + '</div><div class="bump"></div>';
       el.style.transform = 'translateY(' + (i * lh) + 'px)'; el.style.opacity = '0';
       el.querySelector('.car').style.left = zx + 'px';
       box.appendChild(el); o = { el, x: zx, mv: null }; trk.els.set(f.name, o);
@@ -1543,7 +1830,10 @@ function trackRender(frame, fi, total, live){
     const el = o.el, x = X(f.pct);
     el.className = 'ln' + (i < 3 ? ' k' + (i + 1) : '') + (el.classList.contains('moving') ? ' moving' : '');
     el.querySelector('.ln-rank').textContent = String(i + 1);
-    const pcEl = el.querySelector('.pc'); pcEl.textContent = fmtPct(f.pct); pcEl.className = 'pc ' + cls(f.pct);
+    const pcEl = el.querySelector('.pc'); pcEl.innerHTML = fmtPct(f.pct) + '<small>' + fmtPL(f.eq - start) + '</small>'; pcEl.className = 'pc ' + cls(f.pct);
+    const rw = rowBy.get(f.name), mo = el.querySelector('.mom');
+    if (live && rw && isNum(rw.c30) && Math.abs(rw.c30) >= 0.05) { el.classList.add(rw.c30 > 0 ? 'mup' : 'mdn'); if (mo) mo.textContent = (rw.c30 > 0 ? '▲ ' : '▼ ') + fmtAbs(rw.c30) + ' · 30 dk'; }
+    else if (mo) mo.textContent = '';
     const tr = el.querySelector('.ln-trail');
     tr.className = 'ln-trail' + (f.pct < 0 ? ' neg' : '');
     tr.style.left = Math.min(zx, x) + 'px'; tr.style.width = Math.abs(x - zx) + 'px';
@@ -1562,7 +1852,7 @@ function trackRender(frame, fi, total, live){
   });
   trk.els.forEach((o, name) => { if (!keep.has(name)) { o.el.style.opacity = '0'; o.el.style.transform = 'translateY(' + (N * lh) + 'px)'; } });
   trk.prev = new Map(list.map((f, i) => [f.name, i + 1]));
-  $('trkLbl').textContent = total > 1 && fi < total - 1 ? 'Yarışın tekrarı · ölçüm ' + (fi + 1) + ' / ' + total : 'Şimdi · ilk ' + N + ' yarışmacı';
+  $('trkLbl').innerHTML = total > 1 && fi < total - 1 ? 'Yarışın tekrarı · ölçüm ' + (fi + 1) + ' / ' + total : 'Şimdi · ilk ' + N + ' yarışmacı' + (list.length >= 2 ? ' · <b class="gold">Lider farkı ' + fmtAbs(list[0].pct - list[1].pct) + ' puan</b>' : '');
 }
 function renderTrack(replay){
   clearInterval(trk.timer);
@@ -1672,11 +1962,263 @@ function checkCeremony(prev){
 }
 
 /* ── sahne akışı ──────────────────────────────────────────────────── */
-const DUR = { track: 22000, leaderboard: 24000, race: 16000, podium: 11000, countdown: 10000, distribution: 13000, finalists: 11000, info: 10000, winner: 15000, review: 20000, ceremony: 60000 };
-const RANKED = new Set(['track', 'leaderboard', 'podium', 'winner', 'race', 'distribution', 'ceremony']);
-const DEF_AUTO = ['track', 'leaderboard', 'race', 'podium', 'distribution', 'countdown', 'finalists', 'info'];
+/* ── (27 Eylül 2026) FİNANSAL SAHNELER ─────────────────────────────────
+   Düello, FinTeLig Endeksi, Momentum, Isı Haritası, Risk–Getiri, En Verimli,
+   Sağlam Portföy, Liderlik Süresi. Hepsi yalnızca isim + portföy değeri/getiri ve
+   bunlardan türetilen metrikleri kullanır (kural 4.9: pozisyon/işlem yok). */
+const startBal = () => (data && data.startBalance) || 100000;
+const fmtPL = (n) => { const v = Math.round(Number(n) || 0); return (v > 0 ? '+' : v < 0 ? '−' : '') + fmtN(Math.abs(v)) + ' ₺'; };
+const fmtAbs = (p) => Math.abs(Number(p) || 0).toFixed(2).replace('.', ',');
+const fmtVol = (v) => isNum(v) ? (Number(v) === 0 ? '0' : (Number(v) < 0.1 ? Number(v).toFixed(3) : Number(v).toFixed(2)).replace('.', ',') + '%') : '—';
+const arrow = (p) => p > 0.0049 ? '▲ ' : p < -0.0049 ? '▼ ' : '';
+function emptyHtml(t, s){ return '<div class="empty"><div><b>' + esc(t) + '</b>' + esc(s || '') + '</div></div>'; }
+function boxWH(el, dw, dh){ return [el.clientWidth || dw, el.clientHeight || dh]; }
+function heatColor(p){
+  const t = Math.max(-1, Math.min(1, (Number(p) || 0) / 4));
+  const mix = (a, b, k) => a.map((x, i) => Math.round(x + (b[i] - x) * k));
+  const c = t >= 0 ? mix([30, 40, 54], [10, 150, 85], t) : mix([30, 40, 54], [190, 40, 58], -t);
+  return 'rgb(' + c.join(',') + ')';
+}
+function finHas(name){
+  const rows = rowsOk();
+  switch (name) {
+    case 'index': return !!(data && Array.isArray(data.idx) && data.idx.length >= 2);
+    case 'duel': case 'heatmap': return rows.length >= 2;
+    case 'momentum': return rows.some(r => isNum(r.c30) && Math.abs(r.c30) >= 0.005);
+    case 'riskmap': return rows.filter(r => isNum(r.vol)).length >= 2;
+    case 'sharpe': return rows.filter(r => isNum(r.rr)).length >= 2;
+    case 'drawdown': return rows.some(r => isNum(r.mdd));
+    case 'leadtime': return !!(data && data.lead && Array.isArray(data.lead.seg) && data.lead.seg.length);
+    default: return true;
+  }
+}
+
+/* Düello: lider ile ikinci */
+function renderDuel(){
+  const rows = rowsOk(), st = startBal();
+  if (rows.length < 2) { $('duA').innerHTML = ''; $('duB').innerHTML = ''; $('duMid').innerHTML = ''; $('duNote').innerHTML = ''; $('duChart').innerHTML = emptyHtml('Düello için en az iki yarışmacı gerekli', ''); return; }
+  const a = rows[0], b = rows[1];
+  const card = (r, n) => '<div class="du-rk">' + n + '.</div><div class="du-nm">' + esc(r.name) + '</div><div class="du-pc ' + cls(r.pct) + '">' + fmtPct(r.pct) + '</div><div class="du-pl ' + cls(r.pct) + '">' + fmtPL(r.equity - st) + '</div>' +
+    '<div class="du-m">' + (isNum(r.vol) ? 'Oynaklık ' + fmtVol(r.vol) : '') + (isNum(r.mdd) ? (isNum(r.vol) ? ' · ' : '') + 'Maks. düşüş ' + fmtPct(r.mdd) : '') + '</div>';
+  $('duA').innerHTML = card(a, 1); $('duB').innerHTML = card(b, 2);
+  const need = (a.equity / b.equity - 1) * 100;
+  $('duMid').innerHTML = '<div class="du-vs">VS</div><div class="du-gap">' + fmtAbs(a.pct - b.pct) + '</div><div class="du-gapk">puan fark</div><div class="du-gaptl">' + fmtTL(Math.abs(a.equity - b.equity)) + '</div>';
+  $('duNote').innerHTML = esc(b.name) + ' liderliği almak için <b>' + fmtPct(need) + '</b> daha getiri sağlamalı' + (isNum(a.c30) && isNum(b.c30) ? ' · son 30 dk: ' + esc(a.name) + ' <span class="' + cls(a.c30) + '">' + fmtPct(a.c30) + '</span>, ' + esc(b.name) + ' <span class="' + cls(b.c30) + '">' + fmtPct(b.c30) + '</span>' : '');
+  $('duSub').textContent = 'Lider ile ikinci arasındaki fark';
+  const box = $('duChart'), [W, H] = boxWH(box, 900, 320);
+  const d = data && data.duel;
+  let la, lb;
+  if (d && Array.isArray(d.t) && d.t.length >= 2) { la = d.t.map((t, i) => [t, d.a[i]]); lb = d.t.map((t, i) => [t, d.b[i]]); }
+  else {
+    const sa = sparkFor(a), sb = sparkFor(b);
+    if (!sa || !sb) { box.innerHTML = ''; return; }
+    const n = Math.min(sa.length, sb.length), now = Date.now();
+    la = sa.slice(-n).map((v, i) => [now - (n - 1 - i) * 60e3, (v / st - 1) * 100]); lb = sb.slice(-n).map((v, i) => [now - (n - 1 - i) * 60e3, (v / st - 1) * 100]);
+  }
+  box.innerHTML = lineChart(W, H, [{ pts: la, color: '#f5c542', label: a.name, width: 4, fill: true }, { pts: lb, color: '#cfd8e3', label: b.name, width: 3 }], { aria: 'Düello grafiği' });
+}
+
+/* FinTeLig Endeksi: ortalama getiri, saatlik mumlar */
+function renderIndex(){
+  const c = (data && Array.isArray(data.idx)) ? data.idx : [], box = $('ixChart');
+  if (c.length < 2) { $('ixK').innerHTML = ''; box.innerHTML = emptyHtml('Endeks oluşuyor', 'Yarışma ilerledikçe saatlik mumlar burada belirir.'); return; }
+  const last = c[c.length - 1], prev = c[c.length - 2];
+  const today = ist(last[0]).date, tc = c.filter(x => ist(x[0]).date === today);
+  const hi = Math.max.apply(null, c.map(x => x[2])), lo = Math.min.apply(null, c.map(x => x[3]));
+  const dHi = Math.max.apply(null, tc.map(x => x[2])), dLo = Math.min.apply(null, tc.map(x => x[3]));
+  const ch = last[4] - prev[4];
+  const kpi = (k, v, s, sm) => '<div class="ix-kpi"><div class="k">' + k + '</div><div class="v' + (sm ? ' sm' : '') + '">' + v + '</div>' + (s ? '<div class="s">' + s + '</div>' : '') + '</div>';
+  $('ixK').innerHTML =
+    kpi('Endeks (ortalama getiri)', '<span class="' + cls(last[4]) + '">' + fmtPct(last[4]) + '</span>', '<span class="' + cls(ch) + '">' + arrow(ch) + fmtAbs(ch) + ' puan</span> son saatte') +
+    kpi('Bugün en yüksek', '<span class="' + cls(dHi) + '">' + fmtPct(dHi) + '</span>') +
+    kpi('Bugün en düşük', '<span class="' + cls(dLo) + '">' + fmtPct(dLo) + '</span>') +
+    kpi('Hafta zirvesi / dibi', '<span class="' + cls(hi) + '">' + fmtPct(hi) + '</span> <span class="dim">/</span> <span class="' + cls(lo) + '">' + fmtPct(lo) + '</span>', '', true);
+  const [W, H] = boxWH(box, 1100, 520);
+  const L = 78, R = 24, T = 26, B = 44, w = Math.max(10, W - L - R), h = Math.max(10, H - T - B);
+  let y0 = Math.min(0, lo), y1 = Math.max(0, hi); const ypad = Math.max(0.1, (y1 - y0) * 0.12); y0 -= ypad; y1 += ypad;
+  const stp = niceStep(y1 - y0, 6); y0 = Math.floor(y0 / stp) * stp; y1 = Math.ceil(y1 / stp) * stp;
+  const Y = (v) => T + (1 - (v - y0) / (y1 - y0)) * h, n = c.length, cw = w / n, bw = Math.max(3, Math.min(34, cw * 0.62));
+  const fs = Math.max(11, Math.min(17, H / 30));
+  let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="FinTeLig Endeksi saatlik mum grafiği">';
+  for (let v = y0; v <= y1 + stp / 2; v += stp) {
+    const yy = Y(v).toFixed(1), zero = Math.abs(v) < stp / 2;
+    s += '<line x1="' + L + '" x2="' + (L + w) + '" y1="' + yy + '" y2="' + yy + '" stroke="' + (zero ? '#5a667b' : '#172030') + '"' + (zero ? '' : ' stroke-dasharray="2 4"') + '/>';
+    s += '<text class="ax" x="' + (L - 10) + '" y="' + yy + '" dy=".35em" text-anchor="end" font-size="' + fs + '">' + (zero ? 'başl.' : fmtPct(v, stp < 0.5 ? 2 : 1)) + '</text>';
+  }
+  const every = Math.max(1, Math.ceil(n / Math.max(2, Math.floor(w / 120))));
+  let prevDate = '';
+  c.forEach((k, i) => {
+    const x = L + cw * (i + 0.5), up = k[4] >= k[1], col = up ? '#19d27c' : '#ff4f5f';
+    const yo = Y(k[1]), yc = Y(k[4]), top = Math.min(yo, yc), bh = Math.max(2, Math.abs(yc - yo));
+    s += '<line x1="' + x.toFixed(1) + '" x2="' + x.toFixed(1) + '" y1="' + Y(k[2]).toFixed(1) + '" y2="' + Y(k[3]).toFixed(1) + '" stroke="' + col + '" stroke-width="2"/>';
+    s += '<rect x="' + (x - bw / 2).toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) + '" fill="' + col + '" fill-opacity="' + (up ? .85 : .9) + '" rx="2"' + (i === n - 1 ? ' class="ix-last"' : '') + '/>';
+    const t = ist(k[0]);
+    if (i % every === 0 || i === n - 1) s += '<text class="ax" x="' + x.toFixed(1) + '" y="' + (T + h + fs + 8) + '" text-anchor="middle" font-size="' + fs + '">' + (t.date !== prevDate ? TR_WD[t.wd] + ' ' : '') + pad(t.h) + ':00</text>';
+    if (i % every === 0 || i === n - 1) prevDate = t.date;
+  });
+  const iH = c.findIndex(k => k[2] === hi), iL = c.findIndex(k => k[3] === lo);
+  const mark = (i, v, above) => { const x = L + cw * (i + 0.5), yy = Y(v) + (above ? -12 : 22); return '<text x="' + x.toFixed(1) + '" y="' + yy.toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-weight="700" font-size="' + (fs * 1.05).toFixed(0) + '" fill="' + (above ? '#19d27c' : '#ff4f5f') + '">' + (above ? '▲ ' : '▼ ') + fmtPct(v) + '</text>'; };
+  if (iH >= 0) s += mark(iH, hi, true);
+  if (iL >= 0 && iL !== iH) s += mark(iL, lo, false);
+  box.innerHTML = s + '</svg>';
+}
+
+/* Momentum: son 30 dakika */
+function renderMomentum(){
+  const rows = rowsOk().filter(r => isNum(r.c30));
+  const card = (r) => {
+    const d = rankDelta(r);
+    return '<div class="mo-card ' + cls(r.c30) + '"><div class="mo-nm">' + esc(r.name) + '</div><div class="mo-v">' + arrow(r.c30) + fmtPct(r.c30) + '</div>' +
+      '<div class="mo-s">Şu an ' + r.rank + '. sırada' + (d ? ' · <span class="' + (d > 0 ? 'up' : 'dn') + '">' + (d > 0 ? '▲' : '▼') + Math.abs(d) + ' sıra</span>' : '') + ' · toplam <span class="' + cls(r.pct) + '">' + fmtPct(r.pct) + '</span></div></div>';
+  };
+  const up = rows.filter(r => r.c30 >= 0.005).sort((a, b) => b.c30 - a.c30).slice(0, 3);
+  const dn = rows.filter(r => r.c30 <= -0.005).sort((a, b) => a.c30 - b.c30).slice(0, 3);
+  $('moUp').innerHTML = up.length ? up.map(card).join('') : '<div class="mo-empty">Son 30 dakikada belirgin yükseliş yok</div>';
+  $('moDn').innerHTML = dn.length ? dn.map(card).join('') : '<div class="mo-empty">Son 30 dakikada belirgin düşüş yok</div>';
+}
+
+/* Isı haritası (treemap): kutu büyüklüğü = portföy değeri, renk = getiri */
+function squarify(items, x, y, w, h){
+  const out = [], total = items.reduce((s, a) => s + a.v, 0) || 1, k = w * h / total;
+  let rest = items.map(a => Object.assign({}, a, { ar: Math.max(1e-6, a.v * k) })), row = [];
+  const worst = (r, side) => { const s = r.reduce((q, a) => q + a.ar, 0), mx = Math.max.apply(null, r.map(a => a.ar)), mn = Math.min.apply(null, r.map(a => a.ar)); return Math.max(side * side * mx / (s * s), (s * s) / (side * side * mn)); };
+  const lay = (r) => {
+    const s = r.reduce((q, a) => q + a.ar, 0);
+    if (w >= h) { const cw = s / h; let yy = y; r.forEach(a => { const ch = a.ar / cw; out.push(Object.assign(a, { x, y: yy, w: cw, h: ch })); yy += ch; }); x += cw; w -= cw; }
+    else { const rh = s / w; let xx = x; r.forEach(a => { const cw = a.ar / rh; out.push(Object.assign(a, { x: xx, y, w: cw, h: rh })); xx += cw; }); y += rh; h -= rh; }
+  };
+  while (rest.length) { const side = Math.max(1e-6, Math.min(w, h)), c = rest[0]; if (!row.length || worst(row.concat([c]), side) <= worst(row, side)) { row.push(c); rest.shift(); } else { lay(row); row = []; } }
+  if (row.length) lay(row);
+  return out;
+}
+function renderHeatmap(){
+  const rows = rowsOk().slice(0, 30), box = $('hm'), st = startBal();
+  if (rows.length < 2) { box.innerHTML = emptyHtml('Isı haritası için veri yok', ''); $('hmLg').innerHTML = ''; return; }
+  const [W, H] = boxWH(box, 1200, 560);
+  const rects = squarify(rows.map(r => ({ v: Math.max(1, r.equity), r })).sort((a, b) => b.v - a.v), 0, 0, W, H);
+  box.innerHTML = rects.map(q => {
+    const r = q.r, big = q.w > 150 && q.h > 90, mid = q.w > 90 && q.h > 52;
+    const fs = Math.max(12, Math.min(34, Math.sqrt(q.w * q.h) / 7));
+    return '<div class="hm-c" style="left:' + q.x.toFixed(1) + 'px;top:' + q.y.toFixed(1) + 'px;width:' + q.w.toFixed(1) + 'px;height:' + q.h.toFixed(1) + 'px;background:' + heatColor(r.pct) + ';font-size:' + fs.toFixed(0) + 'px">' +
+      (mid ? '<div class="hm-nm">' + esc(r.name) + '</div>' : '') + '<div class="hm-pc">' + fmtPct(r.pct) + '</div>' + (big ? '<div class="hm-pl">' + fmtPL(r.equity - st) + '</div>' : '') + '</div>';
+  }).join('');
+  const up = rows.filter(r => r.pct > 0.0049).length;
+  $('hmSub').textContent = 'Kutu büyüklüğü portföy değeri, renk getiri · ' + up + ' / ' + rows.length + ' yarışmacı kârda';
+  $('hmLg').innerHTML = '<span>−4% ve altı</span><i style="background:linear-gradient(90deg,' + heatColor(-4) + ',' + heatColor(-2) + ',' + heatColor(0) + ',' + heatColor(2) + ',' + heatColor(4) + ')"></i><span>+4% ve üstü</span>';
+}
+
+/* Risk – getiri haritası */
+function renderRiskmap(){
+  const pts = rowsOk().filter(r => isNum(r.vol)), box = $('rk');
+  if (pts.length < 2) { box.innerHTML = emptyHtml('Risk ölçümü için veri birikiyor', 'Oynaklık, portföy değerinin dakikalık değişimlerinden hesaplanır.'); return; }
+  const [W, H] = boxWH(box, 1200, 560);
+  const L = 84, R = 40, T = 24, B = 60, w = W - L - R, h = H - T - B;
+  const vols = pts.map(r => r.vol), pcs = pts.map(r => r.pct);
+  let x1 = Math.max(0.05, Math.max.apply(null, vols) * 1.15);
+  let y0 = Math.min(0, Math.min.apply(null, pcs)), y1 = Math.max(0, Math.max.apply(null, pcs)); const py = Math.max(0.2, (y1 - y0) * 0.15); y0 -= py; y1 += py;
+  const X = (v) => L + v / x1 * w, Y = (v) => T + (1 - (v - y0) / (y1 - y0)) * h;
+  const mv = FINM.median(vols), fs = Math.max(11, Math.min(17, H / 32));
+  let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Risk getiri haritası">';
+  s += '<rect x="' + L + '" y="' + T + '" width="' + (X(mv) - L).toFixed(1) + '" height="' + (Y(0) - T).toFixed(1) + '" fill="#19d27c" fill-opacity=".07"/>';
+  s += '<rect x="' + X(mv).toFixed(1) + '" y="' + Y(0).toFixed(1) + '" width="' + (L + w - X(mv)).toFixed(1) + '" height="' + (T + h - Y(0)).toFixed(1) + '" fill="#ff4f5f" fill-opacity=".07"/>';
+  const q = (x, y, t, a) => '<text x="' + x + '" y="' + y + '" text-anchor="' + a + '" font-family="Big Shoulders Display,Oswald,sans-serif" font-weight="800" letter-spacing="1.5" font-size="' + (fs * 1.05).toFixed(0) + '" fill="#5a667b">' + t + '</text>';
+  s += q(L + 12, T + fs + 6, 'AZ RİSK · ÇOK GETİRİ', 'start') + q(L + w - 12, T + fs + 6, 'ÇOK RİSK · ÇOK GETİRİ', 'end') + q(L + 12, T + h - 10, 'AZ RİSK · ZARAR', 'start') + q(L + w - 12, T + h - 10, 'ÇOK RİSK · ZARAR', 'end');
+  s += '<line x1="' + L + '" x2="' + (L + w) + '" y1="' + Y(0).toFixed(1) + '" y2="' + Y(0).toFixed(1) + '" stroke="#5a667b"/>';
+  s += '<line x1="' + X(mv).toFixed(1) + '" x2="' + X(mv).toFixed(1) + '" y1="' + T + '" y2="' + (T + h) + '" stroke="#5a667b" stroke-dasharray="4 5"/>';
+  const ys = niceStep(y1 - y0, 5);
+  for (let v = Math.ceil(y0 / ys) * ys; v <= y1; v += ys) s += '<text class="ax" x="' + (L - 10) + '" y="' + Y(v).toFixed(1) + '" dy=".35em" text-anchor="end" font-size="' + fs + '">' + (Math.abs(v) < ys / 2 ? '0' : fmtPct(v, ys < 0.5 ? 2 : 1)) + '</text>';
+  const xs = niceStep(x1, 5);
+  for (let v = 0; v <= x1 + 1e-9; v += xs) s += '<text class="ax" x="' + X(v).toFixed(1) + '" y="' + (T + h + fs + 8) + '" text-anchor="middle" font-size="' + fs + '">' + fmtVol(v) + '</text>';
+  s += '<text class="ax" x="' + (L + w / 2) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="' + fs + '">Oynaklık (saatlik, portföy değerindeki dalgalanma) →</text>';
+  s += '<text class="ax" transform="translate(16 ' + (T + h / 2) + ') rotate(-90)" text-anchor="middle" font-size="' + fs + '">Getiri →</text>';
+  const lab = pts.slice().sort((a, b) => Y(a.pct) - Y(b.pct));
+  const used = [];
+  lab.forEach((r, i) => {
+    const cx = X(r.vol), cy = Y(r.pct), col = r.pct > 0.0049 ? '#19d27c' : r.pct < -0.0049 ? '#ff4f5f' : '#8b96aa';
+    s += '<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="' + (r.rank <= 3 ? 11 : 8) + '" fill="' + col + '" fill-opacity=".9" stroke="#04060a" stroke-width="2"/>';
+    if (i < 16) {
+      let ly = cy + 5; while (used.some(u => Math.abs(u.y - ly) < fs * 1.25 && Math.abs(u.x - cx) < 200)) ly += fs * 1.25;
+      used.push({ x: cx, y: ly });
+      const right = cx < L + w - 220;
+      s += '<text x="' + (cx + (right ? 16 : -16)).toFixed(1) + '" y="' + ly.toFixed(1) + '" text-anchor="' + (right ? 'start' : 'end') + '" font-family="Instrument Sans,sans-serif" font-weight="700" font-size="' + (fs * 1.1).toFixed(0) + '" fill="#e9eef6">' + (r.rank <= 3 ? r.rank + '. ' : '') + esc(r.name) + '</text>';
+    }
+  });
+  box.innerHTML = s + '</svg>';
+}
+
+/* En verimli yatırımcı: getiri ÷ oynaklık */
+function renderSharpe(){
+  const list = rowsOk().filter(r => isNum(r.rr)).sort((a, b) => b.rr - a.rr).slice(0, 5), box = $('sh');
+  if (!list.length) { box.innerHTML = emptyHtml('Hesaplama için veri birikiyor', ''); return; }
+  const mx = Math.max.apply(null, list.map(r => Math.abs(r.rr))) || 1;
+  box.innerHTML = list.map((r, i) => '<div class="sh-row' + (i === 0 ? ' first' : '') + '"><div class="sh-rk">' + (i + 1) + '</div><div class="sh-nm">' + esc(r.name) + '<small>Getiri <span class="' + cls(r.pct) + '">' + fmtPct(r.pct) + '</span> · Oynaklık ' + fmtVol(r.vol) + ' · Genel sıra ' + r.rank + '.</small></div>' +
+    '<div class="sh-bar"><i class="' + (r.rr >= 0 ? 'up' : 'dn') + '" style="width:' + Math.max(3, Math.abs(r.rr) / mx * 100).toFixed(1) + '%"></i></div><div class="sh-v ' + cls(r.rr) + '">' + r.rr.toFixed(2).replace('.', ',') + '</div></div>').join('');
+}
+
+/* Sağlam portföy: maksimum düşüş + su altı grafikleri */
+function underwater(vals, start){
+  let peak = start; return vals.map(v => { if (v > peak) peak = v; return (v / peak - 1) * 100; });
+}
+function renderDrawdown(){
+  const rows = rowsOk().filter(r => isNum(r.mdd)), st = startBal();
+  if (!rows.length) { $('ddTop').innerHTML = ''; $('ddGrid').innerHTML = emptyHtml('Düşüş ölçümü için veri birikiyor', ''); return; }
+  const act = rows.filter(r => isNum(r.vol) && r.vol >= 0.01);
+  const best = (act.length ? act : rows).slice().sort((a, b) => b.mdd - a.mdd).slice(0, 3);
+  $('ddTop').innerHTML = best.map((r, i) => '<div class="dd-card' + (i === 0 ? ' first' : '') + '"><div class="dd-k">' + (i === 0 ? '🛡️ En sağlam portföy' : (i + 1) + '. sağlam') + '</div><div class="dd-nm">' + esc(r.name) + '</div><div class="dd-v">' + (r.mdd > -0.005 ? 'Hiç düşmedi' : 'Maks. düşüş ' + fmtPct(r.mdd)) + '</div><div class="dd-s">Getiri <span class="' + cls(r.pct) + '">' + fmtPct(r.pct) + '</span></div></div>').join('');
+  const grid = rows.slice(0, 8);
+  $('ddGrid').innerHTML = grid.map(r => {
+    const sp = sparkFor(r), uw = sp ? underwater(sp, st) : null;
+    let svg = '';
+    if (uw && uw.length > 1) {
+      const W = 300, H = 70, mn = Math.min(-0.5, Math.min.apply(null, uw));
+      const pts = uw.map((v, i) => (i / (uw.length - 1) * W).toFixed(1) + ' ' + (v / mn * (H - 4)).toFixed(1));
+      svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none"><path d="M0 0L' + pts.join('L') + 'L' + W + ' 0Z" fill="#ff4f5f" fill-opacity=".35"/><path d="M' + pts.join('L') + '" fill="none" stroke="#ff4f5f" stroke-width="2" vector-effect="non-scaling-stroke"/><line x1="0" x2="' + W + '" y1="0.5" y2="0.5" stroke="#19d27c" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>';
+    }
+    return '<div class="dd-mini"><div class="dd-mh"><b>' + r.rank + '. ' + esc(r.name) + '</b><span>şimdi ' + (isNum(r.dd) && r.dd < -0.0049 ? '<span class="dn">' + fmtPct(r.dd) + '</span>' : '<span class="up">zirvede</span>') + ' · maks. <span class="dn">' + fmtPct(r.mdd) + '</span></span></div><div class="dd-uw">' + svg + '</div></div>';
+  }).join('');
+}
+
+/* Liderlik zaman çizelgesi */
+const LT_COLORS = ['#f5c542', '#43a6ff', '#19d27c', '#c77dff', '#ff8a3d', '#4dd4c6', '#ff6fa8', '#cfd8e3'];
+function fmtMin(m){ m = Math.round(Number(m) || 0); const h = Math.floor(m / 60), mm = m % 60; return h ? h + ' sa' + (mm ? ' ' + mm + ' dk' : '') : mm + ' dk'; }
+function renderLeadtime(){
+  const L = data && data.lead, seg = L && Array.isArray(L.seg) ? L.seg : [];
+  if (!seg.length) { $('ltBar').innerHTML = ''; $('ltAx').innerHTML = ''; $('ltList').innerHTML = emptyHtml('Liderlik verisi birikiyor', ''); $('ltSub').textContent = ''; return; }
+  const tot = {}; seg.forEach(s => { tot[s[0]] = (tot[s[0]] || 0) + (s[2] - s[1]) / 60e3; });
+  const names = Object.keys(tot).sort((a, b) => tot[b] - tot[a]), col = {};
+  names.forEach((n, i) => { col[n] = LT_COLORS[i % LT_COLORS.length]; });
+  const a0 = seg[0][1], b1 = seg[seg.length - 1][2], span = Math.max(1, b1 - a0);
+  $('ltBar').innerHTML = seg.map(s => '<i style="left:' + ((s[1] - a0) / span * 100).toFixed(3) + '%;width:' + Math.max(0.25, (s[2] - s[1]) / span * 100).toFixed(3) + '%;background:' + col[s[0]] + '" title="' + esc(s[0]) + '"></i>').join('');
+  const ticks = [], nT = 6;
+  for (let i = 0; i <= nT; i++) { const tv = a0 + span * i / nT, t = ist(tv); ticks.push('<span style="left:' + (i / nT * 100) + '%">' + TR_WD[t.wd] + ' ' + pad(t.h) + ':' + pad(t.m) + '</span>'); }
+  $('ltAx').innerHTML = ticks.join('');
+  const all = names.reduce((s, n) => s + tot[n], 0) || 1, cur = seg[seg.length - 1][0];
+  $('ltList').innerHTML = names.slice(0, 8).map(n => '<div class="lt-row"><i style="background:' + col[n] + '"></i><b>' + esc(n) + (n === cur ? ' <span class="lt-now">şu an lider</span>' : '') + '</b><span class="lt-bar2"><em style="width:' + (tot[n] / all * 100).toFixed(1) + '%;background:' + col[n] + '"></em></span><span class="lt-v">' + fmtMin(tot[n]) + ' · %' + Math.round(tot[n] / all * 100) + '</span></div>').join('');
+  $('ltSub').textContent = 'Liderlik ' + (L.changes || 0) + ' kez el değiştirdi · şu an lider: ' + cur;
+}
+
+/* Üst bant: FinTeLig Endeksi */
+function renderIdxChip(){
+  const el = $('ixChip'); if (!el) return;
+  const c = data && Array.isArray(data.idx) ? data.idx : [], ph = phase();
+  if (c.length < 1 || ph === 'pre' || ph === 'review') { el.style.display = 'none'; return; }
+  const last = c[c.length - 1], prev = c.length > 1 ? c[c.length - 2][4] : last[1], ch = last[4] - prev;
+  el.style.display = '';
+  el.className = 'pill ixp ' + cls(last[4]);
+  el.innerHTML = '<b>Endeks</b><span>' + fmtPct(last[4]) + ' <em class="' + cls(ch) + '">' + (ch > 0.0049 ? '▲' : ch < -0.0049 ? '▼' : '■') + '</em></span>';
+}
+
+const DUR = { track: 22000, leaderboard: 24000, race: 16000, podium: 11000, countdown: 10000, distribution: 13000, finalists: 11000, info: 10000, winner: 15000, review: 20000, ceremony: 60000,
+  duel: 16000, index: 15000, momentum: 13000, heatmap: 14000, riskmap: 15000, sharpe: 13000, drawdown: 15000, leadtime: 14000 };
+const RANKED = new Set(['track', 'leaderboard', 'podium', 'winner', 'race', 'distribution', 'ceremony', 'duel', 'momentum', 'heatmap', 'riskmap', 'sharpe', 'drawdown', 'leadtime']);
+const FIN_NEW = ['duel', 'index', 'momentum', 'heatmap', 'riskmap', 'sharpe', 'drawdown', 'leadtime'];
+const DEF_AUTO = ['track', 'leaderboard', 'duel', 'index', 'race', 'momentum', 'heatmap', 'podium', 'riskmap', 'distribution', 'sharpe', 'drawdown', 'leadtime', 'countdown', 'finalists', 'info'];
 const cfg = () => (data && data.config && typeof data.config === 'object') ? data.config : {};
-function autoList(){ const l = Array.isArray(cfg().scenes) ? cfg().scenes.filter(n => DUR[n] && DEF_AUTO.indexOf(n) >= 0) : []; return l.length ? l : DEF_AUTO; }
+function autoList(){
+  const c = cfg();
+  const l = Array.isArray(c.scenes) ? c.scenes.concat(Number(c.sv) >= 2 ? [] : FIN_NEW.filter(n => c.scenes.indexOf(n) < 0)).filter(n => DUR[n] && DEF_AUTO.indexOf(n) >= 0) : [];
+  return l.length ? l : DEF_AUTO;
+}
 function fx(){ return cfg().effects !== false; }
 function sceneMs(name){
   if (name === 'ceremony') return DUR.ceremony;
@@ -1696,8 +2238,8 @@ function playlist(){
   const ov = data.scene && data.scene !== 'auto' ? String(data.scene) : null;
   if (ov === 'ceremony' && ph === 'published') return ['winner'];
   if (ov && DUR[ov] && ov !== 'ceremony' && allowed(ov, ph)) return [ov];
-  if (ph === 'active') { const l = autoList().filter(n => allowed(n, ph)); return hasRows && l.length ? l : ['countdown', 'info', 'finalists']; }
-  if (ph === 'published') { const l = ['winner', 'podium']; autoList().forEach(n => { if (n !== 'countdown' && l.indexOf(n) < 0 && allowed(n, ph)) l.push(n); }); return l; }
+  if (ph === 'active') { const l = autoList().filter(n => allowed(n, ph) && finHas(n)); return hasRows && l.length ? l : ['countdown', 'info', 'finalists']; }
+  if (ph === 'published') { const l = ['winner', 'podium']; autoList().forEach(n => { if (n !== 'countdown' && l.indexOf(n) < 0 && allowed(n, ph) && finHas(n)) l.push(n); }); return l; }
   if (ph === 'review') return ['review', 'countdown', 'finalists', 'info'];
   return ['info', 'finalists', 'countdown'];
 }
@@ -1714,6 +2256,14 @@ function renderScene(name, entering){
   else if (name === 'distribution') renderDistribution();
   else if (name === 'race') renderRace(entering);
   else if (name === 'track') renderTrack(entering);
+  else if (name === 'duel') renderDuel();
+  else if (name === 'index') renderIndex();
+  else if (name === 'momentum') renderMomentum();
+  else if (name === 'heatmap') renderHeatmap();
+  else if (name === 'riskmap') renderRiskmap();
+  else if (name === 'sharpe') renderSharpe();
+  else if (name === 'drawdown') renderDrawdown();
+  else if (name === 'leadtime') renderLeadtime();
   else if (name === 'review') renderReview();
 }
 let current = null, sceneTimer = null, manualUntil = 0, playlistIdx = 0, prevKey = null;
@@ -1935,25 +2485,35 @@ $('modeBtn').addEventListener('click', () => setMode($('app').classList.contains
 /* ── DEMO VERİ: yarışma sırasında ekranın nasıl görüneceğini önizleme ──
    Tamamen tarayıcıda üretilen rastgele veri; hiçbir yere yazılmaz. Demo
    açıkken gerçek Firestore verisi saklanır, çıkınca geri yüklenir. */
-const demo = { on: false, timer: null, rows: [], scen: 'active', t0: 0, endsAt: 0, cerAt: 0, halted: false, series: { t: [], avgPct: [] }, real: null, lastRank: new Map(), winners: null };
+const demo = { on: false, timer: null, rows: [], scen: 'active', t0: 0, endsAt: 0, cerAt: 0, halted: false, series: { t: [], avgPct: [] }, t: [], lead: [], avg: [], real: null, lastRank: new Map(), winners: null };
 const DEMO_NAMES = ['Ayşe Yılmaz','Mehmet Demir','Zeynep Kaya','Can Öztürk','Elif Şahin','Burak Arslan','Deniz Aydın','Ece Koç','Emre Çelik','Selin Yıldız','Kerem Aksoy','Merve Güneş','Onur Polat','İrem Kurt','Barış Tekin','Sena Aslan','Yiğit Erdem','Nazlı Çınar'];
 const drnd = (a, b) => a + Math.random() * (b - a);
 function demoStep(){
   demo.rows.forEach(r => {
     r.eq *= 1 + r.drift + (Math.random() - 0.5) * 2 * r.vol;
-    if (Math.random() < 0.025) r.eq *= 1 + drnd(-0.03, 0.04);   // ara sıra sert hareket → sıra atlama / yeni lider
+    if (Math.random() < 0.01) r.eq *= 1 + drnd(-0.015, 0.02);   // ara sıra sert hareket → sıra atlama / yeni lider
     r.eq = Math.max(60000, r.eq);
     r.hist.push(Math.round(r.eq)); if (r.hist.length > 40) r.hist.shift();
   });
+}
+function demoRecord(tt){
+  demo.t.push(tt);
+  demo.rows.forEach(r => r.h.push(Math.round(r.eq)));
+  demo.lead.push(demo.rows.reduce((b, r) => r.eq > b.eq ? r : b, demo.rows[0]).name);
+  demo.avg.push(+demoAvg().toFixed(2));
+  if (demo.t.length > 600) { demo.t.shift(); demo.lead.shift(); demo.avg.shift(); demo.rows.forEach(r => r.h.shift()); }
 }
 const demoAvg = () => demo.rows.reduce((a, r) => a + (r.eq / 1000 - 100), 0) / demo.rows.length;
 function demoInit(){
   const now = Date.now();
   demo.t0 = now - 27 * 3600e3;
   demo.endsAt = now + 2 * 86400e3 + 5 * 3600e3 + 17 * 60e3;
-  demo.rows = DEMO_NAMES.slice().sort(() => Math.random() - 0.5).slice(0, 14).map(name => ({ name, eq: 100000, drift: drnd(-0.0012, 0.0024), vol: drnd(0.002, 0.008), hist: [] }));
-  demo.series = { t: [], avgPct: [] };
-  for (let i = 0; i < 32; i++) { demoStep(); demo.series.t.push(demo.t0 + i * (27 * 3600e3 / 32)); demo.series.avgPct.push(+demoAvg().toFixed(2)); }
+  demo.rows = DEMO_NAMES.slice().sort(() => Math.random() - 0.5).slice(0, 14).map(name => ({ name, eq: 100000, drift: drnd(-0.00012, 0.00028), vol: drnd(0.0008, 0.0028), hist: [], h: [] }));
+  demo.series = { t: [], avgPct: [] }; demo.t = []; demo.lead = []; demo.avg = [];
+  // 27 saatlik geçmiş, 5 dakikalık adımlar (seans dışı saatler dahil — mumlar hareketsiz saatleri atar)
+  const N0 = Math.round(27 * 12);
+  for (let i = 0; i < N0; i++) { demoStep(); demoRecord(demo.t0 + i * 5 * 60e3); }
+  demo.series = { t: demo.t.slice(-60), avgPct: demo.avg.slice(-60) };
   demo.lastRank = new Map(); demo.halted = false;
   const w = DEMO_NAMES.filter(n => !demo.rows.some(r => r.name === n));
   demo.winners = [{ week: 'Hafta 1', name: w[0] || 'Selin Yıldız', pct: +drnd(3, 9).toFixed(2), status: 'katilacak' }];
@@ -1966,9 +2526,13 @@ function demoWeekdays(n){
 function demoPayload(){
   const now = Date.now();
   const sorted = demo.rows.slice().sort((a, b) => b.eq - a.eq);
+  const LD = FINM.leadSegs(demo.t, demo.lead, {}, demo.t[demo.t.length - 1] + 5 * 60e3);
   const dqName = sorted[sorted.length - 2] && sorted[sorted.length - 2].name;
   const rows = sorted.map((r, i) => {
-    const o = { rank: i + 1, name: r.name, equity: Math.round(r.eq * 100) / 100, pct: Math.round((r.eq / 1000 - 100) * 100) / 100, spark: r.hist.slice() };
+    const o = { rank: i + 1, name: r.name, equity: Math.round(r.eq * 100) / 100, pct: Math.round((r.eq / 1000 - 100) * 100) / 100, spark: FINM.spark(r.h, 40) };
+    const m = FINM.person(demo.t, r.h, 100000, demo.t[demo.t.length - 1]);
+    if (m) { o.c30 = FINM.r2(m.c30); o.dd = FINM.r2(m.dd); o.mdd = FINM.r2(m.mdd); if (m.vol != null) o.vol = FINM.r2(m.vol); if (m.rr != null) o.rr = FINM.r2(m.rr); }
+    if (LD.mins[r.name]) o.lead = LD.mins[r.name];
     const pr = demo.lastRank.get(r.name); if (pr) o.prevRank = pr;
     if (r.name === dqName) o.dq = true;
     return o;
@@ -1979,7 +2543,11 @@ function demoPayload(){
     competitionActive: true, competitionStartedAt: demo.t0, competitionEndsAt: demo.endsAt, competitionTotalMs: demo.endsAt - demo.t0,
     tradingHalted: demo.halted, broadcastLive: true, resultsPublished: false, startBalance: 100000, participantCount: rows.length,
     rows, weeklyWinners: demo.winners, scene: (demo.real && demo.real.scene) || 'auto', announcement: (demo.real && demo.real.announcement) || '', config: (demo.real && demo.real.config) || null,
-    stats: { count: ok.length, profitable: pcts.filter(x => x > 0).length, losing: pcts.filter(x => x < 0).length, avgPct: +(pcts.reduce((a, b) => a + b, 0) / pcts.length).toFixed(2), bestPct: Math.max.apply(null, pcts), worstPct: Math.min.apply(null, pcts) },
+    stats: { count: ok.length, profitable: pcts.filter(x => x > 0).length, losing: pcts.filter(x => x < 0).length, avgPct: +(pcts.reduce((a, b) => a + b, 0) / pcts.length).toFixed(2), bestPct: Math.max.apply(null, pcts), worstPct: Math.min.apply(null, pcts),
+      median: FINM.r2(FINM.median(pcts)), std: FINM.r2(FINM.std(pcts)), total: Math.round(ok.reduce((a, r) => a + r.equity, 0)) },
+    idx: FINM.candles(demo.t, demo.avg),
+    lead: LD.seg.length ? { seg: LD.seg, changes: LD.changes } : null,
+    duel: (() => { const a = demo.rows.find(r => r.name === ok[0].name), b = ok[1] && demo.rows.find(r => r.name === ok[1].name); return a && b ? FINM.duel(demo.t, a.h, b.h, 100000, 120) : null; })(),
     series: { t: demo.series.t.slice(), avgPct: demo.series.avgPct.slice() },
     session: { weekNo: 2, weeksTotal: 5, sessionStart: '10:00', sessionEnd: '18:00', tradingDays: demoWeekdays(5) },
     updatedAt: new Date(now).toISOString()
@@ -1993,8 +2561,8 @@ function demoPush(step){
   if (step && (demo.scen === 'active' || demo.scen === 'final60')) {
     demo.rows.slice().sort((a, b) => b.eq - a.eq).forEach((r, i) => demo.lastRank.set(r.name, i + 1));
     demoStep();
-    demo.series.t.push(Date.now()); demo.series.avgPct.push(+demoAvg().toFixed(2));
-    if (demo.series.t.length > 60) { demo.series.t.shift(); demo.series.avgPct.shift(); }
+    demoRecord(demo.t[demo.t.length - 1] + 5 * 60e3);   // her demo adımı = sanal 5 dakika
+    demo.series = { t: demo.t.slice(-60), avgPct: demo.avg.slice(-60) };
   }
   onData(demoPayload());
 }
@@ -2071,6 +2639,7 @@ try {
 window.__yayin = {
   onData, step, demoStart, demoStop, demoScenario, setMode, playlist: () => playlist(),
   get demo(){ return { on: demo.on, scen: demo.scen }; },
+  showPinned(n){ manualUntil = Date.now() + 1e7; show(n); }, finHas: (n) => finHas(n),
   get current(){ return current; },
   get phase(){ return phase(); },
   get ceremony(){ return { running: cer.running, step: cer.step, idx: cer.idx }; },
