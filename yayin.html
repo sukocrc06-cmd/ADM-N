@@ -565,6 +565,9 @@ body.idle-demo .demobar:hover{opacity:1}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
 }
+.car .nm{flex:0 1 auto;min-width:3.4em;font-size:calc(var(--lh,60px) * .3)}
+.car .pc{font-size:calc(var(--lh,60px) * .25)}
+.car svg{flex:0 0 auto}
 </style>
 </head>
 <body>
@@ -1508,9 +1511,9 @@ function trackRender(frame, fi, total, live){
   const start = (data && data.startBalance) || 100000;
   const all = frame.filter(f => isNum(f.eq)).map(f => ({ name: f.name, eq: f.eq, pct: (f.eq / start - 1) * 100 })).sort((a, b) => b.pct - a.pct);
   const N = Math.min(topN(), all.length), list = all.slice(0, N);
-  const lh = Math.max(34, Math.min(Math.floor(H / Math.max(N, 1)), Math.floor(H / 4)));
+  const lh = Math.max(34, Math.min(Math.floor(H / Math.max(N, 1)), Math.floor(H / 4), 104));
   box.style.setProperty('--lh', lh + 'px');
-  const tokW = Math.min(isNarrow() ? W * 0.62 : W * 0.3, 440);
+  const tokW = Math.min(isNarrow() ? W * 0.62 : W * 0.4, 600);
   box.style.setProperty('--tokw', tokW + 'px');
   const ref = trk.frames.length ? trk.frames : [frame];
   const allP = [0].concat(...ref.map(fr => fr.filter(f => isNum(f.eq)).map(f => (f.eq / start - 1) * 100)));

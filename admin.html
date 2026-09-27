@@ -1049,6 +1049,12 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 .yy-legacy>summary::-webkit-details-marker{display:none}
 .yy-legacy>summary::before{content:'▸ ';}
 .yy-legacy[open]>summary::before{content:'▾ ';}
+
+.yy-pub{margin:10px 0 0;font-size:12.5px;line-height:1.5;padding:8px 12px;border-radius:8px;border:1px solid var(--border-strong);color:var(--text-dim);}
+.yy-pub::before{content:'● ';}
+.yy-pub.ok{border-color:rgba(34,197,94,.45);color:var(--green);}
+.yy-pub.warn{border-color:rgba(234,179,8,.45);color:var(--yellow);}
+.yy-pub.bad{border-color:rgba(239,68,68,.55);color:#fca5a5;background:rgba(239,68,68,.08);}
 </style>
 </head>
 <body>
@@ -1740,7 +1746,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
     <!-- ============ PAGE: YAYIN YÖNETİM ============ -->
     <section id="page-yayin" class="page">
       <div class="grid-4">
-        <div class="stat-card"><div class="stat-label">YAYIN DURUMU</div><div class="stat-value gray" id="yayinDurumu">HAZIR DEĞİL</div><div class="stat-sub">Yarışma başlamadı</div></div>
+        <div class="stat-card"><div class="stat-label">YAYIN DURUMU</div><div class="stat-value gray" id="yayinDurumu">HAZIR DEĞİL</div><div class="stat-sub" id="yayinDurumuSub">Veri bekleniyor</div></div>
         <div class="stat-card"><div class="stat-label">YARIŞMA DURUMU</div><div class="stat-value gray" id="yayinYarismaDurumu">PASİF</div><div class="stat-sub" id="yayinYarismaSub">Yarışma başlatılmadı</div></div>
         <div class="stat-card"><div class="stat-label">EKRANDAKİ SAHNE</div><div class="stat-value yellow" id="yyNowScene" style="font-size:22px;">OTOMATİK</div><div class="stat-sub">Yayın sayfasında (yayin.html)</div></div>
         <div class="stat-card"><div class="stat-label">CANLI SENKRONİZASYON</div><div class="stat-value gray" id="yayinSyncStat">—</div><div class="stat-sub" id="yayinSyncSub">Kontrol ediliyor...</div></div>
@@ -1753,6 +1759,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           </div>
           <p class="section-desc">Projeksiyonda / TV'de görünen yayın ekranının birebir kopyası. Demo veri, yarışma sırasında ekranın nasıl görüneceğini rastgele örnek yarışmacılarla gösterir (hiçbir yere yazılmaz).</p>
           <div class="yy-prev" id="yyPrev"><iframe id="yyFrame" title="Yayın ekranı önizleme" tabindex="-1"></iframe><div class="yy-prev-cover"></div></div>
+          <p class="yy-pub warn" id="yyPubLine">Yayın verisi durumu kontrol ediliyor…</p>
           <p class="yy-hint" id="yyHint"></p>
           <div class="yy-links">
             <a class="btn yy-link yy-gold" id="openYayinPageBtn" href="yayin.html" target="_blank" rel="noopener">📺 Yayın sayfasını aç (projeksiyon / TV)</a>
@@ -2673,8 +2680,36 @@ async function verifyFinalRanking(recordId){
 // değeri, getiri ve sıra (kural 17.3). Admin paneli açıkken, veri
 // değiştikçe en fazla 20 sn'de bir yazılır (Firestore kotası korunur).
 let publicLbTimer = null, publicLbLastJson = '', publicLbLastWrite = 0;
-function buildPublicLeaderboard(){
+let publicLbStatus = { at: 0, err: '', active: false, n: 0 };
+function yyPubStatus(){
+  const sub = document.getElementById('yayinDurumuSub'), line = document.getElementById('yyPubLine');
+  let txt, cls;
+  if(!FIREBASE_ENABLED){ txt = 'Yerel mod — yayın belgesi Firebase olmadan yazılmaz'; cls = 'warn'; }
+  else if(!(firebase.auth && firebase.auth().currentUser)){ txt = 'Admin Firebase oturumu yok — yayın güncellenemiyor. Çıkış yapıp tekrar giriş yap.'; cls = 'bad'; }
+  else if(publicLbStatus.err){ txt = 'Yayın verisi yazılamadı (' + publicLbStatus.err + ') — Firestore kurallarını ve admin girişini kontrol et.'; cls = 'bad'; }
+  else if(publicLbStatus.at){ const s = Math.max(0, Math.round((Date.now() - publicLbStatus.at) / 1000)); txt = 'Yayın verisi ' + (s < 60 ? s + ' sn' : Math.round(s / 60) + ' dk') + ' önce güncellendi · ' + (publicLbStatus.active ? 'yarışma sürüyor' : 'yarışma yok') + ' · ' + publicLbStatus.n + ' yarışmacı'; cls = 'ok'; }
+  else { txt = 'Yayın verisi henüz yazılmadı (bu oturumda).'; cls = 'warn'; }
+  if(sub) sub.textContent = cls === 'ok' ? 'Veri ' + (publicLbStatus.active ? 'canlı' : 'güncel') : (cls === 'bad' ? 'Veri gitmiyor!' : 'Veri bekleniyor');
+  if(line){ line.textContent = txt; line.className = 'yy-pub ' + cls; }
+}
+setInterval(() => { try{ yyPubStatus(); }catch(e){} }, 5000);
+setTimeout(() => { try{ yyPubStatus(); }catch(e){} }, 0);
+if(AUTH_ENABLED) firebase.auth().onAuthStateChanged(() => { try{ yyPubStatus(); }catch(e){} });
+// Aktif haftanın onaylı yarışmacıları: OPLab'a henüz giriş yapmamış olanlar da
+// başlangıç bakiyesiyle listeye eklenir (waiting). Final/doğrulama akışı
+// rankingPool()'u kullanmaya devam eder; bu yalnızca görüntüleme içindir.
+function weekRoster(){
   const pool = rankingPool();
+  if(!state.competitionActive) return pool;
+  const have = new Set(pool.map(c => String(c.id)));
+  const base = getBaslangicBakiyesi();
+  state.applications
+    .filter(a => a.status === 'onayli' && !a.pastCompetitor && Number(a.cohortId) === Number(state.currentCohortId) && !(a.lockedOut && !a.lockOverride) && !have.has(String(a.id)))
+    .forEach(a => pool.push({ id: String(a.id), name: a.name, email: a.email, equity: base, balance: base, positionsCount: 0, updatedAt: null, waiting: true }));
+  return pool;
+}
+function buildPublicLeaderboard(){
+  const pool = weekRoster();
   const base = getBaslangicBakiyesi();
   const rows = pool.slice().sort((a, b) => (b.equity || 0) - (a.equity || 0)).slice(0, 60).map((c, i) => ({
     rank: i + 1,
@@ -2724,7 +2759,8 @@ function schedulePublicLeaderboard(force){
     publicLbLastWrite = Date.now();
     fresh.updatedAt = new Date().toISOString();
     firebase.firestore().collection('finteclub').doc('public_leaderboard').set(fresh)
-      .catch(e => { publicLbLastJson = ''; console.warn('[Herkese açık sıralama] yazılamadı:', e); });
+      .then(() => { publicLbStatus = { at: Date.now(), err: '', active: !!fresh.competitionActive, n: (fresh.rows || []).length }; yyPubStatus(); })
+      .catch(e => { publicLbLastJson = ''; publicLbStatus = { at: publicLbStatus.at, err: (e && (e.code || e.message)) || 'bilinmeyen hata', active: publicLbStatus.active, n: publicLbStatus.n }; yyPubStatus(); console.warn('[Herkese açık sıralama] yazılamadı:', e); });
   }, wait);
 }
 // (6 Ağustos 2026 — "sıfırlıyorum ama gene eski bakiyesi geliyor") Bu belge
@@ -4389,6 +4425,7 @@ function startCompetitionNow(source){
   syncOplabSettingsUI();
   syncYayinUI();
   saveShared();
+  schedulePublicLeaderboard(true);
   const durationLabel = formatDurationHuman(durationMs);
   addActivity('Yarışma başlatıldı (' + source + ') — ' + durationLabel + ' süre başladı, OPLab erişimi açıldı.');
   showToast('Yarışma başlatıldı. ' + durationLabel + ' sonra otomatik olarak bitecek.', 'success');
@@ -4694,7 +4731,7 @@ function renderCanliIzleme(){
   const liderAdEl = document.getElementById('canliLiderAd');
   const tabloEl = document.getElementById('canliLiderlikTablosu');
   const sonGuncellenenlerEl = document.getElementById('canliSonGuncellenenler');
-  const data = rankingPool(); // (25 Eylül 2026) sadece bu haftanın yarışmacıları
+  const data = weekRoster(); // bu haftanın yarışmacıları (OPLab'a henüz girmemiş olanlar dahil)
 
   katilimciEl.textContent = data.length;
   acikPosEl.textContent = data.reduce((sum,c)=> sum + (c.positionsCount||0), 0);
@@ -4723,7 +4760,7 @@ function renderCanliIzleme(){
     return `<div class="list-item" style="cursor:pointer;${selectedCanliAppId===c.id?'border-color:var(--blue);':''}" data-canli-id="${c.id}">
       <div>
         <div style="font-weight:600;font-size:14px;">${i+1}. ${escapeHtml(c.name) || 'İsimsiz'}</div>
-        <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">Özkaynak: ${fmtTRY(c.equity||0)} • ${c.positionsCount||0} açık pozisyon</div>
+        <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${c.waiting ? '<span style="color:var(--yellow);">OPLab\'a henüz giriş yapmadı</span> • başlangıç bakiyesi ' + fmtTRY(c.equity||0) : `Özkaynak: ${fmtTRY(c.equity||0)} • ${c.positionsCount||0} açık pozisyon`}</div>
       </div>
       <span class="status-pill ${pct>=0?'green':'red'}">${pct>=0?'+':''}${pct.toFixed(2)}%</span>
     </div>`;
@@ -4732,15 +4769,15 @@ function renderCanliIzleme(){
     el.addEventListener('click', ()=>{ selectedCanliAppId = el.dataset.canliId; renderCanliIzleme(); });
   });
 
-  const sortedByUpdate = data.slice().sort((a,b)=> new Date(b.updatedAt||0) - new Date(a.updatedAt||0)).slice(0,8);
-  sonGuncellenenlerEl.innerHTML = sortedByUpdate.map(c=>`
+  const sortedByUpdate = data.filter(c => !c.waiting).sort((a,b)=> new Date(b.updatedAt||0) - new Date(a.updatedAt||0)).slice(0,8);
+  sonGuncellenenlerEl.innerHTML = sortedByUpdate.length ? sortedByUpdate.map(c=>`
     <div class="list-item" style="cursor:default;">
       <div>
         <div style="font-weight:600;font-size:14px;">${escapeHtml(c.name) || 'İsimsiz'}</div>
         <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${fmtTRY(c.equity||0)} özkaynak</div>
       </div>
       <span style="color:var(--text-dim);font-size:12px;">${timeAgoTr(c.updatedAt)}</span>
-    </div>`).join('');
+    </div>`).join('') : `<div class="empty-state"><div class="icon">⇄</div><span>Yarışmacılar OPLab'a giriş yapınca burada görünür.</span></div>`;
 
   updateCanliSeciliPortfoy();
 }
