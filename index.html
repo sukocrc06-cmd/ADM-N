@@ -1708,10 +1708,15 @@ function tryInitFirebase(){
     // açık; ziyaretçiler admin panelinin yazdığı SADELEŞTİRİLMİŞ herkese açık
     // sıralamayı (isim/değer/getiri/sıra) okur.
     fsPortfolioDoc = firebase.firestore().collection('finteclub').doc('public_leaderboard');
-    if(typeof firebase.storage === 'function') fbStorage = firebase.storage();
+    // Başvuranın oturumu ayrı bir Firebase uygulamasında: admin paneli aynı adreste açıkken
+    // (finteclub.com.tr/fintelig/ ya da bilgisayardan açılan dosyalar) admin oturumunu ezmez.
+    let ligApp = null;
+    try{ ligApp = (firebase.apps || []).find(a => a && a.name === 'ligPublic') || firebase.initializeApp(FIREBASE_CONFIG, 'ligPublic'); }catch(e){ ligApp = null; }
+    const authApp = ligApp || firebase.app();
+    if(typeof firebase.storage === 'function') fbStorage = authApp.storage();
     AUTH_ENABLED = typeof firebase.auth === 'function';
     if(AUTH_ENABLED){
-      try{ fbAuth = firebase.auth(); }
+      try{ fbAuth = authApp.auth(); }
       catch(e){ console.warn('Firebase Auth başlatılamadı.', e); AUTH_ENABLED = false; }
     }
     return true;

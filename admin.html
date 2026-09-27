@@ -2233,9 +2233,20 @@ if(FIREBASE_ENABLED){
 // Etkinleştirilmediği sürece (veya FIREBASE_CONFIG placeholder kaldığı sürece) panel eskisi gibi basit
 // format kontrolüyle çalışmaya devam eder — hiçbir şey bozulmaz.
 const AUTH_ENABLED = FIREBASE_ENABLED && typeof firebase.auth === 'function';
+// Firestore kurallarındaki isFinteClubAdmin() listesiyle AYNI olmalı.
+const ADMIN_EMAILS = ['suko.crc06@gmail.com'];
+function isAdminUser(u){ return !!(u && u.email && ADMIN_EMAILS.indexOf(String(u.email).trim().toLowerCase()) !== -1); }
 let authScreenInitialized = false;
 if(AUTH_ENABLED){
   firebase.auth().onAuthStateChanged(function(user){
+    if(user && !isAdminUser(user)){
+      const em = user.email || 'anonim oturum';
+      const errBox = document.getElementById('loginError');
+      if(errBox){ errBox.style.display = 'block'; errBox.textContent = 'Bu tarayıcıda admin olmayan bir hesabın oturumu açıktı (' + em + ') — büyük olasılıkla aynı tarayıcıdan lig sitesinde başvuru yapıldı. O oturum kapatıldı; admin hesabınla giriş yap.'; }
+      firebase.auth().signOut().catch(()=>{});
+      showScreen('login');
+      return;
+    }
     if(user){
       showScreen('app');
       // admin-only belgeleri giriş yapılmış kimlikle yeniden dinle (bkz. subscribeOplabPortfolio)
@@ -2708,7 +2719,8 @@ function yyPubStatus(){
   let txt, cls;
   if(!FIREBASE_ENABLED){ txt = 'Yerel mod — yayın belgesi Firebase olmadan yazılmaz'; cls = 'warn'; }
   else if(!(firebase.auth && firebase.auth().currentUser)){ txt = 'Admin Firebase oturumu yok — yayın güncellenemiyor. Çıkış yapıp tekrar giriş yap.'; cls = 'bad'; }
-  else if(publicLbStatus.err){ txt = 'Yayın verisi yazılamadı (' + publicLbStatus.err + ') — Firestore kurallarını ve admin girişini kontrol et.'; cls = 'bad'; }
+  else if(!isAdminUser(firebase.auth().currentUser)){ txt = 'Oturum admin hesabı değil (' + (firebase.auth().currentUser.email || 'anonim') + ') — çıkış yapıp admin hesabıyla gir.'; cls = 'bad'; }
+  else if(publicLbStatus.err){ txt = 'Yayın verisi yazılamadı (' + publicLbStatus.err + ') — oturum: ' + ((firebase.auth().currentUser || {}).email || '—') + '. Firestore kurallarının yayınlandığını kontrol et.'; cls = 'bad'; }
   else if(publicLbStatus.at){ const s = Math.max(0, Math.round((Date.now() - publicLbStatus.at) / 1000)); txt = 'Yayın verisi ' + (s < 60 ? s + ' sn' : Math.round(s / 60) + ' dk') + ' önce güncellendi · ' + (publicLbStatus.active ? 'yarışma sürüyor' : 'yarışma yok') + ' · ' + publicLbStatus.n + ' yarışmacı'; cls = 'ok'; }
   else { txt = 'Yayın verisi henüz yazılmadı (bu oturumda).'; cls = 'warn'; }
   if(sub) sub.textContent = cls === 'ok' ? 'Veri ' + (publicLbStatus.active ? 'canlı' : 'güncel') : (cls === 'bad' ? 'Veri gitmiyor!' : 'Veri bekleniyor');
@@ -3168,7 +3180,12 @@ document.getElementById('loginForm').addEventListener('submit', function(e){
     const persistence = trustDevice ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION;
     firebase.auth().setPersistence(persistence)
       .then(()=> firebase.auth().signInWithEmailAndPassword(email, pwd))
-      .then(()=>{
+      .then((cred)=>{
+        if(cred && cred.user && !isAdminUser(cred.user)){
+          errBox.style.display = 'block';
+          errBox.textContent = 'Bu hesap (' + (cred.user.email || '') + ') admin değil. Admin paneline yalnızca yetkili admin e-postasıyla girilebilir.';
+          return;
+        }
         showToast('Hoş geldiniz, ADMİN olarak giriş yapıldı.', 'success');
       })
       .catch((err)=>{
