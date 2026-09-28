@@ -2092,6 +2092,7 @@ const state = {
   // (26 Eylül 2026 — Lig modülü) Sezon/hafta planı, OPLab duyurusu ve
   // eşitlik ek süresi. Ayrıntılı şema: dosyanın sonundaki LİG MODÜLÜ.
   season: null,
+  broadcastWeekNo: null, // yayında gösterilen (son biten / süren) hafta
   // (26 Eylül 2026 v3) yayin.html otomatik akış ayarları
   yayinConfig: null,
   oplabAnnouncement: null,
@@ -2406,6 +2407,7 @@ function saveShared(){
     zirvePromotedAppIds: state.zirvePromotedAppIds,
     season: (state.season && !state.season._draft) ? state.season : (window.__ligRemoteSeason || null),
     yayinConfig: state.yayinConfig || null,
+    broadcastWeekNo: state.broadcastWeekNo ?? null,
     oplabAnnouncement: state.oplabAnnouncement || null,
     tieBreak: state.tieBreak || null
   };
@@ -2532,6 +2534,7 @@ function hydrateFromShared(){
     if(shared.season.enabled === true && !window.__ligDisableSaved){ window.__ligDisableSaved = true; shared.season.enabled = false; delete shared.season._draft; setTimeout(() => saveShared(), 1500); }
   }
   state.yayinConfig = shared.yayinConfig ?? state.yayinConfig;
+  if('broadcastWeekNo' in shared) state.broadcastWeekNo = shared.broadcastWeekNo;
   state.oplabAnnouncement = ('oplabAnnouncement' in shared) ? shared.oplabAnnouncement : state.oplabAnnouncement;
   state.tieBreak = ('tieBreak' in shared) ? shared.tieBreak : state.tieBreak;
   if(shared.appIdCounter) appIdCounter = shared.appIdCounter;
@@ -2681,11 +2684,17 @@ async function verifyFinalRanking(recordId){
   if(!rec || !Array.isArray(rec.ranking) || !rec.ranking.length) return;
   showToast('Final sıralama doğrulanıyor: kişisel portföy kayıtları güncel fiyatlarla yeniden hesaplanıyor…', 'success');
   let verified;
-  try{ verified = await computeVerifiedEquities(rec.ranking); }
+  const rowsIn = rec.ranking.slice();
+  try{ verified = await computeVerifiedEquities(rowsIn); }
   catch(e){ rec.ranking.forEach(row => { delete row.positions; }); saveShared(); console.warn('[Final sıralama] Doğrulama başarısız:', e); showToast('Final sıralama doğrulanamadı — bildirilen değerler geçerli kaldı (konsola bak).', 'warn'); return; }
+  const vById = new Map(rowsIn.map((r, i) => [String(r.appId), verified[i]]));
+  const recNow = state.competitionHistory.find(h => h.id === recordId) || rec;
+  const delIds = state.deletedApplicationIds || {};
+  recNow.ranking = (recNow.ranking || []).filter(r => !delIds[String(r.appId)]);
+  recNow.participantCount = recNow.ranking.length;
   let flagged = 0;
-  rec.ranking.forEach((row, i) => {
-    const v = verified[i];
+  recNow.ranking.forEach((row) => {
+    const v = vById.get(String(row.appId));
     row.equityReported = row.equity;
     if(!v){ row.verified = false; return; }
     row.verified = true;
@@ -2696,10 +2705,10 @@ async function verifyFinalRanking(recordId){
     row.mismatch = Math.abs(v.equity - (row.equityReported || 0)) / base > 0.01;
     if(row.mismatch) flagged++;
   });
-  rec.ranking.forEach(row => { delete row.positions; }); // geçici — paylaşılan belge şişmesin
-  rec.ranking.sort((a, b) => (b.equity || 0) - (a.equity || 0));
-  rec.verifiedAt = new Date().toLocaleString('tr-TR');
-  rec.flaggedCount = flagged;
+  recNow.ranking.forEach(row => { delete row.positions; }); // geçici — paylaşılan belge şişmesin
+  recNow.ranking.sort((a, b) => (b.equity || 0) - (a.equity || 0));
+  recNow.verifiedAt = new Date().toLocaleString('tr-TR');
+  recNow.flaggedCount = flagged;
   saveShared();
   renderYarismaGecmisi();
   schedulePublicLeaderboard(true);
@@ -4407,7 +4416,8 @@ function renderDashboardDynamic(){
 
 /* ============ YARIŞMA SONUÇLARI: PUBLISH ============ */
 document.getElementById('publishBtn').addEventListener('click', function(){
-  if(!rankingPool().length){
+  const lastRec = (state.competitionHistory || [])[0];
+  if(!rankingPool().length && !(lastRec && Array.isArray(lastRec.ranking) && lastRec.ranking.length)){
     showToast('Sonuç yayınlanamadı: henüz final sıralama oluşmadı.', 'warn');
     return;
   }
@@ -4481,6 +4491,8 @@ function startCompetitionNow(source){
   const durationMs = calendarEnd ? (calendarEnd - now) : getConfiguredCompetitionDurationMs();
   state.competitionActive = true;
   state.competitionStartedAt = now;
+  state.resultsPublished = false;              // yeni yarışma: önceki haftanın ilanı/töreni yayından kalkar
+  state.broadcastWeekNo = state.currentCohortId || 1;
   state.competitionEndsAt = now + durationMs;
   state.competitionTotalMs = durationMs;
   state.oplabEnabled = true;
@@ -5338,6 +5350,7 @@ function finishCompetition(reason){
   if(window.LIG) LIG.onFinish(record);
   state.competitionHistory = [record, ...state.competitionHistory];
   state.competitionActive = false;
+  state.resultsPublished = false;              // yayın: "Kontrol ediliyor" — ilan edilince tören
   state.competitionEndsAt = null;
   state.competitionTotalMs = null;
   state.competitionStartedAt = null;
@@ -6301,7 +6314,10 @@ function weekByNo(n){ return S().weeks.find(w => Number(w.no) === Number(n)) || 
 function currentWeek(){ return on() ? weekByNo(state.currentCohortId) : null; }
 // (27 Eylül 2026) Eski sistemde (sezon takvimi kapalı) de Yaptırım & Sonuç çalışsın diye:
 // her biten yarışma, o anki hafta numarasıyla (currentCohortId) bir "sonuç kaydı" haftası olur.
-function trackWeek(){ return on() ? currentWeek() : weekByNo(state.currentCohortId); }
+// Yayındaki hafta: eski sistemde "Haftayı bitir" hafta numarasını ilerletse de, yeni yarışma başlayana kadar
+// yayın ekranı BİTEN haftayı gösterir (kontrol → ilan → tören) — state.broadcastWeekNo.
+function trackWeek(){ return on() ? currentWeek() : weekByNo(state.broadcastWeekNo != null ? state.broadcastWeekNo : state.currentCohortId); }
+function isBroadcastWeek(w){ const t = trackWeek(); return !!(w && t && Number(t.no) === Number(w.no)); }
 function resultWeeks(){ return on() ? S().weeks : S().weeks.filter(w => w.status !== 'planned'); }
 function weekLabel(w){ return w ? `Hafta ${w.no}${w.start ? ` (${dm(w.start)}–${dm(w.end)})` : ''}` : '—'; }
 function sessionNow(now){
@@ -6485,6 +6501,7 @@ function onFinish(record){
     }
     w.start = state.startDate || w.start || ''; w.end = state.endDate || w.end || '';
     w.virtual = true;
+    state.broadcastWeekNo = no;
     undraft();
   }
   if(!w) return;
@@ -6502,7 +6519,7 @@ function onPublish(wk){
   }
   // Tören ve herkese açık sonuç yalnızca yayındaki (güncel) hafta için —
   // bir sonraki hafta başladıysa önceki haftanın ilanı sadece kayıt/itiraz sürecini başlatır.
-  if(Number(state.currentCohortId) === Number(w.no)){ w.ceremonyAt = now; state.resultsPublished = true; }
+  if(isBroadcastWeek(w)){ w.ceremonyAt = now; state.resultsPublished = true; }
   saveShared();
   schedulePublicLeaderboard(true);
   render();
@@ -6864,13 +6881,15 @@ function extendPublic(p){
     // Kural 17.1: yarışma bittikten sonra sıralama canlı (yarışmacının kendi
     // bildirdiği) değerlerden değil, doğrulanmış final kaydından gelir.
     const rec = !state.competitionActive && (w.status === 'review' || w.status === 'published' || w.status === 'finalized') ? historyFor(w) : null;
-    if(rec && Array.isArray(rec.ranking) && rec.ranking.length){
-      p.rows = rec.ranking.slice(0, 60).map((r, i) => Object.assign({
+    const delIds = state.deletedApplicationIds || {};
+    const recRows = rec && Array.isArray(rec.ranking) ? rec.ranking.filter(r => !delIds[String(r.appId)]) : [];
+    if(recRows.length){
+      p.rows = recRows.slice(0, 60).map((r, i) => Object.assign({
         rank: i + 1, name: String(r.name || 'İsimsiz').slice(0, 60),
         equity: Math.round((r.equity || 0) * 100) / 100,
         pct: Math.round((r.pct != null ? r.pct : pctReturn(r.equity || 0)) * 100) / 100
       }, isRankExcluded(r.appId) ? { dq: true } : {}, rowExtras(r.appId)));
-      p.participantCount = rec.ranking.length;
+      p.participantCount = recRows.length;
     }
   }
   const rows = (p.rows || []).filter(r => !r.dq);
@@ -7240,8 +7259,8 @@ function renderKarar(){
       <div class="btn-row" style="margin-top:14px;flex-wrap:wrap;">
         <button class="btn" data-lig="csv" data-week="${Number(w.no)}">⬇ Sonuç CSV</button>
         <button class="btn" data-lig="csv-trades" data-week="${Number(w.no)}">⬇ İşlem dökümü CSV</button>
-        ${w.status === 'review' ? `<button class="btn btn-blue" data-lig="publish" data-week="${Number(w.no)}">${Number(state.currentCohortId) === Number(w.no) ? 'Sonuçları ilan et + tören' : 'Sonuçları ilan et (itiraz süresini başlat)'}</button>` : ''}
-        ${w.status === 'published' || w.status === 'finalized' ? `<button class="btn" data-lig="ceremony" data-week="${Number(w.no)}" ${Number(state.currentCohortId) !== Number(w.no) ? 'disabled' : ''}>🎬 Töreni yayında tekrar oynat</button>` : ''}
+        ${w.status === 'review' ? `<button class="btn btn-blue" data-lig="publish" data-week="${Number(w.no)}">${isBroadcastWeek(w) ? 'Sonuçları ilan et + tören' : 'Sonuçları ilan et (itiraz süresini başlat)'}</button>` : ''}
+        ${w.status === 'published' || w.status === 'finalized' ? `<button class="btn" data-lig="ceremony" data-week="${Number(w.no)}" ${!isBroadcastWeek(w) ? 'disabled' : ''}>🎬 Töreni yayında tekrar oynat</button>` : ''}
         ${w.status === 'published' ? `<button class="btn btn-green" data-lig="finalize" data-week="${Number(w.no)}">Kesinleştir</button>` : ''}
       </div>
       ${w.status === 'published' ? `<p class="note-box" style="margin-top:10px;">İlan: ${fmtDT(w.resultsPublishedAt)} · İtiraz son: <b>${fmtDT(w.objectionDeadline)}</b> (${w.objectionDeadline > now ? fmtLeft(w.objectionDeadline - now) + ' kaldı' : 'süre doldu'}) — kural 17.4, yazılı itiraz.</p>` : ''}`;
@@ -7396,7 +7415,7 @@ function onClick(e){
       if(tg.length && !confirm(`Uyarı: sıralamada hâlâ eşit portföy değerleri var (${tg.map(g => g.map(r => r.name).join(' = ')).join(' · ')}). Kural 9.11'e göre önce ek süre ya da yönetim kararı uygulanmalı. Yine de ilan edilsin mi?`)) return;
       if(!confirm(`Hafta ${wk} sonuçları İLAN EDİLSİN mi?\n\nSıralama herkese açık sonuç sayfasında ve yayın ekranında görünecek, yayın sayfasında 10→1 sonuç töreni başlayacak ve ${s.objectionBusinessDays} iş günlük itiraz süresi başlayacak (kural 17.4).`)) return;
       onPublish(wk); syncSonuclarPublishUI && syncSonuclarPublishUI(); addActivity(`Hafta ${wk} sonuçları ilan edildi — itiraz süresi başladı.`); render(); return; }
-    case 'ceremony': { const w = weekByNo(wk); w.ceremonyAt = Date.now(); persist(); showToast('Tören yayın sayfasında yeniden başlatıldı.', 'success'); break; }
+    case 'ceremony': { const w = weekByNo(wk); if(!isBroadcastWeek(w)) return; w.ceremonyAt = Date.now(); state.resultsPublished = true; persist(); showToast('Tören yayın sayfasında yeniden başlatıldı.', 'success'); break; }
     case 'finalize': finalizeWeek(wk); return;
     case 'transfer': transferFinalist(wk); return;
     case 'promote': if(typeof promoteToZirve === 'function'){ promoteToZirve(Number(b.dataset.app)); setTimeout(render, 300); } return;
