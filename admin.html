@@ -1766,80 +1766,53 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
     <!-- ============ PAGE: YAYIN YÖNETİM ============ -->
     <section id="page-yayin" class="page">
       <div class="grid-4">
-        <div class="stat-card"><div class="stat-label">YAYIN DURUMU</div><div class="stat-value gray" id="yayinDurumu">HAZIR DEĞİL</div><div class="stat-sub" id="yayinDurumuSub">Veri bekleniyor</div></div>
+        <div class="stat-card"><div class="stat-label">YAYIN DURUMU</div><div class="stat-value gray" id="yayinDurumu">HAZIR DEĞİL</div><div class="stat-sub" id="yayinDurumuSub">Yarışma başlamadı</div></div>
         <div class="stat-card"><div class="stat-label">YARIŞMA DURUMU</div><div class="stat-value gray" id="yayinYarismaDurumu">PASİF</div><div class="stat-sub" id="yayinYarismaSub">Yarışma başlatılmadı</div></div>
-        <div class="stat-card"><div class="stat-label">EKRANDAKİ SAHNE</div><div class="stat-value yellow" id="yyNowScene" style="font-size:22px;">OTOMATİK</div><div class="stat-sub">Yayın sayfasında (yayin.html)</div></div>
+        <div class="stat-card"><div class="stat-label">GÖRÜNTÜ MODU</div><div class="stat-value yellow" id="yayinGoruntuModu" style="font-size:22px;">LİDERLİK</div><div class="stat-sub">Ekrana yansıtılacak görünüm</div></div>
         <div class="stat-card"><div class="stat-label">CANLI SENKRONİZASYON</div><div class="stat-value gray" id="yayinSyncStat">—</div><div class="stat-sub" id="yayinSyncSub">Kontrol ediliyor...</div></div>
       </div>
 
-      <div class="yy-grid">
-        <div class="card yy-card">
-          <div class="yy-head"><h3 class="section-title">Canlı Önizleme</h3>
-            <div class="toggle-group yy-mode" id="yyPrevMode"><button type="button" class="toggle-opt on-blue active" data-src="live">Gerçek veri</button><button type="button" class="toggle-opt on-blue" data-src="demo">Demo veri</button></div>
-          </div>
-          <p class="section-desc">Projeksiyonda / TV'de görünen yayın ekranının birebir kopyası. Demo veri, yarışma sırasında ekranın nasıl görüneceğini rastgele örnek yarışmacılarla gösterir (hiçbir yere yazılmaz).</p>
-          <div class="yy-prev" id="yyPrev"><iframe id="yyFrame" title="Yayın ekranı önizleme" tabindex="-1"></iframe><div class="yy-prev-cover"></div></div>
-          <p class="yy-pub warn" id="yyPubLine">Yayın verisi durumu kontrol ediliyor…</p>
-          <p class="yy-hint" id="yyHint"></p>
-          <div class="yy-links">
-            <a class="btn yy-link yy-gold" id="openYayinPageBtn" href="yayin.html" target="_blank" rel="noopener">📺 Yayın sayfasını aç (projeksiyon / TV)</a>
-            <a class="btn yy-link yy-purple" href="yayin.html?demo=1" target="_blank" rel="noopener">🎬 Demo önizlemeyi ayrı sekmede aç</a>
-          </div>
-          <p class="note-box" style="margin-top:10px;">Yayın sayfası giriş gerektirmez; yalnızca isim, portföy değeri, getiri ve sıra gösterir (kural 4.9). Projeksiyonda F tuşu tam ekran, ← / → sahne değiştirir. Adres: finteclub.com.tr/fintelig/yayin.html</p>
-        </div>
-
-        <div class="card yy-card">
-          <h3 class="section-title">Ekranda Ne Gösterilsin?</h3>
-          <p class="section-desc">Bir sahneye basınca yayın o sahnede sabitlenir. "Otomatik akış" aşağıda seçtiğin sahneleri sırayla döndürür. Sıralama içeren sahneler, yarışma bitip sonuçlar açıklanana kadar kural 17.1 gereği gösterilmez.</p>
-          <div class="yy-scenes" id="yayinSceneShortcuts"></div>
-          <div class="field-label" style="margin:18px 0 8px;">OTOMATİK AKIŞTA DÖNECEK SAHNELER</div>
-          <div class="yy-auto" id="yyAuto"></div>
-          <div class="yy-opts">
-            <label>Sahne süresi<select id="yySec"><option value="8">8 sn</option><option value="12">12 sn</option><option value="15">15 sn</option><option value="20">20 sn</option><option value="30">30 sn</option><option value="45">45 sn</option></select></label>
-            <label>Pistte gösterilecek<select id="yyTop"><option value="5">İlk 5</option><option value="8">İlk 8</option><option value="10">İlk 10</option><option value="12">İlk 12</option><option value="15">İlk 15</option><option value="20">İlk 20</option></select></label>
-            <label class="yy-chk"><input type="checkbox" id="yyFx"> Efektler (konfeti, "yeni lider" kartı, geçiş parlaması)</label>
-          </div>
-          <div style="margin-top:18px;">
-            <div class="field-label" style="margin-bottom:6px;">EKRANA DUYURU</div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <input type="text" id="yayinAnnounceInput" maxlength="140" placeholder="Örn: Yarışmanın bitmesine 15 dakika kaldı!" style="flex:1;min-width:200px;">
-              <button class="btn btn-blue" id="yayinAnnounceSend" type="button">Gönder</button>
-              <button class="btn" id="yayinAnnounceClear" type="button">Kaldır</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card yy-card">
-        <h3 class="section-title">Yayın ve Yarışma Kontrolleri</h3>
-        <p class="section-desc">Sezon planı açıkken haftalar Yarışma Günü sayfasından başlatılır; buradaki düğmeler elle kontrol içindir.</p>
-        <div class="yy-ctrl">
-          <button class="btn btn-green" id="startBroadcastBtn">YAYINI BAŞLAT</button>
-          <button class="btn btn-red" id="stopBroadcastBtn">YAYINI DURDUR</button>
-          <button class="btn btn-blue" id="startCompBtn">YARIŞMAYI BAŞLAT</button>
-          <button class="btn" id="endCompBtn">YARIŞMAYI BİTİR</button>
-        </div>
-      </div>
-
-      <details class="card yy-legacy">
-        <summary>Panel içi eski sahne modu (isteğe bağlı)</summary>
-        <div class="yy-legacy-body">
-          <div class="stat-card" style="margin:14px 0;"><div class="stat-label">GÖRÜNTÜ MODU</div><div class="stat-value yellow" id="yayinGoruntuModu" style="font-size:22px;">LİDERLİK</div><div class="stat-sub">Panel içi sahne modunda gösterilecek görünüm</div></div>
-          <div class="yayin-preview-box" id="yayinPreviewBox" style="height:360px;">
+      <div class="grid-2">
+        <div class="card">
+          <h3 class="section-title">Yayın Önizlemesi</h3>
+          <div class="yayin-preview-box" id="yayinPreviewBox" style="height:420px;">
             <div class="center-msg" id="yayinPreviewMsg">Yayın başlatıldığında önizleme burada görünecek.</div>
             <div id="yayinPreviewContent" class="yp-content" style="display:none;"></div>
             <div id="yayinPreviewSelected" class="hidden yp-floating-leaders"></div>
           </div>
-          <button class="btn btn-block" id="enterStageModeBtn" style="margin-top:12px;background:linear-gradient(90deg,#7c3aed,#2563eb);color:#fff;border:none;">🖥️ SAHNE MODU (TAM EKRAN — bu sekmede)</button>
-          <div class="shortcut-list" id="viewModeShortcuts">
-            <button class="shortcut-btn active" data-mode="LİDERLİK">Liderlik Tablosu</button>
-            <button class="shortcut-btn" data-mode="İŞLEM AKIŞI" title="Dikkat: yarışmacıların işlemlerini gösterir — kural 4.9/6.11 gereği yarışma SÜRERKEN salondaki ekrana yansıtmayın">Canlı İşlem Akışı ⚠</button>
-            <button class="shortcut-btn" data-mode="İLK 3">İlk 3 Yarışmacı</button>
-            <button class="shortcut-btn" data-mode="SIRALAMA">Genel Sıralama</button>
-            <button class="shortcut-btn" data-mode="DURUM">Yarışma Durumu</button>
+        </div>
+        <div>
+          <div class="card" style="margin-bottom:20px;">
+            <h3 class="section-title">Yayın Kontrolleri</h3>
+            <p class="section-desc">Yarışma yayını ve ekran akışını yönetin.</p>
+            <div class="grid-2-even" style="margin-bottom:0;">
+              <button class="btn btn-green" id="startBroadcastBtn">YAYINI BAŞLAT</button>
+              <button class="btn btn-red" id="stopBroadcastBtn">YAYINI DURDUR</button>
+              <button class="btn btn-blue" id="startCompBtn">YARIŞMAYI BAŞLAT</button>
+              <button class="btn" id="endCompBtn">YARIŞMAYI BİTİR</button>
+            </div>
+            <p class="note-box">Yayın başlatıldığında seçili görüntü modu sahne ekranına aktarılır.</p>
+            <button class="btn btn-block" id="enterStageModeBtn" style="margin-top:12px;background:linear-gradient(90deg,#7c3aed,#2563eb);color:#fff;border:none;">🖥️ SAHNE MODU (TAM EKRAN)</button>
+            <p class="note-box" style="margin-top:8px;">Projeksiyona/HDMI'ya bağlıyken bu düğmeye basın — menü ve kontroller tamamen kaybolur, izleyiciler sadece büyük, canlı yayın görünümünü görür. Çıkmak için ESC tuşuna basın.</p>
+          </div>
+          <div class="card" style="margin-bottom:20px;">
+            <h3 class="section-title" style="font-size:16px;">Canlı Veri Durumu</h3>
+            <p class="yy-pub warn" id="yyPubLine" style="margin-top:0;">Yayın verisi durumu kontrol ediliyor…</p>
+            <button class="btn btn-block" id="yyReconnectBtn" type="button" style="margin-top:10px;">🔄 BAĞLANTIYI YENİLE</button>
+            <p class="note-box" style="margin-top:8px;">Durum kırmızıysa bu düğmeye bas: sunucu bağlantısı sıfırlanır, canlı portföyler yeniden dinlenir ve sıralama hemen yeniden yazılır (sayfayı yenilemeye gerek yok).</p>
+          </div>
+          <div class="card">
+            <h3 class="section-title" style="font-size:16px;">İçerik Kısayolları</h3>
+            <div class="shortcut-list" id="viewModeShortcuts">
+              <button class="shortcut-btn active" data-mode="LİDERLİK">Liderlik Tablosu</button>
+              <button class="shortcut-btn" data-mode="İŞLEM AKIŞI" title="Dikkat: yarışmacıların işlemlerini gösterir — kural 4.9/6.11 gereği yarışma SÜRERKEN salondaki ekrana yansıtmayın">Canlı İşlem Akışı ⚠</button>
+              <button class="shortcut-btn" data-mode="İLK 3">İlk 3 Yarışmacı</button>
+              <button class="shortcut-btn" data-mode="SIRALAMA">Genel Sıralama</button>
+              <button class="shortcut-btn" data-mode="DURUM">Yarışma Durumu</button>
+            </div>
           </div>
         </div>
-      </details>
+      </div>
     </section>
 
     <!-- ============ PAGE: OPLAB (ALIM-SATIM SİTESİ) KONTROLÜ ============ -->
@@ -2826,7 +2799,6 @@ function yyPubStatus(){
   if(line){ line.textContent = txt; line.className = 'yy-pub ' + cls; }
 }
 setInterval(() => { try{ yyPubStatus(); }catch(e){} }, 5000);
-setInterval(() => { try{ if(state.competitionActive && Date.now() - publicLbLastWrite > 60000) schedulePublicLeaderboard(true); }catch(e){} }, 20000);
 setTimeout(() => { try{ yyPubStatus(); }catch(e){} }, 0);
 if(AUTH_ENABLED) firebase.auth().onAuthStateChanged(() => { try{ yyPubStatus(); }catch(e){} });
 // Aktif haftanın onaylı yarışmacıları: OPLab'a henüz giriş yapmamış olanlar da
@@ -2851,8 +2823,7 @@ function buildPublicLeaderboard(){
     equity: Math.round((c.equity || 0) * 100) / 100,
     pct: Math.round(pctReturn(c.equity || 0) * 100) / 100,
     dq: isRankExcluded(c.id) || undefined,
-    waiting: c.waiting || undefined,
-    ...(window.LIG ? LIG.rowExtras(c.id) : {})
+    waiting: c.waiting || undefined
   }));
   const weeks = (state.cohortHistory || []).slice().reverse().map(h => {
     const w = (h.competitors || []).filter(x => x.equity !== null)[0];
@@ -2877,7 +2848,10 @@ function buildPublicLeaderboard(){
     announcement: state.yayinAnnouncement || '',
     config: state.yayinConfig ? JSON.parse(JSON.stringify(state.yayinConfig)) : null
   };
-  return window.LIG ? JSON.parse(JSON.stringify(LIG.extendPublic(out))) : out;
+  const o = window.LIG ? JSON.parse(JSON.stringify(LIG.extendPublic(out))) : out;
+  ['idx', 'lead', 'duel', 'series', 'config'].forEach(k => { delete o[k]; });
+  (o.rows || []).forEach(r => { ['spark', 'c30', 'dd', 'mdd', 'vol', 'rr', 'lead', 'prevRank'].forEach(k => { delete r[k]; }); });
+  return o;
 }
 function fsEncodeNested(v, inArr){
   if(Array.isArray(v)){ const a = v.map(x => fsEncodeNested(x, true)); return inArr ? { __a: a } : a; }
@@ -2914,13 +2888,24 @@ document.addEventListener('visibilitychange', function(){
   if(document.visibilityState === 'visible' && state.competitionActive && Date.now() - (publicLbStatus.at || 0) > 60000){ publicLbLastJson = ''; schedulePublicLeaderboard(true); }
 });
 window.addEventListener('online', function(){ publicLbLastJson = ''; schedulePublicLeaderboard(true); });
+document.getElementById('yyReconnectBtn')?.addEventListener('click', function(){
+  const b = this; b.disabled = true; b.textContent = '⏳ YENİLENİYOR…';
+  publicLbPendingSince = 0; publicLbStatus = { at: publicLbStatus.at, err: '', active: publicLbStatus.active, n: publicLbStatus.n }; publicLbLastJson = '';
+  let p = Promise.resolve();
+  try{ const db = firebase.firestore(); p = db.disableNetwork().then(() => db.enableNetwork()); }catch(e){}
+  p.catch(()=>{}).then(() => {
+    try{ subscribeOplabPortfolio(); }catch(e){}
+    schedulePublicLeaderboard(true);
+    setTimeout(() => { b.disabled = false; b.textContent = '🔄 BAĞLANTIYI YENİLE'; yyPubStatus(); showToast(publicLbStatus.err ? 'Bağlantı yenilendi ama yazma hâlâ başarısız: ' + publicLbStatus.err : 'Bağlantı yenilendi, sıralama yazıldı.', publicLbStatus.err ? 'error' : 'success'); }, 2500);
+  });
+});
 function schedulePublicLeaderboard(force){
   try{ yyPushPreview(); }catch(e){}
   if(!FIREBASE_ENABLED || typeof firebase === 'undefined' || !firebase.auth || !firebase.auth().currentUser) return;
   const payload = buildPublicLeaderboard();
   const json = JSON.stringify(payload);
   if(!force && json === publicLbLastJson) return;
-  const wait = force ? 0 : Math.max(0, 5000 - (Date.now() - publicLbLastWrite));
+  const wait = force ? 0 : Math.max(0, 20000 - (Date.now() - publicLbLastWrite));
   clearTimeout(publicLbTimer);
   publicLbTimer = setTimeout(() => {
     const fresh = buildPublicLeaderboard();
@@ -6962,6 +6947,7 @@ function thinSamples(){
   Object.keys(sm.eq).forEach(id => { sm.eq[id] = pick(sm.eq[id]); });
 }
 function sampleTick(){
+  return; // (29 Eylül 2026) dakikalık örnekleme kapatıldı — eski sahne yapısı
   if(!state.competitionActive) return;
   const sm = loadSamples();
   const wk = state.currentCohortId || null;
