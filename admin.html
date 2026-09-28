@@ -2825,6 +2825,7 @@ function yyPubStatus(){
   if(line){ line.textContent = txt; line.className = 'yy-pub ' + cls; }
 }
 setInterval(() => { try{ yyPubStatus(); }catch(e){} }, 5000);
+setInterval(() => { try{ if(state.competitionActive && Date.now() - publicLbLastWrite > 60000) schedulePublicLeaderboard(true); }catch(e){} }, 20000);
 setTimeout(() => { try{ yyPubStatus(); }catch(e){} }, 0);
 if(AUTH_ENABLED) firebase.auth().onAuthStateChanged(() => { try{ yyPubStatus(); }catch(e){} });
 // Aktif haftanın onaylı yarışmacıları: OPLab'a henüz giriş yapmamış olanlar da
