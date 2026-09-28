@@ -7688,12 +7688,24 @@ function yyRender(){
   if(typeof syncYayinSceneUI === 'function') syncYayinSceneUI();
 }
 let yyFrameMode = null;
+function yayinUrl(q){ return (/^https?:$/.test(location.protocol) ? 'yayin.html' : BACKEND_API_BASE + '/yayin.html') + (q || ''); }
+(function(){
+  const a = document.getElementById('openYayinPageBtn'); if(a) a.href = yayinUrl('');
+  const d = document.querySelector('a.yy-purple[href^="yayin.html"]'); if(d) d.href = yayinUrl('?demo=1');
+  if(!/^https?:$/.test(location.protocol)){
+    const b = document.createElement('div');
+    b.id = 'fileModeBanner';
+    b.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:9998;background:#7c2d12;color:#fff;font:600 13px/1.5 system-ui,sans-serif;padding:8px 16px;text-align:center;';
+    b.innerHTML = '⚠ Admin paneli bilgisayardan dosya olarak açıldı. Yayın ve e-postalar sitenin adresine yönlendiriliyor; en sağlıklısı: <a href="' + BACKEND_API_BASE + '/admin.html" style="color:#fde68a;">finteclub.com.tr/fintelig/admin.html</a> <button type="button" style="margin-left:10px;background:transparent;border:1px solid #fde68a;color:#fde68a;border-radius:4px;cursor:pointer;" onclick="this.parentNode.remove()">Kapat</button>';
+    document.body.appendChild(b);
+  }
+})();
 function yyFrameSrc(demo){
   const f = document.getElementById('yyFrame'); if(!f) return;
   const mode = demo ? 'demo' : 'live';
   if(yyFrameMode === mode && f.getAttribute('src')) return;
   yyFrameMode = mode;
-  f.src = 'yayin.html?preview=1' + (demo ? '&demo=1' : '');
+  f.src = yayinUrl('?preview=1' + (demo ? '&demo=1' : ''));
 }
 function yyScale(){
   const box = document.getElementById('yyPrev'), f = document.getElementById('yyFrame');
