@@ -2370,8 +2370,44 @@ function reconcileArrayFieldById(localArr, remoteArr, deletedIds){
   });
   return merged;
 }
-function saveShared(){
-  const payload = {
+// --- yazılmamış yerel başvuru değişiklikleri (alan bazında) ---
+const adminDirtyApps = new Map();   // id → { base: uzak JSON (null = yerelde yeni), local: yerel JSON }
+let lastRemoteAppJson = new Map();
+let saveSharedFailStreak = 0;
+function markDirtyAppsFromLocal(){
+  if(!lastRemoteAppJson.size) return;
+  (state.applications || []).forEach(a => {
+    const k = String(a.id), j = JSON.stringify(a), base = lastRemoteAppJson.get(k);
+    const prev = adminDirtyApps.get(k);
+    if(base === undefined){ adminDirtyApps.set(k, { base: prev ? prev.base : null, local: j }); return; }
+    if(base !== j) adminDirtyApps.set(k, { base: prev ? prev.base : base, local: j });
+  });
+}
+function rebaseDirtyApps(){
+  lastRemoteAppJson = new Map((state.applications || []).map(a => [String(a.id), JSON.stringify(a)]));
+  if(!adminDirtyApps.size) return;
+  const tomb = state.deletedApplicationIds || {};
+  adminDirtyApps.forEach((d, k) => {
+    if(tomb[k]){ adminDirtyApps.delete(k); return; }
+    const i = (state.applications || []).findIndex(a => String(a.id) === k);
+    const local = JSON.parse(d.local);
+    if(d.base === null){ if(i < 0) state.applications.push(local); else adminDirtyApps.delete(k); return; }
+    if(i < 0){ adminDirtyApps.delete(k); return; }
+    const base = JSON.parse(d.base), remote = state.applications[i];
+    const keys = new Set(Object.keys(base).concat(Object.keys(local)));
+    let pending = false;
+    keys.forEach(f => {
+      if(JSON.stringify(local[f]) === JSON.stringify(base[f])) return;       // yerelde değişmemiş alan
+      if(JSON.stringify(remote[f]) === JSON.stringify(local[f])) return;     // zaten yazılmış
+      pending = true;
+      if(f in local) remote[f] = local[f]; else delete remote[f];
+    });
+    if(!pending) adminDirtyApps.delete(k);
+  });
+}
+let sharedSaveInFlight = false, sharedSaveAgain = false;
+function buildSharedPayload(){
+  return {
     applicationsOpen: state.applicationsOpen,
     zirveOpen: state.zirveOpen,
     oplabEnabled: state.oplabEnabled,
@@ -2411,6 +2447,29 @@ function saveShared(){
     oplabAnnouncement: state.oplabAnnouncement || null,
     tieBreak: state.tieBreak || null
   };
+}
+function mergeAppsWithDirty(remoteArr, localArr, tomb){
+  tomb = tomb || {};
+  if(!Array.isArray(remoteArr) || !lastRemoteAppJson.size) return reconcileArrayFieldById(localArr, remoteArr, tomb);
+  const out = remoteArr.filter(x => x && !tomb[String(x.id)]).map(x => Object.assign({}, x));
+  const idx = new Map(out.map((x, i) => [String(x.id), i]));
+  adminDirtyApps.forEach((d, k) => {
+    if(tomb[k]) return;
+    const local = JSON.parse(d.local), i = idx.get(k);
+    if(i === undefined){ if(d.base === null) out.push(local); return; }
+    if(d.base === null) return;
+    const base = JSON.parse(d.base), r = out[i];
+    new Set(Object.keys(base).concat(Object.keys(local))).forEach(f => {
+      if(JSON.stringify(local[f]) === JSON.stringify(base[f])) return;
+      if(f in local) r[f] = local[f]; else delete r[f];
+    });
+  });
+  return out;
+}
+function saveShared(){
+  markDirtyAppsFromLocal();
+  if(sharedSaveInFlight && fsSharedDoc && FIREBASE_ENABLED){ sharedSaveAgain = true; return; }
+  let payload = buildSharedPayload();
   // (Düzeltme) index.html ve admin.html'in `state` şemaları birebir aynı
   // değil — ör. `balance`/`viewMode`/`resultsPublished` yalnızca admin.html'de
   // var. Önceden burada localStorage/Firestore'a DÜZ ÜZERİNE YAZ (tam
@@ -2430,6 +2489,7 @@ function saveShared(){
     persistLocal(payload);
     return;
   }
+  sharedSaveInFlight = true;
   // (6 Ağustos 2026 — "bulut köprüsünü daha da güçlendir") ÖNCEKİ tasarım
   // "önce oku (.get()), sonra hesapla, sonra yaz (.set())" şeklindeydi — bu
   // hâlâ ÇOK KISA bir yarış penceresi bırakıyordu: okuma ile yazma arasındaki
@@ -2443,6 +2503,7 @@ function saveShared(){
   firebase.firestore().runTransaction(function(transaction){
     return transaction.get(fsSharedDoc).then(function(doc){
       const remote = doc.exists ? (doc.data() || {}) : {};
+      payload = buildSharedPayload(); // her denemede güncel yerel durum
       // Mezar taşlarının BİRLEŞİMİNİ kullan (yerelde bu oturumda az önce
       // eklenenler + uzakta başka bir oturumdan gelenler) — henüz uzağa
       // yazılmamış YENİ bir silme de, uzaktan öğrenilen ESKİ bir silme de
@@ -2452,7 +2513,7 @@ function saveShared(){
       // taşı birleştirmesi, artık zirveRegistrations için de.
       const deletedZirveIdsMerged = Object.assign({}, remote.deletedZirveIds, state.deletedZirveIds);
       const finalPayload = Object.assign({}, payload, {
-        applications: reconcileArrayFieldById(payload.applications, remote.applications, deletedIds),
+        applications: mergeAppsWithDirty(remote.applications, payload.applications, deletedIds),
         zirveRegistrations: reconcileArrayFieldById(payload.zirveRegistrations, remote.zirveRegistrations, deletedZirveIdsMerged),
         deletedApplicationIds: deletedIds,
         deletedZirveIds: deletedZirveIdsMerged
@@ -2465,11 +2526,12 @@ function saveShared(){
     // KENDİ ekranına da yansıtıyoruz — aksi halde sadece Firestore düzelir
     // ama admin bir sonraki gerçek zamanlı onSnapshot güncellemesine kadar
     // hâlâ eksik/eski listeyi görmeye devam eder.
-    if(finalPayload.applications !== state.applications || finalPayload.zirveRegistrations !== state.zirveRegistrations){
-      state.applications = finalPayload.applications;
-      state.zirveRegistrations = finalPayload.zirveRegistrations;
-      state.deletedApplicationIds = finalPayload.deletedApplicationIds;
-      state.deletedZirveIds = finalPayload.deletedZirveIds;
+    // Yalnızca uzakta olup yerelde olmayan (yeni) kayıtları ekle — yazma sürerken yapılan yerel
+    // değişiklikler (yeni onaylar) eski yükle ezilmesin; onlar sıradaki kayıtta yazılır.
+    const addNew = (cur, fin, tomb) => { const ids = new Set((cur || []).map(x => String(x.id))); let n = 0; (fin || []).forEach(x => { const k = String(x.id); if(!ids.has(k) && !(tomb || {})[k]){ cur.push(x); n++; } }); return n; };
+    state.deletedApplicationIds = Object.assign({}, finalPayload.deletedApplicationIds, state.deletedApplicationIds);
+    state.deletedZirveIds = Object.assign({}, finalPayload.deletedZirveIds, state.deletedZirveIds);
+    if(addNew(state.applications, finalPayload.applications, state.deletedApplicationIds) + addNew(state.zirveRegistrations, finalPayload.zirveRegistrations, state.deletedZirveIds) > 0){
       // (9 Ağustos 2026) renderZirveList/renderZirveDetail önceden burada
       // EKSİKTİ — zirveRegistrations uzlaştırmada değişse bile zirve
       // ekranları bir sonraki onSnapshot'a kadar eski görünmeye devam
@@ -2478,19 +2540,31 @@ function saveShared(){
       renderZirveList(); renderZirveDetail();
     }
     persistLocal(finalPayload);
+    saveSharedFailStreak = 0;
     hideConnectionError();
   }).catch(function(e){
-    // Transaction'ın kendisi başarısız olursa (ağ/izin sorunu — normal
-    // koşullarda çakışma nedeniyle DEĞİL, Firestore çakışmaları kendi içinde
-    // otomatik yeniden dener) en azından düz bir yazma denemesi yapıyoruz —
-    // hiçbir zaman sessizce vazgeçmiyoruz.
-    console.warn('Firestore transaction hatası, düz yazmaya düşülüyor:', e);
+    // (28 Eylül 2026) Çakışma yoğunluğunda önce birkaç kez rastgele bekleyip GÜNCEL durumla tekrar dene.
+    saveSharedFailStreak++;
+    if(saveSharedFailStreak <= 3){
+      console.warn('Firestore transaction hatası, ' + saveSharedFailStreak + '. kez tekrar deneniyor:', e);
+      setTimeout(saveShared, 500 + Math.random() * 2000);
+      return;
+    }
+    saveSharedFailStreak = 0;
+    // Son çare: başvuru/zirve LİSTELERİNİ düz yazma (araya giren yeni başvuruları silebilirdi) — yalnızca
+    // diğer alanlar; listeler yerelde "yazılmamış" olarak kalır ve 5 sn sonra tekrar denenir.
+    console.warn('Firestore transaction hatası, listeler hariç düz yazmaya düşülüyor:', e);
     persistLocal(payload);
+    setTimeout(saveShared, 5000);
+    delete payload.applications; delete payload.zirveRegistrations;
     try{
       fsSharedDoc.set(payload, {merge:true})
         .then(hideConnectionError)
         .catch(e2=>{ console.warn('Yedek düz yazma da başarısız:', e2); showConnectionError(); });
     }catch(e3){ console.warn('Yedek düz yazma reddedildi (geçersiz alan):', e3); showConnectionError(); }
+  }).then(function(){
+    sharedSaveInFlight = false;
+    if(sharedSaveAgain){ sharedSaveAgain = false; saveShared(); }
   });
 }
 function hydrateFromShared(){
@@ -2515,6 +2589,7 @@ function hydrateFromShared(){
   state.applications = shared.applications ?? state.applications;
   state.zirveRegistrations = shared.zirveRegistrations ?? state.zirveRegistrations;
   state.deletedApplicationIds = Object.assign({}, shared.deletedApplicationIds, state.deletedApplicationIds);
+  rebaseDirtyApps(); // henüz yazılmamış onay/red vb. gelen görüntüyle kaybolmasın
   state.deletedZirveIds = Object.assign({}, shared.deletedZirveIds, state.deletedZirveIds);
   state.zirveKontenjan = shared.zirveKontenjan ?? state.zirveKontenjan;
   state.competitionEndsAt = shared.competitionEndsAt ?? state.competitionEndsAt;
@@ -3368,7 +3443,12 @@ function syncYarismaSettingsUI(){
   // haftaya henüz kimse onaylanmadıysa (cohortStartedAt yok) bitirilecek
   // bir şey olmadığından buton devre dışı kalır.
   const endCohortBtn = document.getElementById('endCohortNowBtn');
-  if(endCohortBtn) endCohortBtn.disabled = !state.cohortStartedAt && !state.competitionActive;
+  if(endCohortBtn){
+    endCohortBtn.disabled = !state.cohortStartedAt && !state.competitionActive;
+    endCohortBtn.textContent = endCohortBtn.disabled ? 'BİTİRİLECEK AKTİF HAFTA / YARIŞMA YOK'
+      : (state.competitionActive ? 'HAFTAYI VE YARIŞMAYI ŞİMDİ BİTİR (yayın + OPLab)' : 'HAFTAYI ŞİMDİ BİTİR');
+    endCohortBtn.title = endCohortBtn.disabled ? 'Yarışma pasif ve bu haftaya henüz kimse onaylanmadı.' : 'Yarışma sürüyorsa hemen biter: yayın "Kontrol ediliyor"a geçer, OPLab işlemleri kapanır, sonuçlar Yaptırım & Sonuç\'a düşer.';
+  }
   if(window.LIG) LIG.fillYarismaCards();
 }
 
@@ -3465,7 +3545,7 @@ function sendNotificationEmail(templateId, params){
     return Promise.resolve(false);
   }
   return user.getIdToken().then(function(idToken){
-    return fetch('api/send-email', {
+    return fetch((location.protocol === 'https:' || location.protocol === 'http:' ? '' : BACKEND_API_BASE + '/') + 'api/send-email', {
       method: 'POST',
       headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken},
       body: JSON.stringify(params)
@@ -3509,7 +3589,13 @@ function sendApplicationDecisionEmail(app, decision){
     return sendNotificationEmailWithRetry(EMAIL_KIND_APPLICANT, {
       to_email: app.email, to_name: app.name,
       subject_line: 'FinteLig Başvurun Onaylandı',
-      message_body: `Merhaba ${escapeHtml(app.name)}, FinteLig yarışması başvurun ONAYLANDI! Kayıt olurken belirlediğin e-posta ve şifreyle OPLab (alım-satım platformu) üzerinde giriş yapabilir, "FinteLig Yarışmacısı" olarak yarışmaya katılabilirsin.${window.LIG ? escapeHtml(LIG.weekInfoText(app)) : ''}`
+      message_body: `Merhaba ${escapeHtml(app.name)}, FinteLig yarışması başvurun <b>ONAYLANDI</b>!<br><br>`
+        + `<b>Yarışmaya nasıl gireceksin?</b><br>`
+        + `1) <a href="${OPTIPULSE_URL}">${OPTIPULSE_URL.replace(/^https:\/\//, '').replace(/\/$/, '')}</a> adresine git (OPLab alım-satım platformu).<br>`
+        + `2) Başvuruda kullandığın <b>e-posta adresi ve şifreyle</b> giriş yap.<br>`
+        + `3) Profilinde "✓ FinteLig Yarışmacısı" rozetini gör. Yarışma başladığında alım-satım açılır.<br><br>`
+        + `<a href="${OPTIPULSE_URL}" style="display:inline-block;background:#2563eb;color:#ffffff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:700;">OPLab'a git →</a><br><br>`
+        + `Şifreni unuttuysan başvuru sayfasındaki "Şifremi sıfırla" bağlantısını kullanabilirsin.${window.LIG ? escapeHtml(LIG.weekInfoText(app)) : ''}`
     });
   } else if(decision === 'reddedildi'){
     return sendNotificationEmailWithRetry(EMAIL_KIND_APPLICANT, {
@@ -4492,6 +4578,7 @@ function startCompetitionNow(source){
   state.competitionActive = true;
   state.competitionStartedAt = now;
   state.resultsPublished = false;              // yeni yarışma: önceki haftanın ilanı/töreni yayından kalkar
+  if(state.tradingHalted){ state.tradingHalted = false; addActivity('Yarışma başladı — alım-satım otomatik olarak AKTİF edildi.'); }
   state.broadcastWeekNo = state.currentCohortId || 1;
   state.competitionEndsAt = now + durationMs;
   state.competitionTotalMs = durationMs;
