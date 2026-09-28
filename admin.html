@@ -2879,6 +2879,11 @@ function buildPublicLeaderboard(){
   };
   return window.LIG ? JSON.parse(JSON.stringify(LIG.extendPublic(out))) : out;
 }
+function fsEncodeNested(v, inArr){
+  if(Array.isArray(v)){ const a = v.map(x => fsEncodeNested(x, true)); return inArr ? { __a: a } : a; }
+  if(v && typeof v === 'object'){ const o = {}; Object.keys(v).forEach(k => { o[k] = fsEncodeNested(v[k], false); }); return o; }
+  return v;
+}
 let yyPrevPushAt = 0, yyPrevPushTimer = null;
 function yyPushPreview(){
   const f = document.getElementById('yyFrame');
@@ -2925,7 +2930,7 @@ function schedulePublicLeaderboard(force){
     publicLbLastWrite = Date.now();
     fresh.updatedAt = new Date().toISOString();
     const sentAt = Date.now(); publicLbPendingSince = publicLbPendingSince || sentAt;
-    firebase.firestore().collection('finteclub').doc('public_leaderboard').set(fresh)
+    firebase.firestore().collection('finteclub').doc('public_leaderboard').set(fsEncodeNested(fresh))
       .then(() => { publicLbPendingSince = 0; publicLbStatus = { at: Date.now(), err: '', active: !!fresh.competitionActive, n: (fresh.rows || []).length }; yyPubStatus(); })
       .catch(e => { publicLbPendingSince = 0; publicLbLastJson = ''; publicLbStatus = { at: publicLbStatus.at, err: (e && (e.code || e.message)) || 'bilinmeyen hata', active: publicLbStatus.active, n: publicLbStatus.n }; yyPubStatus(); console.warn('[Herkese açık sıralama] yazılamadı:', e); });
   }, wait);

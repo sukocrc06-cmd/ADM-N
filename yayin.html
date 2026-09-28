@@ -2630,6 +2630,15 @@ if (/[?&]demo=1\b/.test(location.search)) setTimeout(demoStart, 300);
 if (/[?&]preview=1\b/.test(location.search)) document.documentElement.classList.add('in-preview');
 // Önizleme (admin paneli içindeki iframe): admin panelinin o anki verisi doğrudan
 // gelir — seçilen sahne, ayarlar ve portföyler Firestore'u beklemeden yansır.
+function fsDecodeNested(v) {
+  if (Array.isArray(v)) return v.map(fsDecodeNested);
+  if (v && typeof v === 'object') {
+    const ks = Object.keys(v);
+    if (ks.length === 1 && ks[0] === '__a' && Array.isArray(v.__a)) return v.__a.map(fsDecodeNested);
+    const o = {}; ks.forEach(k => { o[k] = fsDecodeNested(v[k]); }); return o;
+  }
+  return v;
+}
 let localFeedAt = 0;
 if (/[?&]preview=1\b/.test(location.search) && window.parent && window.parent !== window) {
   window.addEventListener('message', (e) => {
@@ -2645,7 +2654,7 @@ if (/[?&]preview=1\b/.test(location.search) && window.parent && window.parent !=
 try {
   const app = firebase.initializeApp(FIREBASE_CONFIG, 'yayin');
   app.firestore().collection('finteclub').doc('public_leaderboard').onSnapshot(
-    (snap) => { if (Date.now() - localFeedAt < 20000) return; demo.real = snap.exists ? snap.data() : {}; if (!demo.on) onData(demo.real); else demoPush(false); },
+    (snap) => { if (Date.now() - localFeedAt < 20000) return; demo.real = snap.exists ? fsDecodeNested(snap.data()) : {}; if (!demo.on) onData(demo.real); else demoPush(false); },
     (err) => { console.warn('[Yayın] veri okunamadı', err); connErr = true; tick(); }
   );
 } catch (e) { console.warn('[Yayın] Firebase başlatılamadı', e); connErr = true; }
