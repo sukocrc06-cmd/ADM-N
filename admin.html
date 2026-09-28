@@ -2806,7 +2806,20 @@ function yyPubStatus(){
   else if(!(firebase.auth && firebase.auth().currentUser)){ txt = 'Admin Firebase oturumu yok — yayın güncellenemiyor. Çıkış yapıp tekrar giriş yap.'; cls = 'bad'; }
   else if(!isAdminUser(firebase.auth().currentUser)){ txt = 'Oturum admin hesabı değil (' + (firebase.auth().currentUser.email || 'anonim') + ') — çıkış yapıp admin hesabıyla gir.'; cls = 'bad'; }
   else if(publicLbStatus.err){ txt = 'Yayın verisi yazılamadı (' + publicLbStatus.err + ') — oturum: ' + ((firebase.auth().currentUser || {}).email || '—') + '. Firestore kurallarının yayınlandığını kontrol et.'; cls = 'bad'; }
-  else if(publicLbStatus.at){ const s = Math.max(0, Math.round((Date.now() - publicLbStatus.at) / 1000)); txt = 'Yayın verisi ' + (s < 60 ? s + ' sn' : Math.round(s / 60) + ' dk') + ' önce güncellendi · ' + (publicLbStatus.active ? 'yarışma sürüyor' : 'yarışma yok') + ' · ' + publicLbStatus.n + ' yarışmacı'; cls = 'ok'; }
+  else if(publicLbStatus.at){
+    const s = Math.max(0, Math.round((Date.now() - publicLbStatus.at) / 1000));
+    txt = 'Yayın verisi ' + (s < 60 ? s + ' sn' : Math.round(s / 60) + ' dk') + ' önce güncellendi · ' + (publicLbStatus.active ? 'yarışma sürüyor' : 'yarışma yok') + ' · ' + publicLbStatus.n + ' yarışmacı';
+    cls = 'ok';
+    if(state.competitionActive){
+      const ros = weekRoster(), live = ros.filter(c => !c.waiting).length;
+      txt += ' · ' + live + '/' + ros.length + ' yarışmacıdan OPLab verisi geliyor';
+      if(live < ros.length){
+        const miss = ros.filter(c => c.waiting).map(c => c.name).slice(0, 6).join(', ');
+        txt += ' — veri gelmeyenler OPLab\'a yarışmacı hesabıyla giriş yapmamış: ' + miss + (ros.length - live > 6 ? '…' : '');
+        cls = live ? 'warn' : 'bad';
+      }
+    }
+  }
   else { txt = 'Yayın verisi henüz yazılmadı (bu oturumda).'; cls = 'warn'; }
   if(sub) sub.textContent = cls === 'ok' ? 'Veri ' + (publicLbStatus.active ? 'canlı' : 'güncel') : (cls === 'bad' ? 'Veri gitmiyor!' : 'Veri bekleniyor');
   if(line){ line.textContent = txt; line.className = 'yy-pub ' + cls; }
@@ -2836,6 +2849,7 @@ function buildPublicLeaderboard(){
     equity: Math.round((c.equity || 0) * 100) / 100,
     pct: Math.round(pctReturn(c.equity || 0) * 100) / 100,
     dq: isRankExcluded(c.id) || undefined,
+    waiting: c.waiting || undefined,
     ...(window.LIG ? LIG.rowExtras(c.id) : {})
   }));
   const weeks = (state.cohortHistory || []).slice().reverse().map(h => {
