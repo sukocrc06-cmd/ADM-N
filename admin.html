@@ -2883,7 +2883,7 @@ function schedulePublicLeaderboard(force){
   const payload = buildPublicLeaderboard();
   const json = JSON.stringify(payload);
   if(!force && json === publicLbLastJson) return;
-  const wait = force ? 0 : Math.max(0, 20000 - (Date.now() - publicLbLastWrite));
+  const wait = force ? 0 : Math.max(0, 5000 - (Date.now() - publicLbLastWrite));
   clearTimeout(publicLbTimer);
   publicLbTimer = setTimeout(() => {
     const fresh = buildPublicLeaderboard();
