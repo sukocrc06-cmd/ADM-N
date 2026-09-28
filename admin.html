@@ -2810,6 +2810,7 @@ function yyPubStatus(){
     const s = Math.max(0, Math.round((Date.now() - publicLbStatus.at) / 1000));
     txt = 'Yayın verisi ' + (s < 60 ? s + ' sn' : Math.round(s / 60) + ' dk') + ' önce güncellendi · ' + (publicLbStatus.active ? 'yarışma sürüyor' : 'yarışma yok') + ' · ' + publicLbStatus.n + ' yarışmacı';
     cls = 'ok';
+    if(state.competitionActive && s > 120){ txt += ' — GÜNCEL DEĞİL: admin paneli bir süre uyumuş/bağlantı kopmuş olabilir, yenileniyor…'; cls = 'bad'; if(!publicLbPendingSince){ publicLbLastJson = ''; schedulePublicLeaderboard(true); } }
     if(state.competitionActive){
       const ros = weekRoster(), live = ros.filter(c => !c.waiting).length;
       txt += ' · ' + live + '/' + ros.length + ' yarışmacıdan OPLab verisi geliyor';
@@ -2878,7 +2879,38 @@ function buildPublicLeaderboard(){
   };
   return window.LIG ? JSON.parse(JSON.stringify(LIG.extendPublic(out))) : out;
 }
+let yyPrevPushAt = 0, yyPrevPushTimer = null;
+function yyPushPreview(){
+  const f = document.getElementById('yyFrame');
+  if(!f || !f.contentWindow || !f.getAttribute('src')) return;
+  const run = () => { yyPrevPushAt = Date.now(); yyPrevPushTimer = null; try{ f.contentWindow.postMessage({ type: 'ftl-preview', payload: buildPublicLeaderboard() }, '*'); }catch(e){} };
+  const wait = 700 - (Date.now() - yyPrevPushAt);
+  if(wait <= 0) run(); else if(!yyPrevPushTimer) yyPrevPushTimer = setTimeout(run, wait);
+}
+window.addEventListener('message', function(e){
+  const f = document.getElementById('yyFrame');
+  if(f && e.source === f.contentWindow && e.data && e.data.type === 'ftl-preview-ready'){ yyPrevPushAt = 0; yyPushPreview(); }
+});
+setInterval(() => { try{ const pg = document.getElementById('page-yayin'); if(pg && pg.classList.contains('active')) yyPushPreview(); }catch(e){} }, 3000);
+let publicLbPendingSince = 0, publicLbNetResetAt = 0;
+function publicLbWatchdog(){
+  if(!publicLbPendingSince || Date.now() - publicLbPendingSince < 15000) return;
+  publicLbStatus = { at: publicLbStatus.at, err: 'sunucuya ulaşılamıyor, bağlantı yenileniyor', active: publicLbStatus.active, n: publicLbStatus.n };
+  yyPubStatus();
+  if(Date.now() - publicLbNetResetAt < 30000) return;
+  publicLbNetResetAt = Date.now();
+  try{
+    const db = firebase.firestore();
+    db.disableNetwork().then(() => db.enableNetwork()).then(() => { publicLbPendingSince = 0; publicLbLastJson = ''; schedulePublicLeaderboard(true); }).catch(()=>{});
+  }catch(e){}
+}
+setInterval(() => { try{ publicLbWatchdog(); }catch(e){} }, 5000);
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState === 'visible' && state.competitionActive && Date.now() - (publicLbStatus.at || 0) > 60000){ publicLbLastJson = ''; schedulePublicLeaderboard(true); }
+});
+window.addEventListener('online', function(){ publicLbLastJson = ''; schedulePublicLeaderboard(true); });
 function schedulePublicLeaderboard(force){
+  try{ yyPushPreview(); }catch(e){}
   if(!FIREBASE_ENABLED || typeof firebase === 'undefined' || !firebase.auth || !firebase.auth().currentUser) return;
   const payload = buildPublicLeaderboard();
   const json = JSON.stringify(payload);
@@ -2892,9 +2924,10 @@ function schedulePublicLeaderboard(force){
     publicLbLastJson = freshJson;
     publicLbLastWrite = Date.now();
     fresh.updatedAt = new Date().toISOString();
+    const sentAt = Date.now(); publicLbPendingSince = publicLbPendingSince || sentAt;
     firebase.firestore().collection('finteclub').doc('public_leaderboard').set(fresh)
-      .then(() => { publicLbStatus = { at: Date.now(), err: '', active: !!fresh.competitionActive, n: (fresh.rows || []).length }; yyPubStatus(); })
-      .catch(e => { publicLbLastJson = ''; publicLbStatus = { at: publicLbStatus.at, err: (e && (e.code || e.message)) || 'bilinmeyen hata', active: publicLbStatus.active, n: publicLbStatus.n }; yyPubStatus(); console.warn('[Herkese açık sıralama] yazılamadı:', e); });
+      .then(() => { publicLbPendingSince = 0; publicLbStatus = { at: Date.now(), err: '', active: !!fresh.competitionActive, n: (fresh.rows || []).length }; yyPubStatus(); })
+      .catch(e => { publicLbPendingSince = 0; publicLbLastJson = ''; publicLbStatus = { at: publicLbStatus.at, err: (e && (e.code || e.message)) || 'bilinmeyen hata', active: publicLbStatus.active, n: publicLbStatus.n }; yyPubStatus(); console.warn('[Herkese açık sıralama] yazılamadı:', e); });
   }, wait);
 }
 // (6 Ağustos 2026 — "sıfırlıyorum ama gene eski bakiyesi geliyor") Bu belge
