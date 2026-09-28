@@ -1520,6 +1520,8 @@ const T = {
   // bilmiyordu çünkü ilk denemenin başarısız olduğunu hiç öğrenmiyordu. Artık
   // otomatik 1 yeniden denemeden SONRA da gönderilemezse bu ayrı, açık uyarı
   // gösteriliyor.
+  basvuru_toast_saving_retry: {tr:'Şu an çok yoğun — başvurun kaydediliyor, lütfen bu sayfayı KAPATMA.', en:'It is very busy right now — your application is being saved, please do NOT close this page.'},
+  basvuru_toast_save_failed: {tr:'Başvurun sunucuya kaydedilemedi. Lütfen sayfayı kapatmadan görevliye haber ver.', en:'Your application could not be saved to the server. Please tell the staff without closing this page.'},
   basvuru_toast_verify_email_fail: {tr:'Başvurun kaydedildi ama doğrulama e-postası gönderilemedi (birden fazla denedik). Aşağıdaki durumunu görüntüle ekranından "DOĞRULAMA BAĞLANTISINI TEKRAR GÖNDER" düğmesini birazdan tekrar dene, ya da yöneticine haber ver.', en:'Your application was saved, but the verification email could not be sent (we tried more than once). Try the "RESEND VERIFICATION LINK" button on the status screen below again in a bit, or let your administrator know.'},
   // (22 Eylül 2026 — Madde 4 düzeltmesi) Bağlantı kurulamazsa/yeniden
   // denenirken gösterilen bant + gönderim tamamen engellendiğinde gösterilen
@@ -2042,23 +2044,35 @@ function reserveNextId(counterField, getLocalCounter, setLocalCounter){
     setLocalCounter(id + 1);
     return Promise.resolve(id);
   }
-  return firebase.firestore().runTransaction(function(transaction){
-    return transaction.get(fsSharedDoc).then(function(doc){
-      const remote = doc.exists ? (doc.data() || {}) : {};
-      // Bulutun bildiği sayaç ile bu sekmenin kendi (belki bayat) yerel
-      // sayacından BÜYÜK OLANI taban al — hangisi ileriyse ondan devam et.
-      const current = Math.max(Number(remote[counterField]) || 1, getLocalCounter() || 1);
-      const payload = {}; payload[counterField] = current + 1;
-      transaction.set(fsSharedDoc, payload, {merge:true});
-      return current;
+  function once(){
+    return firebase.firestore().runTransaction(function(transaction){
+      return transaction.get(fsSharedDoc).then(function(doc){
+        const remote = doc.exists ? (doc.data() || {}) : {};
+        // Bulutun bildiği sayaç ile bu sekmenin kendi (belki bayat) yerel
+        // sayacından BÜYÜK OLANI taban al — hangisi ileriyse ondan devam et.
+        const current = Math.max(Number(remote[counterField]) || 1, getLocalCounter() || 1);
+        const payload = {}; payload[counterField] = current + 1;
+        transaction.set(fsSharedDoc, payload, {merge:true});
+        return current;
+      });
     });
-  }).then(function(id){
+  }
+  // (28 Eylül 2026) Aynı anda çok başvuru: SDK'nın 5 denemesi yetmezse rastgele bekleyip yeniden dene.
+  let tries = 0;
+  function go(){
+    return once().catch(function(e){
+      tries++;
+      if(tries >= 6) throw e;
+      return new Promise(function(r){ setTimeout(r, 400 + Math.random() * 1600); }).then(go);
+    });
+  }
+  return go().then(function(id){
     setLocalCounter(id + 1);
     return id;
   }).catch(function(e){
-    console.warn('Kimlik rezervasyonu başarısız, yerel sayaca düşülüyor:', e);
-    const id = getLocalCounter();
-    setLocalCounter(id + 1);
+    // Son çare: YEREL sayaç DEĞİL (iki kişi aynı id'yi alıp portföyleri karışabiliyordu) — çakışmayan benzersiz id.
+    const id = 100000000 + (Date.now() % 800000000) + Math.floor(Math.random() * 1000);
+    console.warn('Kimlik rezervasyonu başarısız, benzersiz yedek id kullanılıyor:', id, e);
     return id;
   });
 }
@@ -2120,10 +2134,17 @@ function saveShared(){
       });
     });
   }
-  return attempt().catch(function(e){
-    console.warn('Firestore yazma hatası, 1,5 sn sonra bir kez daha deneniyor:', e);
-    return new Promise(function(r){ setTimeout(r, 1500); }).then(attempt);
-  }).then(function(finalPayload){
+  // (28 Eylül 2026) Yoğunlukta birkaç tur, rastgele beklemeyle (herkes aynı anda tekrar denemesin)
+  let rounds = 0;
+  function attemptWithRetry(){
+    return attempt().catch(function(e){
+      rounds++;
+      if(rounds >= 5) throw e;
+      console.warn('Firestore yazma hatası, kısa süre sonra tekrar deneniyor (' + rounds + '/4):', e);
+      return new Promise(function(r){ setTimeout(r, 600 + Math.random() * 2000); }).then(attemptWithRetry);
+    });
+  }
+  return attemptWithRetry().then(function(finalPayload){
     // yazılan değişiklikleri kuyruktan düş (bu sırada eklenen yenileri koru)
     appKeys.forEach(function(k){ pendingAppPatches.delete(k); });
     zirveKeys.forEach(function(k){ pendingZirvePatches.delete(k); });
@@ -2878,7 +2899,16 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
       // denemede de gidemezse kullanıcıya ayrı bir uyarı gösteriliyor
       // (22 Eylül 2026 — Madde 3 düzeltmesi).
       const emailRef = { app_id: newId, verify_token: emailVerifyToken, verify_base: location.origin + location.pathname };
-      Promise.resolve(saveShared()).catch(function(){}).then(function(){
+      // Kayıt Firestore'a yazılana kadar (sayfa açıkken) tekrar dene; e-posta sunucusu kaydı oradan okur.
+      function saveUntilOk(n){
+        return Promise.resolve(saveShared()).catch(function(){ return false; }).then(function(ok){
+          if(ok !== false || n >= 6) return ok !== false;
+          if(n === 0) showToast(t('basvuru_toast_saving_retry'), 'warn');
+          return new Promise(function(r){ setTimeout(r, 3000 + Math.random() * 3000); }).then(function(){ return saveUntilOk(n + 1); });
+        });
+      }
+      saveUntilOk(0).then(function(saved){
+        if(!saved){ showToast(t('basvuru_toast_save_failed'), 'error'); return; }
         sendNotificationEmailWithRetry(EMAIL_KIND_APPLICANT, Object.assign({ template: 'application_received' }, emailRef)).then(function(ok){
           if (!ok) showToast(t('basvuru_toast_verify_email_fail'), 'warn');
         });
