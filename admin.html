@@ -1010,6 +1010,15 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 .lig-banner.warn{border-color:rgba(234,179,8,.5);background:rgba(234,179,8,.08);}
 .lig-draw{margin-top:14px;padding:14px;border:1px dashed var(--border-strong);border-radius:var(--radius-sm);}
 .lig-ol{margin:6px 0 0 18px;font-size:12.5px;line-height:1.7;max-height:260px;overflow:auto;}
+/* ---- (29 Eylül 2026) Yarışmacı Deposu ---- */
+.depo-filters{flex-wrap:wrap}
+.depo-filters select{background:var(--card-bg-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:10px 12px;color:var(--text);font-size:13px;min-width:150px}
+.depo-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+.depo-dl{display:grid;grid-template-columns:150px 1fr;gap:6px 14px;font-size:13px;margin:12px 0}
+.depo-dl dt{color:var(--text-dimmer)}
+.depo-dl dd{margin:0;word-break:break-word}
+#depoTable td .btn{padding:6px 12px;font-size:12px}
+@media(max-width:700px){.depo-dl{grid-template-columns:1fr}.depo-filters select{flex:1}}
 .lig-modal-back{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;}
 .lig-modal{background:var(--card-bg);border:1px solid var(--border-strong);border-radius:var(--radius);padding:22px;max-width:520px;width:100%;max-height:90vh;overflow:auto;}
 #page-sezon select,#page-gun select,#page-karar select{background:var(--card-bg-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:10px 12px;color:var(--text);}
@@ -1130,6 +1139,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
       <li><button class="nav-item" data-page="page-karar">Yaptırım &amp; Sonuç</button></li>
       <li><button class="nav-item" data-page="page-basvuru">Başvuru Onayları<span class="nav-badge" id="navBadgeBasvuru"></span></button></li>
       <li><button class="nav-item" data-page="page-kullanicilar">Kullanıcı Veritabanı</button></li>
+      <li><button class="nav-item" data-page="page-depo">Yarışmacı Deposu</button></li>
       <li><button class="nav-item" data-page="page-canli">Canlı İzleme</button></li>
       <li><button class="nav-item" data-page="page-portfoy">Kullanıcı Portföyleri</button></li>
       <li><button class="nav-item" data-page="page-anomali">Şüpheli İşlem Tespiti<span class="nav-badge" id="navBadgeAnomali"></span></button></li>
@@ -1339,6 +1349,54 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 
     <!-- ============ PAGE: SEZON & HAFTA PLANI / YARIŞMA GÜNÜ / YAPTIRIM & SONUÇ (26 Eylül 2026) ============ -->
     <section id="page-karar" class="page"><div id="ligKararRoot"></div></section>
+
+    <!-- ============ PAGE: YARIŞMACI DEPOSU (29 Eylül 2026) ============ -->
+    <section id="page-depo" class="page">
+      <div class="grid-4">
+        <div class="stat-card"><div class="stat-label">DEPODAKİ KAYIT</div><div class="stat-value" id="depoToplam">0</div><div class="stat-sub">Arşivdekiler hariç</div></div>
+        <div class="stat-card"><div class="stat-label">ONAYLI</div><div class="stat-value green" id="depoOnayli">0</div><div class="stat-sub" id="depoOnayliSub">Aktif + geçmiş haftalar</div></div>
+        <div class="stat-card"><div class="stat-label">ONAY BEKLEYEN</div><div class="stat-value yellow" id="depoBekleyen">0</div><div class="stat-sub">Başvuru incelemede</div></div>
+        <div class="stat-card"><div class="stat-label">ARŞİV (SİLİNEN)</div><div class="stat-value gray" id="depoArsiv">0</div><div class="stat-sub">Başvurulardan silinmiş kayıtlar</div></div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px;">
+        <h3 class="section-title">Depo Durumu</h3>
+        <p class="section-desc">Depo, Firebase'de <b>competitors</b> koleksiyonudur: her yarışmacı ayrı bir belge. Şimdilik eski sistemle <b>paralel</b> çalışır — başvurular eskisi gibi işlenir, bu panel açıkken her değişiklik birkaç saniye içinde depoya da yazılır.</p>
+        <p class="yy-pub warn" id="depoSyncLine" style="margin-top:0;">Depo durumu kontrol ediliyor…</p>
+        <div class="depo-actions">
+          <button class="btn btn-blue" id="depoSyncBtn" type="button">🔄 ŞİMDİ EŞİTLE</button>
+          <button class="btn" id="depoCsvBtn" type="button">⬇ EXCEL'E AKTAR (CSV)</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 class="section-title">Yarışmacılar</h3>
+        <p class="section-desc">Liste doğrudan depodan (Firebase) okunur. Satırdaki <b>Detay</b> ile kaydın tamamını görebilirsin.</p>
+        <div class="search-row depo-filters">
+          <input type="text" id="depoSearch" placeholder="Ara: ad, e-posta, öğrenci no, okul...">
+          <select id="depoFilterStatus">
+            <option value="">Tüm durumlar</option>
+            <option value="aktif">Onaylı — aktif hafta</option>
+            <option value="gecmis">Onaylı — geçmiş hafta</option>
+            <option value="bekliyor">Onay bekliyor</option>
+            <option value="reddedildi">Reddedildi</option>
+            <option value="diskalifiye">Diskalifiye</option>
+            <option value="arsiv">Arşiv (silinen)</option>
+          </select>
+          <select id="depoFilterWeek"><option value="">Tüm haftalar</option></select>
+          <select id="depoFilterOrg"><option value="">Tüm okullar</option></select>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr><th>AD SOYAD</th><th>E-POSTA</th><th>ÖĞRENCİ NO</th><th>OKUL / BÖLÜM</th><th>HAFTA</th><th>DURUM</th><th>BAŞVURU</th><th>ONAY</th><th></th></tr></thead>
+            <tbody id="depoTable">
+              <tr><td colspan="9"><div class="empty-state" style="padding:26px 0;"><div class="icon">—</div><span>Depo yükleniyor…</span></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note-box" id="depoCountLine" style="margin-top:10px;"></p>
+      </div>
+    </section>
 
     <!-- ============ PAGE: BAŞVURU ONAYLARI ============ -->
     <section id="page-basvuru" class="page">
@@ -2601,6 +2659,7 @@ function onSharedDataUpdated(){
   renderGenelSiralama();
   if(window.LIG) LIG.render();
   if(typeof yyRender === 'function') yyRender();
+  try{ depoOnShared(); }catch(e){}
 }
 window.addEventListener('storage', (e)=>{
   if(e.key === SHARED_KEY) onSharedDataUpdated();
@@ -3341,6 +3400,7 @@ const PAGES = {
   'page-menu': {title:'YÖNETİM MENÜSÜ', sub:'FinteLig yarışması ve FinTeClub Zirve süreçlerini yönetin.'},
   'page-yarisma': {title:'FINTELIG YARIŞMA YÖNETİMİ', sub:'Yarışma tarih aralığını, erişim durumunu ve temel yarışma ayarlarını yönetin.'},
   'page-basvuru': {title:'YARIŞMACI BAŞVURU ONAYLARI', sub:'FinteLig yarışmasına katılmak isteyen kullanıcıları inceleyin, onaylayın veya reddedin.'},
+  'page-depo': {title:'YARIŞMACI DEPOSU', sub:'Her yarışmacı Firebase\'de ayrı bir kayıt olarak tutulur — arama, filtre, detay ve Excel dışa aktarma.'},
   'page-kullanicilar': {title:'KULLANICI VERİTABANI', sub:'Kayıtlı tüm kullanıcıları (ad, e-posta, kurum, durum) tek tabloda görüntüleyin.'},
   'page-canli': {title:'CANLI YARIŞMA İZLEME', sub:'Yarışmacı portföylerini, anlık sıralamayı ve işlem hareketlerini canlı olarak takip edin.'},
   'page-portfoy': {title:'KULLANICI PORTFÖY DETAYI', sub:'Seçili yarışmacının portföy değerini, varlık dağılımını ve işlem geçmişini inceleyin.'},
@@ -3367,6 +3427,7 @@ function navigateTo(pageId){
   closeMobileSidebar();
   updateNotifications();
   if(pageId === 'page-kullanicilar') renderKullaniciVeritabani();
+  if(pageId === 'page-depo') renderDepo();
   if(pageId === 'page-zirve') syncZirveSettingsUI();
   if(pageId === 'page-oplab'){ syncOplabSettingsUI(); renderOplabVisitorList(); }
   if(pageId === 'page-canli') renderCanliIzleme();
@@ -3869,6 +3930,222 @@ const escapeAttr = escapeHtml; // aynı escape seti attribute context'i için de
 function initials(name){ return name.split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
 
 const kvStatusMap = {bekliyor:{label:'ONAY BEKLİYOR', cls:'yellow'}, onayli:{label:'ONAYLI', cls:'green'}, reddedildi:{label:'REDDEDİLDİ', cls:'red'}};
+
+/* ============ YARIŞMACI DEPOSU (29 Eylül 2026) ============ */
+// Firestore "competitors" koleksiyonu — her başvuru bir belge (competitors/{başvuruId}).
+// ŞİMDİLİK PARALEL: shared_state.applications eskisi gibi ana kaynaktır; bu panel açıkken
+// değişen kayıtlar (içerik özeti 'h' farklıysa) toplu yazma (batch) ile depoya aynalanır.
+// Başvurulardan silinen kayıt depodan SİLİNMEZ, removed:true ile arşivlenir (Kalıcı sil yalnızca elle).
+// Doğrulama anahtarı (emailVerifyToken) gibi gizli alanlar depoya BİLEREK yazılmaz.
+const DEPO_FIELDS = ['name','email','org','level','studentNumber','motivation','status','cohortId','pastCompetitor','disqualified','emailVerified','date','approvedDate','rulesAcceptedAt','kvkkAcceptedAt','imageConsent','rulesVersion'];
+const depo = { remote: new Map(), loaded: false, err: '', unsub: null, timer: null, busy: false, again: false, lastSyncAt: 0, lastWrites: 0, sharedSeen: false, pending: 0 };
+function depoCol(){ try{ return FIREBASE_ENABLED ? firebase.firestore().collection('competitors') : null; }catch(e){ return null; } }
+function depoIsAdmin(){ try{ return AUTH_ENABLED && isAdminUser(firebase.auth().currentUser); }catch(e){ return false; } }
+function depoHash(str){ let h = 5381; for(let i = 0; i < str.length; i++){ h = ((h << 5) + h + str.charCodeAt(i)) | 0; } return (h >>> 0).toString(36) + '-' + str.length.toString(36); }
+function depoDocFor(a){
+  const d = { id: a.id };
+  DEPO_FIELDS.forEach(k => { const v = a[k]; if(v !== undefined && v !== null && v !== '') d[k] = v; });
+  if(d.email) d.email = String(d.email).trim().toLowerCase();
+  d.removed = false;
+  d.h = depoHash(JSON.stringify(d));
+  return d;
+}
+function depoPlan(){
+  const ops = []; const localIds = new Set(); const now = Date.now();
+  (state.applications || []).forEach(a => {
+    if(!a || a.id == null) return;
+    const id = String(a.id); localIds.add(id);
+    const d = depoDocFor(a); const r = depo.remote.get(id);
+    if(!r || r.h !== d.h){ d.firstSeenAt = (r && r.firstSeenAt) || now; d.updatedAt = now; d.source = 'admin-ayna'; ops.push(['set', id, d]); }
+  });
+  // Boş/yarım yüklenmiş yerel liste depoyu toptan arşivlemesin
+  if(localIds.size > 0){
+    depo.remote.forEach((r, id) => { if(!localIds.has(id) && !r.removed) ops.push(['merge', id, { removed: true, removedAt: now, updatedAt: now, h: 'removed' }]); });
+  }
+  return ops;
+}
+function depoSchedule(delay){ clearTimeout(depo.timer); depo.timer = setTimeout(() => depoSync(false), delay == null ? 2500 : delay); }
+async function depoSync(manual){
+  const col = depoCol();
+  if(!col || !depoIsAdmin()){ if(manual) showToast('Depo için admin girişi ve Firebase bağlantısı gerekli.', 'error'); return; }
+  if(!depo.loaded || !depo.sharedSeen){ if(manual) showToast(depo.err ? 'Depo okunamıyor: ' + depo.err : 'Veriler henüz yükleniyor, birkaç saniye sonra tekrar dene.', 'error'); return; }
+  if(depo.busy){ depo.again = true; return; }
+  depo.busy = true;
+  let ops = [];
+  try{
+    ops = depoPlan(); depo.pending = ops.length;
+    for(let i = 0; i < ops.length; i += 400){
+      const b = firebase.firestore().batch();
+      ops.slice(i, i + 400).forEach(([k, id, d]) => { const ref = col.doc(id); if(k === 'set') b.set(ref, d); else b.set(ref, d, { merge: true }); });
+      await b.commit();
+      // yerel görüntüyü hemen güncelle (onSnapshot birazdan zaten teyit eder)
+      ops.slice(i, i + 400).forEach(([k, id, d]) => { depo.remote.set(id, k === 'set' ? d : Object.assign({}, depo.remote.get(id) || {}, d)); });
+    }
+    depo.lastSyncAt = Date.now(); depo.lastWrites = ops.length; depo.pending = 0; depo.err = '';
+    if(manual) showToast(ops.length ? ops.length + ' kayıt depoya yazıldı.' : 'Depo zaten güncel — tüm yarışmacılar kayıtlı.', 'success');
+  }catch(e){
+    depo.err = (e && (e.code || e.message)) || 'yazma hatası';
+    if(manual) showToast('Depoya yazılamadı: ' + depo.err + (/permission/.test(depo.err) ? ' — Firestore kurallarına competitors bloğunu eklemen gerekiyor.' : ''), 'error');
+  }finally{
+    depo.busy = false; depoRenderIfVisible();
+    if(depo.again){ depo.again = false; depoSchedule(1000); }
+  }
+}
+function depoSubscribe(){
+  const col = depoCol(); if(!col || !depoIsAdmin()) return;
+  if(depo.unsub){ try{ depo.unsub(); }catch(e){} }
+  depo.unsub = col.onSnapshot(snap => {
+    const m = new Map(); snap.forEach(doc => m.set(doc.id, doc.data())); depo.remote = m; depo.loaded = true; if(!depo.busy) depo.err = '';
+    depoRenderIfVisible(); depoSchedule();
+  }, err => { depo.err = (err && (err.code || err.message)) || 'okuma hatası'; depo.loaded = false; depoRenderIfVisible(); });
+}
+function depoOnShared(){ depo.sharedSeen = true; depoSchedule(); depoRenderIfVisible(); }
+if(AUTH_ENABLED) firebase.auth().onAuthStateChanged(u => {
+  if(isAdminUser(u)) depoSubscribe();
+  else if(depo.unsub){ try{ depo.unsub(); }catch(e){} depo.unsub = null; depo.loaded = false; depo.remote = new Map(); }
+});
+function depoRenderIfVisible(){ const p = document.getElementById('page-depo'); if(p && p.classList.contains('active')) renderDepo(); else depoRenderLine(); }
+function depoRenderLine(){
+  const el = document.getElementById('depoSyncLine'); if(!el) return;
+  let cls = 'warn', txt;
+  if(!FIREBASE_ENABLED) txt = 'Firebase bağlı değil — depo yalnızca bulut bağlantısıyla çalışır.';
+  else if(!depoIsAdmin()) txt = 'Depoyu görmek için admin hesabıyla giriş yap.';
+  else if(depo.err){ cls = 'bad'; txt = 'Depo hatası: ' + depo.err + (/permission/.test(depo.err) ? ' — Firebase Console → Firestore → Rules içine competitors bloğunu ekleyip Publish et.' : ' — ŞİMDİ EŞİTLE ile tekrar dene.'); }
+  else if(!depo.loaded) txt = 'Depo yükleniyor…';
+  else if(!depo.sharedSeen) txt = 'Başvurular yükleniyor…';
+  else {
+    const plan = depo.busy ? [] : depoPlan();
+    if(depo.busy){ txt = 'Depoya yazılıyor… (' + depo.pending + ' kayıt)'; }
+    else if(plan.length){ txt = plan.length + ' kayıt depoya yazılmayı bekliyor — birkaç saniye içinde otomatik yazılır.'; }
+    else { cls = 'ok'; const n = (state.applications || []).length; txt = 'Depo güncel: ' + n + ' başvurunun tamamı Firebase\'de ayrı kayıt olarak tutuluyor' + (depo.lastSyncAt ? ' · son eşitleme ' + new Date(depo.lastSyncAt).toLocaleTimeString('tr-TR') + (depo.lastWrites ? ' (' + depo.lastWrites + ' kayıt yazıldı)' : '') : '') + '.'; }
+  }
+  el.className = 'yy-pub ' + cls; el.textContent = txt;
+}
+function depoStatusOf(r){
+  if(r.removed) return { key: 'arsiv', label: 'ARŞİV', cls: '' };
+  if(r.disqualified) return { key: 'diskalifiye', label: 'DİSKALİFİYE', cls: 'red' };
+  if(r.status === 'onayli') return r.pastCompetitor ? { key: 'gecmis', label: 'GEÇMİŞ YARIŞMACI', cls: 'blue' } : { key: 'aktif', label: 'ONAYLI', cls: 'green' };
+  const s = kvStatusMap[r.status] || { label: String(r.status || '—').toUpperCase(), cls: '' };
+  return { key: r.status || '', label: s.label, cls: s.cls };
+}
+function depoWeekLabel(r){ return r.cohortId != null && r.cohortId !== '' ? 'Hafta ' + r.cohortId : '—'; }
+function depoFilteredRows(){
+  const q = ((document.getElementById('depoSearch') || {}).value || '').toLocaleLowerCase('tr-TR').trim();
+  const fs = (document.getElementById('depoFilterStatus') || {}).value || '';
+  const fw = (document.getElementById('depoFilterWeek') || {}).value || '';
+  const fo = (document.getElementById('depoFilterOrg') || {}).value || '';
+  let rows = Array.from(depo.remote.entries()).map(([id, r]) => Object.assign({ _id: id }, r));
+  rows = rows.filter(r => {
+    const st = depoStatusOf(r).key;
+    if(fs){ if(st !== fs) return false; } else if(r.removed) return false;
+    if(fw && String(r.cohortId) !== fw) return false;
+    if(fo && (r.org || '') !== fo) return false;
+    if(q && ![r.name, r.email, r.studentNumber, r.org, r.level].some(v => String(v || '').toLocaleLowerCase('tr-TR').includes(q))) return false;
+    return true;
+  });
+  rows.sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+  return rows;
+}
+function depoFillSelect(id, values, allLabel, fmt){
+  const sel = document.getElementById(id); if(!sel) return;
+  const cur = sel.value; const key = values.join('\u0001');
+  if(sel.dataset.k === key) return;
+  sel.dataset.k = key;
+  sel.innerHTML = '<option value="">' + allLabel + '</option>' + values.map(v => '<option value="' + escapeHtml(v) + '">' + escapeHtml(fmt ? fmt(v) : v) + '</option>').join('');
+  if(values.indexOf(cur) >= 0) sel.value = cur;
+}
+function renderDepo(){
+  depoRenderLine();
+  const all = Array.from(depo.remote.values());
+  const live = all.filter(r => !r.removed);
+  const set = (id, v) => { const e = document.getElementById(id); if(e) e.textContent = v; };
+  set('depoToplam', live.length);
+  set('depoOnayli', live.filter(r => r.status === 'onayli').length);
+  set('depoOnayliSub', live.filter(r => r.status === 'onayli' && !r.pastCompetitor).length + ' aktif · ' + live.filter(r => r.status === 'onayli' && r.pastCompetitor).length + ' geçmiş hafta');
+  set('depoBekleyen', live.filter(r => r.status === 'bekliyor').length);
+  set('depoArsiv', all.length - live.length);
+  const weeks = Array.from(new Set(all.map(r => r.cohortId).filter(v => v != null && v !== '').map(String))).sort((a, b) => Number(a) - Number(b));
+  depoFillSelect('depoFilterWeek', weeks, 'Tüm haftalar', v => 'Hafta ' + v);
+  const orgs = Array.from(new Set(all.map(r => r.org).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'tr'));
+  depoFillSelect('depoFilterOrg', orgs, 'Tüm okullar');
+  const tbody = document.getElementById('depoTable'); if(!tbody) return;
+  if(!depo.loaded){
+    tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state" style="padding:26px 0;"><div class="icon">—</div><span>' + escapeHtml(depo.err ? 'Depo okunamadı: ' + depo.err : (depoIsAdmin() ? 'Depo yükleniyor…' : 'Admin girişi gerekli.')) + '</span></div></td></tr>';
+    set('depoCountLine', ''); return;
+  }
+  const rows = depoFilteredRows();
+  set('depoCountLine', rows.length + ' kayıt gösteriliyor · depoda toplam ' + all.length + ' belge');
+  if(!rows.length){
+    tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state" style="padding:26px 0;"><div class="icon">—</div><span>' + (all.length ? 'Filtreyle eşleşen kayıt yok.' : 'Depo henüz boş — birkaç saniye içinde başvurular aktarılacak (ya da ŞİMDİ EŞİTLE).') + '</span></div></td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => {
+    const s = depoStatusOf(r);
+    return '<tr>'
+      + '<td>' + escapeHtml(r.name || '—') + '</td>'
+      + '<td>' + escapeHtml(r.email || '—') + '</td>'
+      + '<td>' + (escapeHtml(r.studentNumber) || '—') + '</td>'
+      + '<td>' + (escapeHtml(r.org) || '—') + '</td>'
+      + '<td>' + escapeHtml(depoWeekLabel(r)) + '</td>'
+      + '<td><span class="status-pill ' + s.cls + '">' + escapeHtml(s.label) + '</span></td>'
+      + '<td>' + (escapeHtml(r.date) || '—') + '</td>'
+      + '<td>' + (escapeHtml(r.approvedDate) || '—') + '</td>'
+      + '<td><button class="btn" type="button" data-depo-id="' + escapeHtml(r._id) + '">Detay</button></td>'
+      + '</tr>';
+  }).join('');
+}
+function depoFmtTime(v){ if(v == null || v === '') return '—'; const d = new Date(typeof v === 'number' ? v : String(v)); return isNaN(d) ? String(v) : d.toLocaleString('tr-TR'); }
+function depoOpenDetail(id){
+  const r = depo.remote.get(String(id)); if(!r) return;
+  const s = depoStatusOf(r);
+  const rows = [
+    ['Başvuru No', r.id], ['Ad Soyad', r.name], ['E-posta', r.email], ['E-posta doğrulandı', r.emailVerified ? 'Evet' : 'Hayır'],
+    ['Öğrenci No', r.studentNumber], ['Okul / Bölüm', r.org], ['Seviye', r.level], ['Hafta', depoWeekLabel(r)],
+    ['Durum', s.label], ['Başvuru tarihi', r.date], ['Onay tarihi', r.approvedDate],
+    ['Kurallar kabul', depoFmtTime(r.rulesAcceptedAt) + (r.rulesVersion ? ' (sürüm ' + r.rulesVersion + ')' : '')], ['KVKK kabul', depoFmtTime(r.kvkkAcceptedAt)],
+    ['Görüntü izni', r.imageConsent === true ? 'Verdi' : r.imageConsent === false ? 'Vermedi' : '—'], ['Motivasyon', r.motivation],
+    ['Depoya ilk giriş', depoFmtTime(r.firstSeenAt)], ['Son güncelleme', depoFmtTime(r.updatedAt)]
+  ];
+  if(r.removed) rows.push(['Arşive alındı', depoFmtTime(r.removedAt)]);
+  const back = document.createElement('div'); back.className = 'lig-modal-back'; back.id = 'depoModal';
+  back.innerHTML = '<div class="lig-modal" role="dialog" aria-modal="true"><h3 class="section-title" style="font-size:17px;margin:0;">' + escapeHtml(r.name || 'Yarışmacı') + '</h3>'
+    + '<dl class="depo-dl">' + rows.map(([k, v]) => '<dt>' + escapeHtml(k) + '</dt><dd>' + (escapeHtml(v == null || v === '' ? '—' : String(v)) || '—') + '</dd>').join('') + '</dl>'
+    + '<div class="btn-row">' + (r.removed ? '<button class="btn btn-red" type="button" id="depoPurgeBtn">Depodan kalıcı sil</button>' : '') + '<button class="btn" type="button" id="depoCloseBtn">Kapat</button></div></div>';
+  document.body.appendChild(back);
+  const close = () => back.remove();
+  back.addEventListener('click', e => { if(e.target === back) close(); });
+  back.querySelector('#depoCloseBtn').addEventListener('click', close);
+  const pb = back.querySelector('#depoPurgeBtn');
+  if(pb) pb.addEventListener('click', async () => {
+    if(!confirm((r.name || 'Bu kayıt') + ' depodan KALICI olarak silinecek (geri alınamaz). Emin misin?')) return;
+    try{ await depoCol().doc(String(id)).delete(); depo.remote.delete(String(id)); close(); renderDepo(); showToast('Kayıt depodan kalıcı olarak silindi.', 'success'); }
+    catch(e){ showToast('Silinemedi: ' + ((e && (e.code || e.message)) || 'hata'), 'error'); }
+  });
+}
+function depoExportCsv(){
+  const rows = depoFilteredRows();
+  if(!rows.length){ showToast('Aktarılacak kayıt yok.', 'error'); return; }
+  const cell = v => { if(v == null) return ''; const s = String(v); return /[";\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const header = ['Başvuru No', 'Ad Soyad', 'E-posta', 'E-posta doğrulandı', 'Öğrenci No', 'Okul / Bölüm', 'Seviye', 'Hafta', 'Durum', 'Başvuru tarihi', 'Onay tarihi', 'Kurallar kabul', 'Kural sürümü', 'KVKK kabul', 'Görüntü izni', 'Motivasyon'];
+  const lines = rows.map(r => [r.id, r.name, r.email, r.emailVerified ? 'Evet' : 'Hayır', r.studentNumber, r.org, r.level, r.cohortId != null ? r.cohortId : '', depoStatusOf(r).label, r.date, r.approvedDate,
+    r.rulesAcceptedAt ? depoFmtTime(r.rulesAcceptedAt) : '', r.rulesVersion, r.kvkkAcceptedAt ? depoFmtTime(r.kvkkAcceptedAt) : '', r.imageConsent === true ? 'Verdi' : r.imageConsent === false ? 'Vermedi' : '', r.motivation]);
+  const text = '﻿' + [header].concat(lines).map(l => l.map(cell).join(';')).join('\r\n');
+  const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'fintelig-yarismaci-deposu-' + new Date().toISOString().slice(0, 10) + '.csv';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  showToast(rows.length + ' kayıt Excel dosyasına aktarıldı.', 'success');
+}
+['depoSearch'].forEach(id => document.getElementById(id)?.addEventListener('input', renderDepo));
+['depoFilterStatus', 'depoFilterWeek', 'depoFilterOrg'].forEach(id => document.getElementById(id)?.addEventListener('change', renderDepo));
+document.getElementById('depoTable')?.addEventListener('click', e => { const b = e.target.closest('[data-depo-id]'); if(b) depoOpenDetail(b.dataset.depoId); });
+document.getElementById('depoCsvBtn')?.addEventListener('click', depoExportCsv);
+document.getElementById('depoSyncBtn')?.addEventListener('click', function(){
+  const b = this; b.disabled = true; b.textContent = '⏳ EŞİTLENİYOR…';
+  if(!depo.unsub || depo.err) depoSubscribe();
+  setTimeout(() => { depoSync(true).finally(() => { b.disabled = false; b.textContent = '🔄 ŞİMDİ EŞİTLE'; }); }, depo.loaded ? 0 : 1500);
+});
+setInterval(() => { try{ depoRenderLine(); }catch(e){} }, 5000);
 
 /* ============ KULLANICI VERİTABANI ============ */
 // (Gerçek Firebase Authentication) Şifre BİLEREK bu tabloda yok — Firebase
