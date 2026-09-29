@@ -8390,7 +8390,13 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
   var TICK_MS = 1300;     // veri ne sıklıkla değişsin
   var SCENE_MS = 5000;    // sahne ne sıklıkla değişsin
   var N = 10;             // sahte yarışmacı sayısı
-  var SCENES = ['YARIŞ PİSTİ','SIRALAMA','LİDERLİK','ISI HARİTASI','İLK 3'];
+  // Demo da PANELDE SEÇİLİ sahneleri gösterir — yoksa "seçmediğim sahneler
+  // yine çıkıyor" oluyordu. Panelde seçim yoksa bu liste yedek olarak kullanılır.
+  var FALLBACK = ['YARIŞ PİSTİ','SIRALAMA','LİDERLİK','ISI HARİTASI','İLK 3'];
+  function scenes(){
+    var c = (typeof state === 'object' && state && state.yayinConfig) || {};
+    return (Array.isArray(c.scenes) && c.scenes.length) ? c.scenes.slice() : FALLBACK.slice();
+  }
 
   var on = false, rows = [], tickT = null, sceneT = null, si = 0;
   var origPool = null, origSave = null, origLive = null, origMode = null;
@@ -8428,8 +8434,9 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
   }
 
   function nextScene(){
-    si = (si + 1) % SCENES.length;
-    state.viewMode = SCENES[si];
+    var list = scenes();
+    si = (si + 1) % list.length;
+    state.viewMode = list[si];
     if(typeof syncYayinUI === 'function') syncYayinUI();   // saveShared YOK
   }
 
@@ -8446,7 +8453,7 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
     window.rankingPool = function(){ return rows; };
     window.saveShared = function(){};          // demo hiçbir şey yazmaz
     state.broadcastLive = true;
-    state.viewMode = SCENES[0];
+    state.viewMode = scenes()[0];
 
     badge.classList.add('on');
     if(typeof enterStageMode === 'function') enterStageMode();
