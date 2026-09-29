@@ -7970,15 +7970,19 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
   position:relative;flex:1;height:14px;border-radius:999px;
   background:rgba(148,163,184,.13);overflow:hidden;
 }
+/* Genişlik yerine scaleX: her karede yeniden layout hesaplatmaz, projeksiyona
+   bağlı laptopta 20 şerit aynı anda akarken takılmayı önler. */
 .yp-track-fill{
-  position:absolute;inset:0 auto 0 0;border-radius:999px;
+  position:absolute;inset:0;width:100%;border-radius:999px;
   background:linear-gradient(90deg,rgba(245,158,11,.30),var(--track-col,#f59e0b));
-  transition:width 1.1s cubic-bezier(.22,.61,.36,1);
+  transform-origin:left center;
+  transition:transform 4.6s linear;
 }
+/* Nokta, verinin 5 sn'de bir gelişine yayılarak kayar — sıçramak yerine akar. */
 .yp-track-dot{
   position:absolute;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;
   background:var(--track-col,#f59e0b);border:2px solid #05070f;
-  transition:left 1.1s cubic-bezier(.22,.61,.36,1);
+  transition:left 4.6s linear;
 }
 .yp-track-val{width:78px;flex:none;text-align:right;font-family:'Oswald',sans-serif;
   font-weight:700;font-size:13.5px;}
@@ -8026,7 +8030,9 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
         sorted.map(function(c, i){
           var pct = pcts[i];
           var dq = isRankExcluded(c.id);
-          return '<div class="yp-heat-cell" style="background:' + heatColor(pct, maxAbs) + ';' + (dq ? 'opacity:.45;' : '') + '">' +
+          var hid = c.id || c.email || c.name || ('r' + i);
+          return '<div class="yp-heat-cell" data-comp-id="' + escapeAttr(hid) + '" data-rank="' + (i + 1) + '"' +
+            ' style="background:' + heatColor(pct, maxAbs) + ';' + (dq ? 'opacity:.45;' : '') + '">' +
             '<div class="yp-heat-name">' + (escapeHtml(c.name) || 'İsimsiz') + '</div>' +
             '<div class="yp-heat-pct">' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%</div>' +
           '</div>';
@@ -8046,11 +8052,13 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
         posPct = Math.max(4, Math.min(100, posPct));
         var col = pct >= 0 ? '#22c55e' : '#ef4444';
         var dq = isRankExcluded(c.id);
-        return '<div class="yp-track-lane"' + (dq ? ' style="opacity:.45;"' : '') + '>' +
+        var tid = c.id || c.email || c.name || ('r' + i);
+        return '<div class="yp-track-lane" data-comp-id="' + escapeAttr(tid) + '" data-rank="' + (i + 1) + '"' +
+            (dq ? ' style="opacity:.45;"' : '') + '>' +
           '<span class="yp-track-pos">' + (i + 1) + '</span>' +
           '<span class="yp-track-name">' + (escapeHtml(c.name) || 'İsimsiz') + '</span>' +
           '<span class="yp-track-rail" style="--track-col:' + col + ';">' +
-            '<span class="yp-track-fill" style="width:' + posPct.toFixed(1) + '%;"></span>' +
+            '<span class="yp-track-fill" style="transform:scaleX(' + (posPct / 100).toFixed(4) + ');"></span>' +
             '<span class="yp-track-dot" style="left:' + posPct.toFixed(1) + '%;"></span>' +
           '</span>' +
           '<span class="yp-track-val" style="color:' + col + ';">' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%</span>' +
@@ -8077,6 +8085,136 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
   addBtn(sc, 'shortcut-btn', 'YARIŞ PİSTİ', 'Yarış Pisti');
 
   if(typeof syncYayinUI === 'function') syncYayinUI();
+})();
+</script>
+
+<!-- ============ (29 Eylül 2026) YARIŞ HİSSİ: FLIP + SOLLAMA + SIRA ROZETİ (Adım 3) ============
+     SORUN: renderStageMode/renderYayinPreview her güncellemede innerHTML'i baştan
+     kuruyordu — sıra değişince satırlar ışınlanıyor, "yukarı çıkma" hareketi hiç
+     görünmüyordu. Parlama efekti "bir şey oldu" diyor ama geçişin kendisi kayıptı.
+
+     ÇÖZÜM (FLIP): yeniden çizmeden ÖNCE her satırın ekrandaki yeri ölçülüyor,
+     çizimden SONRA yeni yeri ölçülüyor; fark ters yönde transform olarak uygulanıp
+     sıfıra doğru animasyonla bırakılıyor. Satırlar birbirinin üstünden gerçekten
+     kayarak geçiyor. Yalnız transform/opacity kullanılıyor (layout tetiklenmiyor).
+
+     Üstüne iki şey: sıra ilerleyenin çevresinde yeşil sollama halkası ve isimlerin
+     yanında yarışma başına göre ▲/▼ sıra farkı rozeti.
+
+     Orijinal render fonksiyonları DEĞİŞTİRİLMEDİ, sarmalandı. Blok silinirse panel
+     eski davranışına döner. Hiçbir şey pozisyon/işlem göstermiyor (kural 4.9). -->
+<style>
+.yp-row,.yp-track-lane,.yp-heat-cell,.yp-podium-card{position:relative;}
+.yp-delta{
+  font-family:'Oswald',sans-serif;font-size:12px;font-weight:700;
+  margin-left:8px;letter-spacing:.02em;flex:none;
+}
+.yp-delta.up{color:#22c55e;}
+.yp-delta.down{color:#ef4444;}
+.stage-content .yp-delta{font-size:21px;margin-left:14px;}
+.yp-heat-cell .yp-delta,.yp-podium-card .yp-delta{position:absolute;top:8px;right:10px;margin:0;}
+/* Kayan satır, üstünden geçtiği satırın yazısıyla karışmasın diye hareket
+   boyunca opak bir zemin alıyor ve üste çıkıyor. */
+.yp-moving{background:#0a1020;border-radius:12px;box-shadow:0 8px 26px rgba(0,0,0,.55);}
+.yp-moving.yp-heat-cell{box-shadow:0 8px 26px rgba(0,0,0,.55);}
+.yp-overtook{animation:ypOvertake 1300ms ease-out;}
+@keyframes ypOvertake{
+  0%{box-shadow:0 0 0 0 rgba(34,197,94,.55);}
+  100%{box-shadow:0 0 0 16px rgba(34,197,94,0);}
+}
+</style>
+<script>
+(function(){
+  'use strict';
+  var MOVE_MS = 900;        // satırın yeni yerine kayma süresi
+  var base = {};            // compId -> yarışma başındaki sıra (rozet için)
+  var prev = {};            // compId -> bir önceki çizimdeki sıra (sollama için)
+
+  function rects(root){
+    var m = {};
+    root.querySelectorAll('[data-comp-id]').forEach(function(el){
+      m[el.dataset.compId] = el.getBoundingClientRect();
+    });
+    return m;
+  }
+
+  function flip(root, old){
+    if(!old) return;
+    root.querySelectorAll('[data-comp-id]').forEach(function(el){
+      var was = old[el.dataset.compId];
+      if(!was) return;
+      var now = el.getBoundingClientRect();
+      var dx = was.left - now.left, dy = was.top - now.top;
+      if(Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+      el.style.transition = 'none';
+      el.style.transform = 'translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px)';
+      // yukarı çıkan satır üstte kalsın: daha çok yol alan daha yüksek katmanda
+      el.style.zIndex = String(4 + Math.min(6, Math.round(Math.abs(dy) / 20)));
+      el.classList.add('yp-moving');
+      requestAnimationFrame(function(){
+        el.style.transition = 'transform ' + MOVE_MS + 'ms cubic-bezier(.22,.61,.36,1)';
+        el.style.transform = '';
+        setTimeout(function(){
+          el.style.transition = ''; el.style.zIndex = ''; el.style.transform = '';
+          el.classList.remove('yp-moving');
+        }, MOVE_MS + 60);
+      });
+    });
+  }
+
+  function marks(root){
+    var seen = {};
+    root.querySelectorAll('[data-comp-id][data-rank]').forEach(function(el){
+      var id = el.dataset.compId, r = parseInt(el.dataset.rank, 10);
+      if(!isFinite(r)) return;
+      seen[id] = r;
+      if(base[id] == null) base[id] = r;
+
+      // sollama: bir önceki çizime göre sıra ilerlediyse yeşil halka
+      if(prev[id] != null && r < prev[id]){
+        el.classList.remove('yp-overtook');
+        void el.offsetWidth;
+        el.classList.add('yp-overtook');
+        setTimeout(function(){ el.classList.remove('yp-overtook'); }, 1350);
+      }
+
+      // rozet: yarışma başındaki sıraya göre fark
+      var d = base[id] - r;
+      var b = el.querySelector('.yp-delta');
+      if(!d){ if(b) b.remove(); return; }
+      if(!b){
+        b = document.createElement('span');
+        b.className = 'yp-delta';
+        el.appendChild(b);
+      }
+      b.className = 'yp-delta ' + (d > 0 ? 'up' : 'down');
+      b.textContent = (d > 0 ? '▲' : '▼') + Math.abs(d);
+    });
+    prev = seen;
+  }
+
+  function wrap(fnName, rootId){
+    var orig = window[fnName];
+    if(typeof orig !== 'function') return;
+    window[fnName] = function(){
+      var root = document.getElementById(rootId);
+      var old = root ? rects(root) : null;
+      var out = orig.apply(this, arguments);
+      if(root){ flip(root, old); marks(root); }
+      return out;
+    };
+  }
+  wrap('renderStageMode', 'stageContent');
+  wrap('renderYayinPreview', 'yayinPreviewContent');
+
+  // Yarışma yeniden başlatılınca rozetler sıfırlanır (yoksa geçen yarışmanın
+  // sıra farkı taşınırdı).
+  var wasActive = !!(typeof state === 'object' && state && state.competitionActive);
+  setInterval(function(){
+    var on = !!(typeof state === 'object' && state && state.competitionActive);
+    if(on && !wasActive){ base = {}; prev = {}; }
+    wasActive = on;
+  }, 2000);
 })();
 </script>
 
