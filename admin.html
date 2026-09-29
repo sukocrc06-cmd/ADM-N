@@ -7807,7 +7807,10 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
   function cfg(){
     var c = (typeof state === 'object' && state && state.yayinConfig) || {};
     var list = (Array.isArray(c.scenes) && c.scenes.length) ? c.scenes.slice() : DEFAULT_SCENES.slice();
-    list = list.filter(function(m){ return m !== 'İŞLEM AKIŞI'; });
+    // İŞLEM AKIŞI panelden seçilebilir, ama yarışma SÜRERKEN otomatik akışa
+    // alınmaz (kural 4.9/6.11) — kendiliğinden ekrana gelmemeli. Yarışma
+    // bittikten sonra serbest.
+    if(state && state.competitionActive) list = list.filter(function(m){ return m !== 'İŞLEM AKIŞI'; });
     if(!list.length) list = DEFAULT_SCENES.slice();
     var sec = Number(c.sceneSec);
     if(!(sec >= 5 && sec <= 120)) sec = 15;
@@ -7981,6 +7984,16 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
 .stage-overlay[data-mode="ISI HARİTASI"]{--stage-accent:#22c55e;--stage-accent-glow:rgba(34,197,94,0.32);}
 .stage-overlay[data-mode="YARIŞ PİSTİ"]{--stage-accent:#f59e0b;--stage-accent-glow:rgba(245,158,11,0.32);}
 
+/* Bağlantısı kopan yarışmacı: sıralamanın dışında, en altta, soluk. */
+.yp-offline{opacity:.42;filter:grayscale(1);}
+.yp-offline-pill{
+  display:inline-block;background:rgba(148,163,184,.16);color:#cbd5e1;
+  border:1px solid rgba(148,163,184,.3);border-radius:999px;
+  padding:2px 9px;font-size:10px;font-weight:700;letter-spacing:.06em;white-space:nowrap;
+}
+.stage-content .yp-offline-pill{font-size:17px;padding:5px 16px;}
+.yp-offline .yp-track-rail{background:rgba(148,163,184,.08);}
+
 /* Diğer sahnelerdeki gibi kendi rengi olsun — renksiz kalınca sönük görünüyordu. */
 .stage-ctrl-btn[data-mode="ISI HARİTASI"]{color:#86efac;border-color:rgba(34,197,94,0.4);}
 .stage-ctrl-btn[data-mode="YARIŞ PİSTİ"]{color:#fcd34d;border-color:rgba(245,158,11,0.4);}
@@ -8061,14 +8074,54 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
     }).join(',') + ')';
   }
 
-  window.buildViewModeHtml = function(mode, data){
-    if(mode !== 'ISI HARİTASI' && mode !== 'YARIŞ PİSTİ') return base(mode, data);
+  // ---- BAĞLANTISI KOPAN YARIŞMACI (2 dk kuralı) ----------------------------
+  // Biri laptopunu kapatır ya da bağlantısı giderse son gönderdiği değer
+  // canlıymış gibi ekranda kalıyor ve sıralamada yerini koruyordu —
+  // projeksiyonda YANLIŞ bilgi. Artık 2 dakikadır veri göndermeyen herkes
+  // sıralamanın DIŞINA alınıp en alta, grileşmiş "BAĞLANTI YOK" satırı olarak
+  // yazılıyor. Veri yeniden gelmeye başlayınca hiçbir şey yapmaya gerek yok:
+  // her çizimde baştan hesaplandığı için kişi kendiliğinden sıralamaya döner.
+  var STALE_MS = 120000;
+  function isStale(c){
+    var t = Date.parse(c && c.updatedAt || '');
+    return isFinite(t) ? (Date.now() - t > STALE_MS) : false;
+  }
+  function byEquity(a, b){ return (b.equity || 0) - (a.equity || 0); }
 
+  function offlineRows(list, startRank){
+    return list.slice().sort(byEquity).map(function(c, i){
+      var id = c.id || c.email || c.name || ('off' + i);
+      return '<div class="yp-row yp-offline" data-comp-id="' + escapeAttr(id) + '"' +
+          ' data-rank="' + (startRank + i + 1) + '">' +
+        '<span class="yp-rank">' + (startRank + i + 1) + '</span>' +
+        '<div class="yp-row-main"><span class="yp-name">' + (escapeHtml(c.name) || 'İsimsiz') + '</span></div>' +
+        '<span class="yp-offline-pill">BAĞLANTI YOK</span>' +
+      '</div>';
+    }).join('');
+  }
+
+  window.buildViewModeHtml = function(mode, data){
+    var fresh = [], stale = [];
+    (data || []).forEach(function(c){ (isStale(c) ? stale : fresh).push(c); });
+
+    if(mode !== 'ISI HARİTASI' && mode !== 'YARIŞ PİSTİ'){
+      // İLK 3 zaten dereceye girenleri gösteriyor; DURUM/İŞLEM AKIŞI liste değil.
+      // Kopanlar yalnızca sıralama listelerinin altına ekleniyor.
+      var html = base(mode, fresh);
+      if(stale.length && (mode === 'LİDERLİK' || mode === 'SIRALAMA')){
+        var shownCount = (mode === 'LİDERLİK') ? Math.min(fresh.length, 5) : Math.min(fresh.length, 10);
+        html += offlineRows(stale, shownCount);
+      }
+      return html;
+    }
+
+    data = fresh;
     var sorted = data.slice().sort(function(a,b){ return (b.equity||0) - (a.equity||0); });
     if(!sorted.length){
-      return '<div class="yp-section-label" style="text-align:center;">' +
-        (mode === 'ISI HARİTASI' ? 'ISI HARİTASI' : 'YARIŞ PİSTİ') +
-        '</div><div style="text-align:center;color:var(--text-dim);font-size:13px;">Henüz veri gönderen yarışmacı yok.</div>';
+      return '<div class="yp-section-label">' + (mode === 'ISI HARİTASI' ? 'ISI HARİTASI' : 'YARIŞ PİSTİ') + '</div>' +
+        (stale.length
+          ? offlineRows(stale, 0)
+          : '<div style="text-align:center;color:var(--text-dim);font-size:13px;">Henüz veri gönderen yarışmacı yok.</div>');
     }
 
     var pcts = sorted.map(function(c){ return pctReturn(c.equity||0); });
@@ -8086,6 +8139,14 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
             ' style="background:' + heatColor(pct, maxAbs) + ';' + (dq ? 'opacity:.45;' : '') + '">' +
             '<div class="yp-heat-name">' + (escapeHtml(c.name) || 'İsimsiz') + '</div>' +
             '<div class="yp-heat-pct">' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%</div>' +
+          '</div>';
+        }).join('') +
+        stale.slice().sort(byEquity).map(function(c, i){
+          var oid = c.id || c.email || c.name || ('off' + i);
+          return '<div class="yp-heat-cell yp-offline" data-comp-id="' + escapeAttr(oid) + '"' +
+              ' data-rank="' + (sorted.length + i + 1) + '">' +
+            '<div class="yp-heat-name">' + (escapeHtml(c.name) || 'İsimsiz') + '</div>' +
+            '<div class="yp-offline-pill">BAĞLANTI YOK</div>' +
           '</div>';
         }).join('') + '</div>';
     }
@@ -8113,6 +8174,16 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
             '<span class="yp-track-dot" style="left:' + posPct.toFixed(1) + '%;"></span>' +
           '</span>' +
           '<span class="yp-track-val" style="color:' + col + ';">' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%</span>' +
+        '</div>';
+      }).join('') +
+      stale.slice().sort(byEquity).map(function(c, i){
+        var oid = c.id || c.email || c.name || ('off' + i);
+        return '<div class="yp-track-lane yp-offline" data-comp-id="' + escapeAttr(oid) + '"' +
+            ' data-rank="' + (shown.length + i + 1) + '">' +
+          '<span class="yp-track-pos">' + (shown.length + i + 1) + '</span>' +
+          '<span class="yp-track-name">' + (escapeHtml(c.name) || 'İsimsiz') + '</span>' +
+          '<span class="yp-track-rail"></span>' +
+          '<span class="yp-track-val"><span class="yp-offline-pill">BAĞLANTI YOK</span></span>' +
         '</div>';
       }).join('');
   };
@@ -8420,6 +8491,127 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
 
   window.ftlDemoStart = start;
   window.ftlDemoStop = stop;
+})();
+</script>
+
+<!-- ============ (29 Eylül 2026) SAHNE SEÇİM PANELİ (Adım 5) ============
+     Yayın Kontrolleri ile SAHNE MODU düğmeleri ARASINA giriyor: sahne modunda
+     hangi sahnelerin döneceğini ve kaç saniyede bir değişeceğini buradan
+     seçiyorsun — artık koda gömülü değil.
+
+     Seçim state.yayinConfig'e yazılıp saveShared() ile paylaşılıyor, yani
+     telefondan da aynı ayar görünür. Sertleştirme bloğundaki cfg() zaten bu
+     alanı okuyor, o yüzden seçtiğin an otomatik akış yeni listeye göre döner.
+
+     İŞLEM AKIŞI seçilebilir ama yarışma AKTİFKEN otomatik akışa alınmaz
+     (kural 4.9/6.11) — elle seçilebilir, kendiliğinden ekrana gelmez. -->
+<style>
+#ftlScenePick{margin:14px 0 16px;padding:14px 16px;border:1px solid var(--border-strong);border-radius:12px;background:var(--card-bg-2);}
+#ftlScenePick .fsp-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px;}
+#ftlScenePick .fsp-title{font-size:13px;font-weight:700;letter-spacing:.06em;color:var(--text);}
+#ftlScenePick .fsp-sub{font-size:11.5px;color:var(--text-dim);}
+#ftlScenePick .fsp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:7px;}
+#ftlScenePick label{
+  display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;
+  border:1px solid var(--border-strong);border-radius:9px;padding:8px 10px;
+  font-size:12px;font-weight:600;color:var(--text-dim);transition:all .15s;
+}
+#ftlScenePick label:hover{border-color:var(--blue);}
+#ftlScenePick label.on{color:var(--text);border-color:var(--blue);background:rgba(61,111,238,.12);}
+#ftlScenePick label.warn.on{border-color:#f59e0b;background:rgba(245,158,11,.12);}
+#ftlScenePick input{accent-color:var(--blue);width:15px;height:15px;cursor:pointer;}
+#ftlScenePick .fsp-foot{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;font-size:12px;color:var(--text-dim);}
+#ftlScenePick select{padding:5px 9px;border-radius:7px;font-size:12px;}
+#ftlScenePick .fsp-warn{font-size:11px;color:#fbbf24;margin:9px 0 0;}
+</style>
+<script>
+(function(){
+  'use strict';
+  var SCENES = [
+    { m:'YARIŞ PİSTİ',  t:'Yarış Pisti' },
+    { m:'SIRALAMA',     t:'Genel Sıralama' },
+    { m:'LİDERLİK',     t:'Liderlik Tablosu' },
+    { m:'ISI HARİTASI', t:'Isı Haritası' },
+    { m:'İLK 3',        t:'İlk 3' },
+    { m:'İŞLEM AKIŞI',  t:'Canlı İşlem Akışı', warn:true },
+    { m:'DURUM',        t:'Yarışma Durumu' }
+  ];
+  var DEF = ['YARIŞ PİSTİ','SIRALAMA','LİDERLİK','ISI HARİTASI','İLK 3','DURUM'];
+
+  var anchor = document.getElementById('enterStageModeBtn');
+  if(!anchor || document.getElementById('ftlScenePick')) return;
+
+  function cfg(){
+    var c = (state.yayinConfig && typeof state.yayinConfig === 'object') ? state.yayinConfig : {};
+    var list = Array.isArray(c.scenes) && c.scenes.length
+      ? c.scenes.filter(function(m){ return SCENES.some(function(s){ return s.m === m; }); })
+      : DEF.slice();
+    if(!list.length) list = DEF.slice();
+    var sec = Number(c.sceneSec);
+    if(!(sec >= 5 && sec <= 120)) sec = 15;
+    return { scenes: list, sceneSec: sec };
+  }
+
+  var box = document.createElement('div');
+  box.id = 'ftlScenePick';
+  box.innerHTML =
+    '<div class="fsp-head"><span class="fsp-title">SAHNE MODUNDA NE DÖNSÜN?</span>' +
+      '<span class="fsp-sub">Seçtiklerin sırayla döner. En az bir sahne seçili kalmalı.</span></div>' +
+    '<div class="fsp-grid">' +
+      SCENES.map(function(s){
+        return '<label data-m="' + s.m + '"' + (s.warn ? ' class="warn"' : '') + '>' +
+          '<input type="checkbox" value="' + s.m + '">' + s.t + '</label>';
+      }).join('') +
+    '</div>' +
+    '<div class="fsp-foot"><span>Sahne süresi</span>' +
+      '<select id="ftlSceneSec">' +
+        [8,12,15,20,30,45].map(function(n){ return '<option value="' + n + '">' + n + ' sn</option>'; }).join('') +
+      '</select>' +
+      '<span id="ftlSceneCount"></span></div>' +
+    '<p class="fsp-warn" id="ftlSceneWarn" style="display:none;">Canlı İşlem Akışı seçili: yarışma sürerken otomatik akışa ALINMAZ (kural 4.9) — sadece elle seçince ekrana gelir.</p>';
+
+  // Yayın/yarışma düğmelerinin altına, SAHNE MODU düğmesinin hemen üstüne
+  anchor.parentNode.insertBefore(box, anchor);
+
+  function paint(){
+    var c = cfg();
+    box.querySelectorAll('label').forEach(function(l){
+      var on = c.scenes.indexOf(l.dataset.m) >= 0;
+      l.classList.toggle('on', on);
+      l.querySelector('input').checked = on;
+    });
+    var sel = document.getElementById('ftlSceneSec');
+    if(document.activeElement !== sel) sel.value = String(c.sceneSec);
+    document.getElementById('ftlSceneCount').textContent =
+      c.scenes.length + ' sahne · tur ' + Math.round(c.scenes.length * c.sceneSec / 60 * 10) / 10 + ' dk';
+    document.getElementById('ftlSceneWarn').style.display =
+      c.scenes.indexOf('İŞLEM AKIŞI') >= 0 ? 'block' : 'none';
+  }
+
+  function save(next){
+    state.yayinConfig = Object.assign({}, state.yayinConfig || {}, next);
+    if(typeof saveShared === 'function') saveShared();
+    paint();
+  }
+
+  box.addEventListener('change', function(e){
+    if(e.target.id === 'ftlSceneSec'){ save({ sceneSec: Number(e.target.value) }); return; }
+    if(e.target.type !== 'checkbox') return;
+    // Ekrana yansıyan sıra, düğme sırasının aynısı olsun diye SCENES sırasına göre toplanıyor
+    var picked = SCENES.map(function(s){ return s.m; }).filter(function(m){
+      var i = box.querySelector('input[value="' + m + '"]');
+      return i && i.checked;
+    });
+    if(!picked.length){
+      if(typeof showToast === 'function') showToast('En az bir sahne seçili kalmalı.', 'warn');
+      paint();
+      return;
+    }
+    save({ scenes: picked });
+  });
+
+  paint();
+  window.ftlScenePickPaint = paint;   // dışarıdan senkron geldiğinde tazelenir
 })();
 </script>
 
