@@ -7794,7 +7794,8 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
   if(!ov) return;
 
   // Yarışma sürerken İŞLEM AKIŞI otomatik akışa ASLA girmez (kural 4.9/6.11).
-  var DEFAULT_SCENES = ['LİDERLİK','YARIŞ PİSTİ','ISI HARİTASI','İLK 3','SIRALAMA','DURUM'];
+  // Otomatik akış da düğme sırasını izler (İŞLEM AKIŞI hariç — kural 4.9).
+  var DEFAULT_SCENES = ['YARIŞ PİSTİ','SIRALAMA','LİDERLİK','ISI HARİTASI','İLK 3','DURUM'];
   var MANUAL_PAUSE_MS = 60000;   // elle sahne seçilince otomatik akış bu kadar susar
   var IDLE_MS = 3000;            // imleç bu süre hareketsiz kalınca kaybolur
 
@@ -7980,6 +7981,12 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
 .stage-overlay[data-mode="ISI HARİTASI"]{--stage-accent:#22c55e;--stage-accent-glow:rgba(34,197,94,0.32);}
 .stage-overlay[data-mode="YARIŞ PİSTİ"]{--stage-accent:#f59e0b;--stage-accent-glow:rgba(245,158,11,0.32);}
 
+/* Diğer sahnelerdeki gibi kendi rengi olsun — renksiz kalınca sönük görünüyordu. */
+.stage-ctrl-btn[data-mode="ISI HARİTASI"]{color:#86efac;border-color:rgba(34,197,94,0.4);}
+.stage-ctrl-btn[data-mode="YARIŞ PİSTİ"]{color:#fcd34d;border-color:rgba(245,158,11,0.4);}
+.stage-ctrl-btn[data-mode="ISI HARİTASI"].active{background:#22c55e;color:#04240f;border-color:#22c55e;opacity:1;}
+.stage-ctrl-btn[data-mode="YARIŞ PİSTİ"].active{background:#f59e0b;color:#2b1a00;border-color:#f59e0b;opacity:1;}
+
 .yp-heat{display:grid;gap:10px;grid-template-columns:repeat(var(--heat-cols,4),minmax(0,1fr));}
 .yp-heat-cell{
   border-radius:14px;padding:14px 12px;min-height:84px;box-sizing:border-box;
@@ -8127,6 +8134,22 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
   var sc = document.getElementById('viewModeShortcuts');
   addBtn(sc, 'shortcut-btn', 'ISI HARİTASI', 'Isı Haritası');
   addBtn(sc, 'shortcut-btn', 'YARIŞ PİSTİ', 'Yarış Pisti');
+
+  // Düğme sırası: yarışma sırasında en çok kullanılandan en aza doğru.
+  // Tek yerden yönetiliyor — hem sahne çubuğu hem panel kısayolları aynı sırayı
+  // alıyor. Çıkış düğmesi her zaman en sonda kalır.
+  var ORDER = ['YARIŞ PİSTİ','SIRALAMA','LİDERLİK','ISI HARİTASI','İLK 3','İŞLEM AKIŞI','DURUM'];
+  function reorder(container){
+    if(!container) return;
+    ORDER.forEach(function(mode){
+      var b = container.querySelector('[data-mode="' + mode + '"]');
+      if(b) container.appendChild(b);          // appendChild taşır, kopyalamaz
+    });
+    var exit = container.querySelector('#exitStageModeBtn');
+    if(exit) container.appendChild(exit);
+  }
+  reorder(ctl);
+  reorder(sc);
 
   if(typeof syncYayinUI === 'function') syncYayinUI();
 })();
@@ -8289,7 +8312,7 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
   var TICK_MS = 1300;     // veri ne sıklıkla değişsin
   var SCENE_MS = 5000;    // sahne ne sıklıkla değişsin
   var N = 10;             // sahte yarışmacı sayısı
-  var SCENES = ['LİDERLİK','YARIŞ PİSTİ','ISI HARİTASI','İLK 3','SIRALAMA'];
+  var SCENES = ['YARIŞ PİSTİ','SIRALAMA','LİDERLİK','ISI HARİTASI','İLK 3'];
 
   var on = false, rows = [], tickT = null, sceneT = null, si = 0;
   var origPool = null, origSave = null, origLive = null, origMode = null;
