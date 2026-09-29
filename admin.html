@@ -188,7 +188,10 @@ a{color:inherit;}
   display:flex;align-items:center;justify-content:center;
   font-size:13px;font-weight:700;color:#9db4f5;flex-shrink:0;
 }
-.nav-list{list-style:none;display:flex;flex-direction:column;gap:6px;flex:1;}
+.nav-list{list-style:none;display:flex;flex-direction:column;gap:6px;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;margin-right:-8px;padding-right:8px;scrollbar-width:thin;scrollbar-color:rgba(148,163,184,.35) transparent;}
+.nav-list::-webkit-scrollbar{width:6px}
+.nav-list::-webkit-scrollbar-thumb{background:rgba(148,163,184,.35);border-radius:6px}
+.nav-list > li{flex-shrink:0}
 .nav-item{
   display:flex;align-items:center;
   padding:13px 16px;
@@ -1010,6 +1013,34 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 .lig-banner.warn{border-color:rgba(234,179,8,.5);background:rgba(234,179,8,.08);}
 .lig-draw{margin-top:14px;padding:14px;border:1px dashed var(--border-strong);border-radius:var(--radius-sm);}
 .lig-ol{margin:6px 0 0 18px;font-size:12.5px;line-height:1.7;max-height:260px;overflow:auto;}
+/* ---- (30 Eylül 2026) Lig haftalık akış ---- */
+.lf-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap}
+.lf-head .section-title{margin:0}
+.lf-weeks{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:16px 0 18px}
+.lf-week{border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:10px 12px;background:var(--card-bg-2);min-width:0}
+.lf-week.cur{border-color:var(--blue);box-shadow:0 0 0 1px rgba(61,111,238,.35)}
+.lf-week .no{font-family:'Oswald',sans-serif;font-size:15px;letter-spacing:.03em}
+.lf-week .dt{font-size:11.5px;color:var(--text-dim);margin:2px 0 6px}
+.lf-week .st{font-size:11px;font-weight:700;letter-spacing:.04em}
+.lf-week .win{font-size:11.5px;color:var(--text-dim);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lf-steps{display:grid;gap:12px}
+.lf-step{display:grid;grid-template-columns:34px 1fr;gap:12px;align-items:start;padding:14px;border:1px solid var(--border-strong);border-radius:var(--radius-sm)}
+.lf-step.done{opacity:.72}
+.lf-step.now{border-color:var(--blue);background:rgba(61,111,238,.06)}
+.lf-step .n{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;border:1px solid var(--border-strong);font-size:13px}
+.lf-step.done .n{background:rgba(34,197,94,.15);border-color:rgba(34,197,94,.5);color:var(--green)}
+.lf-step.now .n{background:rgba(61,111,238,.2);border-color:var(--blue);color:#9db4f5}
+.lf-step h4{margin:4px 0 4px;font-size:14px}
+.lf-step p{margin:0 0 8px;font-size:12.5px;color:var(--text-dim);line-height:1.55}
+.lf-step .btn-row{margin-top:6px}
+.lf-step input[type=date]{background:var(--card-bg-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:9px 12px;color:var(--text);font-size:13px}
+.lf-pod{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:8px 0}
+.lf-pod div{border:1px solid var(--border-strong);border-radius:8px;padding:8px 10px;font-size:12.5px;min-width:0}
+.lf-pod b{display:block;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lf-banner{border:1px solid rgba(239,68,68,.55);background:rgba(239,68,68,.08);border-radius:var(--radius-sm);padding:14px 16px;margin:14px 0 4px;font-size:13px;line-height:1.55}
+.lf-banner .btn{margin-top:10px}
+.lf-cd{font-family:'Oswald',sans-serif;font-size:22px;letter-spacing:.03em}
+@media(max-width:700px){.lf-pod{grid-template-columns:1fr}.lf-step{grid-template-columns:1fr}.lf-step .n{display:none}}
 /* ---- (29 Eylül 2026) Yarışmacı Deposu ---- */
 .depo-filters{flex-wrap:wrap}
 .depo-filters select{background:var(--card-bg-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:10px 12px;color:var(--text);font-size:13px;min-width:150px}
@@ -1245,6 +1276,18 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 
     <!-- ============ PAGE: FINTELIG YARIŞMASI ============ -->
     <section id="page-yarisma" class="page">
+      <div class="card" id="ligFlowCard" style="margin-bottom:24px;">
+        <div class="lf-head">
+          <div>
+            <h3 class="section-title">FinteLig Ligi — Haftalık Akış</h3>
+            <p class="section-desc" id="lfSummary" style="margin:6px 0 0;">Yükleniyor…</p>
+          </div>
+          <button type="button" class="btn" id="lfSettingsBtn">⚙ LİG AYARLARI</button>
+        </div>
+        <div id="lfBanner"></div>
+        <div class="lf-weeks" id="lfWeeks"></div>
+        <div id="lfCurrent"></div>
+      </div>
       <div class="grid-4">
         <div class="stat-card">
           <div class="stat-label">YARIŞMA DURUMU</div>
@@ -2476,7 +2519,8 @@ function buildSharedPayload(){
     yayinConfig: state.yayinConfig || null,
     broadcastWeekNo: state.broadcastWeekNo ?? null,
     oplabAnnouncement: state.oplabAnnouncement || null,
-    tieBreak: state.tieBreak || null
+    tieBreak: state.tieBreak || null,
+    ligFlow: state.ligFlow || null
   };
 }
 function mergeAppsWithDirty(remoteArr, localArr, tomb){
@@ -2633,6 +2677,7 @@ function hydrateFromShared(){
   state.cohortStartedAt = shared.cohortStartedAt ?? state.cohortStartedAt;
   state.cohortHistory = shared.cohortHistory ?? state.cohortHistory;
   state.zirvePromotedAppIds = shared.zirvePromotedAppIds ?? state.zirvePromotedAppIds;
+  state.ligFlow = shared.ligFlow ?? state.ligFlow;
   if(shared.season){
     window.__ligRemoteSeason = shared.season; state.season = shared.season;
     // Eski sisteme dönüş: sezon planı açık kaydedilmişse bir kez KAPALI olarak kaydet
@@ -2660,6 +2705,7 @@ function onSharedDataUpdated(){
   if(window.LIG) LIG.render();
   if(typeof yyRender === 'function') yyRender();
   try{ depoOnShared(); }catch(e){}
+  try{ lfRender(); }catch(e){}
 }
 window.addEventListener('storage', (e)=>{
   if(e.key === SHARED_KEY) onSharedDataUpdated();
@@ -3428,6 +3474,7 @@ function navigateTo(pageId){
   updateNotifications();
   if(pageId === 'page-kullanicilar') renderKullaniciVeritabani();
   if(pageId === 'page-depo') renderDepo();
+  if(pageId === 'page-yarisma'){ try{ lfRender(true); }catch(e){} }
   if(pageId === 'page-zirve') syncZirveSettingsUI();
   if(pageId === 'page-oplab'){ syncOplabSettingsUI(); renderOplabVisitorList(); }
   if(pageId === 'page-canli') renderCanliIzleme();
@@ -3930,6 +3977,322 @@ const escapeAttr = escapeHtml; // aynı escape seti attribute context'i için de
 function initials(name){ return name.split(' ').filter(Boolean).map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
 
 const kvStatusMap = {bekliyor:{label:'ONAY BEKLİYOR', cls:'yellow'}, onayli:{label:'ONAYLI', cls:'green'}, reddedildi:{label:'REDDEDİLDİ', cls:'red'}};
+
+/* ============ FinteLig LİGİ — HAFTALIK AKIŞ (30 Eylül 2026) ============ */
+// state.ligFlow (shared_state): { totalWeeks, quota, days, week1Start, weekStarts:[iso], results:[{no,...}], resetAt, completedAt }
+// NOT: Firestore merge:true haritaları birleştirir (anahtar silinmez) — bu yüzden haftalık veriler DİZİ olarak tutulur.
+const LF_DEFAULTS = { totalWeeks: 5, quota: 15, days: 4, week1Start: '2026-10-12' };
+const LF_RE_DATE = /^\d{4}-\d{2}-\d{2}$/;
+function lfCfg(){
+  const f = state.ligFlow || {};
+  const num = (v, lo, hi, d) => { v = Number(v); return (v >= lo && v <= hi) ? Math.round(v) : d; };
+  return {
+    on: !!state.ligFlow,
+    totalWeeks: num(f.totalWeeks, 1, 20, LF_DEFAULTS.totalWeeks),
+    quota: num(f.quota, 1, 200, LF_DEFAULTS.quota),
+    days: num(f.days, 1, 7, LF_DEFAULTS.days),
+    week1Start: LF_RE_DATE.test(f.week1Start || '') ? f.week1Start : LF_DEFAULTS.week1Start,
+    weekStarts: Array.isArray(f.weekStarts) ? f.weekStarts.map(x => LF_RE_DATE.test(x || '') ? x : null) : [],
+    results: Array.isArray(f.results) ? f.results.filter(r => r && typeof r === 'object' && Number(r.no) > 0) : [],
+    resetAt: Number(f.resetAt) || null,
+    completedAt: Number(f.completedAt) || null
+  };
+}
+function lfSave(c){
+  state.ligFlow = { totalWeeks: c.totalWeeks, quota: c.quota, days: c.days, week1Start: c.week1Start, weekStarts: c.weekStarts.map(x => x || null), results: c.results, resetAt: c.resetAt || null, completedAt: c.completedAt || null };
+}
+function lfAddDays(iso, n){ const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+function lfWeekStart(n, c){ c = c || lfCfg(); if(c.weekStarts[n - 1]) return c.weekStarts[n - 1]; if(n <= 1) return c.week1Start; return lfAddDays(lfWeekStart(n - 1, c), 7); }
+function lfWeekEnd(n, c){ c = c || lfCfg(); return lfAddDays(lfWeekStart(n, c), c.days - 1); }
+function lfDay(iso, withDow){ const d = new Date(iso + 'T12:00:00Z'); return d.toLocaleDateString('tr-TR', Object.assign({ day: 'numeric', month: 'long', timeZone: 'UTC' }, withDow ? { weekday: 'long' } : {})); }
+function lfRange(n, c){ return lfDay(lfWeekStart(n, c), true) + ' – ' + lfDay(lfWeekEnd(n, c), true); }
+function lfShort(n, c){ const a = lfWeekStart(n, c), b = lfWeekEnd(n, c); return lfDay(a).replace(/ [^ ]+$/, '') + '–' + lfDay(b); }
+function lfResult(n, c){ return (c || lfCfg()).results.find(r => Number(r.no) === Number(n)) || null; }
+function lfSetResult(n, patch){ const c = lfCfg(); let r = c.results.find(x => Number(x.no) === Number(n)); if(!r){ r = { no: n }; c.results.push(r); c.results.sort((a, b) => a.no - b.no); } Object.assign(r, patch); lfSave(c); return r; }
+function lfLigWeek(n){ try{ return window.LIG ? LIG.weekByNo(n) : null; }catch(e){ return null; } }
+function lfRanking(n){ try{ const w = lfLigWeek(n); return w ? LIG.eligibleRanking(LIG.historyFor(w)) : []; }catch(e){ return []; } }
+function lfWeekApps(n){ return (state.applications || []).filter(a => a.status === 'onayli' && Number(a.cohortId) === Number(n)); }
+function lfPhase(n){
+  const cur = Number(state.currentCohortId) || 1;
+  if(n < cur) return 'done';
+  if(n > cur) return 'planned';
+  if(state.competitionActive) return 'live';
+  const w = lfLigWeek(n), r = lfResult(n);
+  if(w && w.status === 'review') return 'review';
+  if(w && (w.status === 'published' || w.status === 'finalized')) return (r && r.zirve) ? 'zirve' : 'published';
+  return 'prep';
+}
+const LF_PHASE = { planned: ['BEKLİYOR', 'var(--text-dimmer)'], prep: ['HAZIRLIK', 'var(--yellow)'], live: ['YARIŞIYOR', 'var(--green)'], review: ['SONUÇ KONTROLÜ', 'var(--yellow)'], published: ['İLAN EDİLDİ', '#8fb0ff'], zirve: ['ZİRVE BELİRLENDİ', '#8fb0ff'], done: ['TAMAMLANDI', 'var(--green)'] };
+function lfPct(p){ p = Number(p) || 0; return (p >= 0 ? '+' : '') + p.toFixed(2) + '%'; }
+function lfPodiumHtml(pod){
+  if(!pod || !pod.length) return '<p>Sıralama henüz yok.</p>';
+  const medal = ['🥇 1.', '🥈 2.', '🥉 3.'];
+  return '<div class="lf-pod">' + pod.slice(0, 3).map((p, i) => '<div>' + medal[i] + '<b>' + escapeHtml(p.name) + '</b>' + lfPct(p.pct) + '</div>').join('') + '</div>';
+}
+function lfHasTestData(){
+  if(lfCfg().resetAt) return false;
+  return (state.applications || []).length > 0 || (state.competitionHistory || []).length > 0 || (state.cohortHistory || []).length > 0;
+}
+function lfRender(force){
+  const card = document.getElementById('ligFlowCard'); if(!card) return;
+  if(!force && card.contains(document.activeElement) && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
+  const c = lfCfg(), cur = Number(state.currentCohortId) || 1;
+  const finished = cur > c.totalWeeks;
+  document.getElementById('lfSummary').innerHTML = c.on
+    ? `${c.totalWeeks} hafta · haftada ${c.quota} yarışmacı · ${c.days} gün (Pazartesi–${['', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'][c.days]}) · her haftanın 1.'si Zirve'ye. ${finished ? '<b>Lig tamamlandı.</b>' : 'Şu an: <b>Hafta ' + cur + '</b>.'}`
+    : 'Lig henüz kurulmadı. Test verilerini silip 1. haftayı hazırlamak için aşağıdaki düğmeyi kullan.';
+  // test verisi bandı
+  const ban = document.getElementById('lfBanner');
+  if(lfHasTestData()){
+    ban.innerHTML = `<div class="lf-banner"><b>Test yarışmasının verileri hâlâ sistemde.</b> ${(state.applications || []).length} başvuru, ${(state.cohortHistory || []).length} hafta arşivi, ${(state.competitionHistory || []).length} yarışma geçmişi kaydı var. Gerçek lige temiz başlamak için sil: başvurular (giriş hesaplarıyla birlikte), Yarışma Geçmişi, Genel Sıralama, test Zirve yükseltmeleri, canlı portföy ve yayın verileri temizlenir; Hafta 1 = ${lfRange(1, c)} olarak hazırlanır. Önce tüm verinin yedeği bilgisayarına iner.<br><button type="button" class="btn btn-red" id="lfResetBtn">🗑 TEST VERİLERİNİ SİL VE LİGİ HAZIRLA</button></div>`;
+  } else if(!c.on){
+    ban.innerHTML = `<div class="lf-banner" style="border-color:var(--border-strong);background:transparent;">Sistem boş. Ligi varsayılanlarla kur: ${c.totalWeeks} hafta × ${c.quota} kişi, Hafta 1 = ${lfRange(1, c)}.<br><button type="button" class="btn btn-blue" id="lfSetupBtn">LİGİ KUR</button></div>`;
+  } else ban.innerHTML = '';
+  // hafta şeridi
+  let weeks = '';
+  for(let n = 1; n <= c.totalWeeks; n++){
+    const ph = lfPhase(n), r = lfResult(n), L = LF_PHASE[ph];
+    const win = r && r.zirve ? '🏔 ' + r.zirve.name : (r && r.podium && r.podium[0] ? '🥇 ' + r.podium[0].name : (ph === 'prep' || ph === 'live' ? lfWeekApps(n).length + '/' + c.quota + ' yarışmacı' : ''));
+    weeks += `<div class="lf-week${n === cur ? ' cur' : ''}"><div class="no">HAFTA ${n}</div><div class="dt">${escapeHtml(lfShort(n, c))}</div><div class="st" style="color:${L[1]}">${L[0]}</div>${win ? '<div class="win">' + escapeHtml(win) + '</div>' : ''}</div>`;
+  }
+  document.getElementById('lfWeeks').innerHTML = weeks;
+  document.getElementById('lfCurrent').innerHTML = finished ? lfFinishedHtml(c) : lfStepsHtml(cur, c);
+  lfTickCountdown();
+}
+function lfFinishedHtml(c){
+  const rows = c.results.filter(r => r.zirve).map(r => `<li><b>Hafta ${r.no}</b> — ${escapeHtml(r.zirve.name)} (${r.zirve.rank}. sıra, ${lfPct(r.zirve.pct)})</li>`).join('');
+  return `<div class="lf-step now"><div class="n">🏁</div><div><h4>Lig tamamlandı — sıra Zirve'de</h4><p>${c.totalWeeks} haftanın Zirve temsilcileri:</p><ul style="margin:0 0 10px 18px;font-size:13px;line-height:1.8;">${rows || '<li>—</li>'}</ul><div class="btn-row"><button type="button" class="btn btn-blue" data-nav="page-zirve">ZİRVE KAYITLARINA GİT</button><button type="button" class="btn" data-nav="page-gecmis">YARIŞMA GEÇMİŞİ</button></div></div></div>`;
+}
+function lfStepsHtml(n, c){
+  const ph = lfPhase(n), apps = lfWeekApps(n), pend = (state.applications || []).filter(a => a.status === 'bekliyor').length;
+  const order = ['prep', 'live', 'review', 'published', 'zirve'];
+  const at = order.indexOf(ph);
+  const cls = i => i < at ? 'done' : (i === at ? 'now' : '');
+  const w = lfLigWeek(n), r = lfResult(n);
+  const podium = (r && r.podium) || lfRanking(n).slice(0, 3).map(x => ({ name: x.name, pct: Number(x.pct) || 0 }));
+  const last = n >= c.totalWeeks;
+  let h = '<div class="lf-steps">';
+  // 1 — yarışmacılar + tarih + başlat
+  h += `<div class="lf-step ${cls(0)}"><div class="n">1</div><div><h4>Hafta ${n}: yarışmacıları onayla ve başlat</h4>`;
+  if(at <= 0){
+    h += `<p>Onaylı: <b>${apps.length}/${c.quota}</b>${pend ? ' · bekleyen başvuru: <b>' + pend + '</b>' : ''} · Başvurular şu an <b style="color:${state.applicationsOpen ? 'var(--green)' : 'var(--yellow)'}">${state.applicationsOpen ? 'AÇIK' : 'KAPALI'}</b>.</p>`
+      + `<div class="btn-row"><button type="button" class="btn" data-nav="page-basvuru">BAŞVURU ONAYLARI</button><button type="button" class="btn" id="lfAppsToggle">${state.applicationsOpen ? 'BAŞVURULARI KAPAT' : 'BAŞVURULARI AÇ'}</button></div>`
+      + `<p style="margin-top:12px;">Yarışma günleri: <b>${escapeHtml(lfRange(n, c))}</b>. Farklı bir tarih gerekiyorsa başlangıcı değiştir (bitiş ${c.days} gün sonrası olur):</p>`
+      + `<div class="btn-row" style="align-items:center;"><input type="date" id="lfStartInp" value="${lfWeekStart(n, c)}"><button type="button" class="btn" id="lfDateSave">TARİHİ KAYDET</button></div>`
+      + `<div class="btn-row" style="margin-top:12px;"><button type="button" class="btn btn-green" id="lfStartBtn" ${apps.length ? '' : 'disabled'}>▶ HAFTA ${n} YARIŞMASINI BAŞLAT</button></div>`
+      + `<p style="margin-top:8px;">Başlat'a ilk gün seans açılmadan bas. Yarışma ${escapeHtml(lfDay(lfWeekEnd(n, c), true))} gün sonunda kendiliğinden biter — bunun için o saatte bir admin paneli sekmesi açık olmalı (değilse panel açıldığı anda biter).</p>`;
+  } else h += `<p>${apps.length} yarışmacı · ${escapeHtml(lfRange(n, c))}</p>`;
+  h += '</div></div>';
+  // 2 — yarışma sürüyor
+  h += `<div class="lf-step ${cls(1)}"><div class="n">2</div><div><h4>Yarışma sürüyor</h4>`;
+  if(ph === 'live') h += `<p>Bitişe kalan: <span class="lf-cd" id="lfCountdown">—</span></p><div class="btn-row"><button type="button" class="btn" data-nav="page-canli">CANLI İZLE</button><button type="button" class="btn" data-nav="page-yayin">YAYIN / SAHNE MODU</button><button type="button" class="btn" id="lfEndBtn" style="border-color:var(--yellow);color:var(--yellow);">⏹ ŞİMDİ BİTİR</button></div>`;
+  else h += `<p>${at > 1 ? 'Bitti.' : 'Başlatınca OPLab işlemleri açılır, sıralama canlı akar.'}</p>`;
+  h += '</div></div>';
+  // 3 — sonuçları ilan et
+  h += `<div class="lf-step ${cls(2)}"><div class="n">3</div><div><h4>Sonuçları ilan et (1-2-3)</h4>`;
+  if(ph === 'review') h += `<p>Final sıralama (yarışma bitince portföyler yeniden doğrulanır). İhlal, eşitlik ya da düzeltme varsa önce Yaptırım & Sonuç'tan hallet.</p>${lfPodiumHtml(podium)}<div class="btn-row"><button type="button" class="btn btn-blue" id="lfPublishBtn">📣 SONUÇLARI İLAN ET</button><button type="button" class="btn" data-nav="page-karar">YAPTIRIM & SONUÇ</button></div><p style="margin-top:8px;">İlanla birlikte kazanan, ikinci ve üçüncü FinteLig sitesinin Sonuçlar sayfasında yayınlanır, yayın ekranında tören başlar ve 2 iş günlük itiraz süresi başlar (kural 17.4).</p>`;
+  else if(at > 2) h += `${lfPodiumHtml(podium)}<p>İlan: ${r && r.publishedAt ? new Date(r.publishedAt).toLocaleString('tr-TR') : '—'}${w && w.objectionDeadline ? ' · itiraz son gün: ' + new Date(w.objectionDeadline).toLocaleString('tr-TR') : ''}</p>`;
+  else h += '<p>Yarışma bitince açılır.</p>';
+  h += '</div></div>';
+  // 4 — Zirve
+  h += `<div class="lf-step ${cls(3)}"><div class="n">4</div><div><h4>Haftanın 1.'sini Zirve'ye al</h4>`;
+  if(ph === 'published'){ const f = podium[0]; h += f ? `<p>Kural 9: haftanın birincisi Zirve 27 temsil ekibine girer. 1. katılamazsa hak 2.'ye, o da katılamazsa 3.'ye geçer.</p><div class="btn-row"><button type="button" class="btn btn-green" id="lfZirveBtn">🏔 ${escapeHtml(f.name)} — ZİRVE'YE AL</button></div>` : '<p>Sıralamada uygun yarışmacı yok.</p>'; }
+  else if(ph === 'zirve') h += `<p>Zirve temsilcisi: <b>${escapeHtml(r.zirve.name)}</b> (${r.zirve.rank}. sıra, ${lfPct(r.zirve.pct)}) ✓</p><div class="btn-row"><button type="button" class="btn" id="lfTransferBtn">Katılamıyor → hakkı sıradakine devret</button><button type="button" class="btn" data-nav="page-zirve">ZİRVE KAYITLARI</button></div>`;
+  else h += '<p>Sonuçlar ilan edilince açılır.</p>';
+  h += '</div></div>';
+  // 5 — haftayı kapat
+  h += `<div class="lf-step ${ph === 'zirve' ? 'now' : ''}"><div class="n">5</div><div><h4>${last ? 'Son haftayı kapat, ligi tamamla' : 'Haftayı kapat → Hafta ' + (n + 1)}</h4>`;
+  if(ph === 'zirve') h += `<p>Bu haftanın yarışmacıları "geçmiş yarışmacı" olur, hafta Yarışma Geçmişi ve Genel Sıralama'ya yazılır${last ? ', lig tamamlanır.' : ' ve Hafta ' + (n + 1) + ' (' + escapeHtml(lfRange(n + 1, c)) + ') için onaylar açılır. Sonuçlar, yeni hafta başlayana kadar sitede kalır.'}</p><div class="btn-row"><button type="button" class="btn btn-blue" id="lfCloseBtn">✔ ${last ? 'LİGİ TAMAMLA' : 'HAFTA ' + n + '\'İ KAPAT'}</button></div>`;
+  else h += '<p>Zirve temsilcisi belirlenince açılır.</p>';
+  h += '</div></div></div>';
+  return h;
+}
+function lfTickCountdown(){
+  const el = document.getElementById('lfCountdown'); if(!el) return;
+  el.textContent = state.competitionEndsAt ? formatCountdown(state.competitionEndsAt - Date.now()) : '—';
+}
+setInterval(() => { try{ lfTickCountdown(); }catch(e){} }, 1000);
+function lfBackupDownload(){
+  try{
+    const data = Object.assign({ exportedAt: new Date().toISOString(), note: 'FinteLig lig sıfırlama öncesi tam yedek' }, buildSharedPayload());
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'fintelig-yedek-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.json';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    return true;
+  }catch(e){ return false; }
+}
+function lfRenderAll(){
+  [renderBasvuruList, renderBasvuruDetail, renderKullaniciVeritabani, renderDashboardDynamic, renderCohortHistory, renderGenelSiralama, renderYarismaGecmisi, renderSonuclar, renderZirveList, renderZirveDetail, syncYarismaSettingsUI, syncGlobalStatus, syncOplabSettingsUI, syncYayinUI, renderActivityLog]
+    .forEach(f => { try{ f(); }catch(e){} });
+  try{ if(window.LIG) LIG.render(true); }catch(e){}
+  lfRender(true);
+}
+function lfReset(){
+  if(AUTH_ENABLED && !isAdminUser(firebase.auth().currentUser)){ showToast('Sıfırlama için admin hesabıyla giriş yapmalısın.', 'error'); return; }
+  const apps = (state.applications || []).slice();
+  const c = lfCfg();
+  if(!confirm(`TEST VERİLERİ SİLİNSİN Mİ?\n\nSilinecek:\n• ${apps.length} başvuru / yarışmacı (FinteLig giriş hesaplarıyla birlikte — gerçek lige aynı e-postayla yeniden başvurabilsinler diye; admin hesabı silinmez)\n• Yarışma Geçmişi (${(state.competitionHistory || []).length}) ve hafta arşivi / Genel Sıralama (${(state.cohortHistory || []).length})\n• Testten Zirve'ye yükseltilenler, canlı portföy, yayın ve sonuç verileri\n\nKorunacak: kulüplerin Zirve kayıtları, Yarışmacı Deposu arşivi, ayarlar.\n\nÖnce tüm verinin yedeği (JSON) bilgisayarına inecek. Bu işlem geri alınamaz.`)) return;
+  if(!lfBackupDownload() && !confirm('Yedek dosyası indirilemedi. Yine de silinsin mi?')) return;
+  const ids = apps.map(a => a.id);
+  const emails = apps.map(a => String(a.email || '').trim().toLowerCase()).filter(e => e && ADMIN_EMAILS.indexOf(e) === -1);
+  state.applications = [];
+  state.deletedApplicationIds = state.deletedApplicationIds || {};
+  ids.forEach(id => { state.deletedApplicationIds[String(id)] = true; });
+  try{ adminDirtyApps.clear(); }catch(e){}
+  Object.assign(state, {
+    competitionHistory: [], cohortHistory: [], currentCohortId: 1, cohortStartedAt: null,
+    competitionActive: false, competitionEndsAt: null, competitionTotalMs: null, competitionStartedAt: null,
+    resultsPublished: false, broadcastWeekNo: null, tieBreak: null, oplabEnabled: false,
+    oplabAnnouncement: null, yayinAnnouncement: '', weeklyQuota: c.quota, cohortDurationDays: c.days
+  });
+  // haritalar merge:true ile birleştiği için eski anahtarlar null'lanır (silinmiş sayılır)
+  const zp = state.zirvePromotedAppIds || {}; Object.keys(zp).forEach(k => { zp[k] = null; }); state.zirvePromotedAppIds = zp;
+  state.deletedZirveIds = state.deletedZirveIds || {};
+  (state.zirveRegistrations || []).filter(z => z.fromFinteligAppId).forEach(z => { state.deletedZirveIds[String(z.id)] = true; });
+  state.zirveRegistrations = (state.zirveRegistrations || []).filter(z => !z.fromFinteligAppId);
+  try{ if(window.LIG){ const s = LIG.S(); s.weeks = []; } }catch(e){}
+  try{ localStorage.removeItem('fintelig_lig_samples_v2'); }catch(e){}
+  lfSave(Object.assign(c, { weekStarts: [], results: [], resetAt: Date.now(), completedAt: null }));
+  state.startDate = lfWeekStart(1); state.endDate = lfWeekEnd(1);
+  addActivity(`Lig sıfırlandı: test verileri silindi (${apps.length} başvuru, yedek indirildi). Hafta 1: ${lfRange(1)}.`);
+  saveShared();
+  schedulePublicLeaderboard(true);
+  if(ids.length){
+    try{ cleanupOplabDataForIds(ids); }catch(e){}
+    try{ purgeAppsEverywhere(ids, emails); }catch(e){}
+    try{ deleteFirebaseAuthAccounts(emails, ids); }catch(e){}
+  }
+  lfRenderAll();
+  showToast('Test verileri silindi — lig Hafta 1 için hazır. Başvuruları açmayı unutma.', 'success');
+}
+function lfSetup(){ const c = lfCfg(); lfSave(Object.assign(c, { resetAt: c.resetAt || Date.now() })); state.weeklyQuota = c.quota; state.cohortDurationDays = c.days; if(!state.competitionActive){ state.startDate = lfWeekStart(Number(state.currentCohortId) || 1); state.endDate = lfWeekEnd(Number(state.currentCohortId) || 1); } saveShared(); addActivity('FinteLig ligi kuruldu.'); lfRenderAll(); }
+function lfStart(){
+  const n = Number(state.currentCohortId) || 1, c = lfCfg();
+  if(state.competitionActive){ showToast('Zaten süren bir yarışma var.', 'warn'); return; }
+  const apps = lfWeekApps(n);
+  if(!apps.length){ showToast('Bu haftaya onaylı yarışmacı yok.', 'error'); return; }
+  const endIso = lfWeekEnd(n, c);
+  if(new Date(endIso + 'T23:59:59').getTime() < Date.now()){ showToast('Bitiş tarihi (' + lfDay(endIso) + ') geçmiş — önce tarihi güncelle.', 'error'); return; }
+  if(!confirm(`HAFTA ${n} YARIŞMASI BAŞLASIN MI?\n\n${apps.length} yarışmacı · ${lfRange(n, c)}\nOPLab işlemleri açılır; yarışma ${lfDay(endIso, true)} gün sonunda kendiliğinden biter.`)) return;
+  state.startDate = lfWeekStart(n, c); state.endDate = endIso; state.weeklyQuota = c.quota;
+  if(!state.cohortStartedAt) state.cohortStartedAt = new Date().toISOString();
+  startCompetitionNow('Lig akışı — Hafta ' + n);
+  lfRender(true);
+}
+function lfPublish(){
+  const n = Number(state.currentCohortId) || 1, w = lfLigWeek(n);
+  if(!w || w.status !== 'review'){ showToast('Bu hafta ilan edilecek durumda değil.', 'warn'); return; }
+  const rank = lfRanking(n);
+  if(!rank.length){ showToast('Final sıralama bulunamadı.', 'error'); return; }
+  const pod = rank.slice(0, 3).map((x, i) => ({ rank: i + 1, name: String(x.name || 'İsimsiz').slice(0, 60), pct: Math.round((Number(x.pct) || 0) * 100) / 100 }));
+  if(!confirm(`HAFTA ${n} SONUÇLARI İLAN EDİLSİN Mİ?\n\n🥇 ${pod[0] ? pod[0].name + ' ' + lfPct(pod[0].pct) : '—'}\n🥈 ${pod[1] ? pod[1].name + ' ' + lfPct(pod[1].pct) : '—'}\n🥉 ${pod[2] ? pod[2].name + ' ' + lfPct(pod[2].pct) : '—'}\n\nSonuçlar sitede yayınlanır, yayında tören başlar, 2 iş günü itiraz süresi başlar.`)) return;
+  state.resultsPublished = true;
+  LIG.onPublish(n);
+  lfSetResult(n, { podium: pod, participants: rank.length, start: lfWeekStart(n), end: lfWeekEnd(n), publishedAt: Date.now() });
+  saveShared(); schedulePublicLeaderboard(true);
+  try{ syncSonuclarPublishUI(); }catch(e){}
+  addActivity(`Hafta ${n} sonuçları ilan edildi: 1. ${pod[0] ? pod[0].name : '—'}, 2. ${pod[1] ? pod[1].name : '—'}, 3. ${pod[2] ? pod[2].name : '—'}.`);
+  showToast(`Hafta ${n} sonuçları ilan edildi.`, 'success');
+  lfRender(true);
+}
+function lfZirve(){
+  const n = Number(state.currentCohortId) || 1, w = lfLigWeek(n), rank = lfRanking(n), f = rank[0];
+  if(!w || !f){ showToast('Sıralama bulunamadı.', 'error'); return; }
+  if(!confirm(`${f.name}, Hafta ${n}'in birincisi olarak Zirve'ye alınsın mı?\n\nZirve Kayıtları'na otomatik kayıt açılır (Zirve kontenjanına dahil).`)) return;
+  w.finalist = { appId: f.appId, name: f.name, rank: 1, pct: Number(f.pct) || 0, status: 'katilacak', at: Date.now() };
+  w.finalistHistory = w.finalistHistory || [];
+  if(!(state.zirvePromotedAppIds && state.zirvePromotedAppIds[Number(f.appId)])) promoteToZirve(Number(f.appId), true);
+  lfSetResult(n, { zirve: { appId: f.appId, name: f.name, rank: 1, pct: Number(f.pct) || 0, at: Date.now() } });
+  saveShared(); schedulePublicLeaderboard(true);
+  lfRender(true);
+}
+function lfTransfer(){
+  const n = Number(state.currentCohortId) || 1, w = lfLigWeek(n);
+  if(!w || !w.finalist){ showToast('Önce 1.\'yi Zirve\'ye al.', 'warn'); return; }
+  const prev = w.finalist.appId;
+  LIG.transferFinalist(n);
+  const now = lfLigWeek(n);
+  if(!now || !now.finalist || String(now.finalist.appId) === String(prev)) return; // vazgeçildi
+  const old = (state.zirveRegistrations || []).find(z => String(z.fromFinteligAppId) === String(prev));
+  if(old){ old.status = 'reddedildi'; old.note = 'Temsil hakkı devredildi (kural 9.12)'; }
+  if(state.zirvePromotedAppIds) state.zirvePromotedAppIds[String(prev)] = null;
+  promoteToZirve(Number(now.finalist.appId), true);
+  lfSetResult(n, { zirve: { appId: now.finalist.appId, name: now.finalist.name, rank: now.finalist.rank, pct: now.finalist.pct, at: Date.now() } });
+  saveShared(); schedulePublicLeaderboard(true);
+  addActivity(`Hafta ${n}: Zirve temsil hakkı ${now.finalist.name} yarışmacısına devredildi.`);
+  lfRenderAll();
+}
+function lfClose(){
+  const n = Number(state.currentCohortId) || 1, c = lfCfg(), w = lfLigWeek(n), last = n >= c.totalWeeks;
+  if(lfPhase(n) !== 'zirve'){ showToast('Önce Zirve temsilcisini belirle.', 'warn'); return; }
+  if(!confirm(last ? `Hafta ${n} kapatılsın ve LİG TAMAMLANSIN mı?` : `Hafta ${n} kapatılsın mı?\n\nYarışmacılar geçmişe alınır, hafta Yarışma Geçmişi / Genel Sıralama'ya yazılır ve Hafta ${n + 1} (${lfRange(n + 1, c)}) için onaylar açılır.`)) return;
+  if(w){ w.status = 'finalized'; w.finalizedAt = Date.now(); }
+  rotateCohort('Lig akışı — Hafta ' + n + ' tamamlandı');
+  // Hafta arşivine doğrulanmış final değerleri yaz (canlı veriden daha güvenilir)
+  const rank = lfRanking(n), h = (state.cohortHistory || [])[0];
+  if(h && Number(h.cohortId) === n && rank.length){
+    const by = {}; rank.forEach(x => { by[String(x.appId)] = x; });
+    (h.competitors || []).forEach(x => { const f = by[String(x.id)]; if(f){ x.equity = Number(f.equity) || 0; x.pct = Number(f.pct) || 0; } });
+    h.competitors.sort((a, b) => (b.equity || 0) - (a.equity || 0));
+  }
+  const nc = lfCfg();
+  lfSetResult(n, { closedAt: Date.now() });
+  if(last){ const cc = lfCfg(); cc.completedAt = Date.now(); lfSave(cc); }
+  else { state.startDate = lfWeekStart(n + 1, nc); state.endDate = lfWeekEnd(n + 1, nc); }
+  saveShared(); schedulePublicLeaderboard(true);
+  addActivity(last ? 'FinteLig ligi tamamlandı.' : `Hafta ${n} kapatıldı — Hafta ${n + 1} onayları açık.`);
+  lfRenderAll();
+}
+function lfOpenSettings(){
+  const c = lfCfg();
+  const back = document.createElement('div'); back.className = 'lig-modal-back'; back.id = 'lfModal';
+  back.innerHTML = `<div class="lig-modal" role="dialog" aria-modal="true"><h3 class="section-title" style="font-size:17px;margin:0 0 12px;">Lig ayarları</h3>
+    <div class="field-row"><div class="field"><label>Toplam hafta</label><input type="number" id="lfTot" min="1" max="20" value="${c.totalWeeks}"></div><div class="field"><label>Haftalık kontenjan</label><input type="number" id="lfQuota" min="1" max="200" value="${c.quota}"></div></div>
+    <div class="field-row"><div class="field"><label>Yarışma günü (Pazartesi'den)</label><input type="number" id="lfDays" min="1" max="7" value="${c.days}"></div><div class="field"><label>Hafta 1 başlangıcı</label><input type="date" id="lfW1" value="${c.week1Start}"></div></div>
+    <p class="section-desc">Sonraki haftalar varsayılan olarak bir önceki haftadan 7 gün sonra başlar; her haftanın tarihini o hafta sırası gelince akış kartından değiştirebilirsin.</p>
+    <div class="btn-row"><button type="button" class="btn btn-blue" id="lfSaveSet">KAYDET</button><button type="button" class="btn" id="lfCloseSet">KAPAT</button></div>
+    <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border-strong);"><p class="section-desc" style="margin-bottom:8px;">Tehlikeli bölge: tüm başvuruları, geçmişi ve sonuçları silip ligi baştan kurar (önce yedek iner).</p><button type="button" class="btn btn-red" id="lfResetBtn2">🗑 LİGİ SIFIRLA</button></div></div>`;
+  document.body.appendChild(back);
+  const close = () => back.remove();
+  back.addEventListener('click', e => { if(e.target === back) close(); });
+  back.querySelector('#lfCloseSet').addEventListener('click', close);
+  back.querySelector('#lfResetBtn2').addEventListener('click', () => { close(); lfReset(); });
+  back.querySelector('#lfSaveSet').addEventListener('click', () => {
+    const cc = lfCfg();
+    cc.totalWeeks = Math.max(1, Math.min(20, parseInt(back.querySelector('#lfTot').value, 10) || cc.totalWeeks));
+    cc.quota = Math.max(1, Math.min(200, parseInt(back.querySelector('#lfQuota').value, 10) || cc.quota));
+    cc.days = Math.max(1, Math.min(7, parseInt(back.querySelector('#lfDays').value, 10) || cc.days));
+    const w1 = back.querySelector('#lfW1').value; if(LF_RE_DATE.test(w1)) cc.week1Start = w1;
+    if(!cc.resetAt) cc.resetAt = Date.now();
+    lfSave(cc); state.weeklyQuota = cc.quota; state.cohortDurationDays = cc.days;
+    const n = Number(state.currentCohortId) || 1;
+    if(!state.competitionActive){ state.startDate = lfWeekStart(n, cc); state.endDate = lfWeekEnd(n, cc); }
+    saveShared(); addActivity(`Lig ayarları güncellendi: ${cc.totalWeeks} hafta × ${cc.quota} kişi, ${cc.days} gün.`);
+    close(); lfRenderAll(); showToast('Lig ayarları kaydedildi.', 'success');
+  });
+}
+document.getElementById('ligFlowCard')?.addEventListener('click', function(e){
+  const b = e.target.closest('button'); if(!b || b.disabled) return;
+  const nav = b.getAttribute('data-nav'); if(nav){ navigateTo(nav); return; }
+  switch(b.id){
+    case 'lfResetBtn': lfReset(); break;
+    case 'lfSetupBtn': lfSetup(); break;
+    case 'lfSettingsBtn': lfOpenSettings(); break;
+    case 'lfAppsToggle': state.applicationsOpen = !state.applicationsOpen; saveShared(); try{ syncYarismaSettingsUI(); syncGlobalStatus(); }catch(err){} addActivity('Başvurular ' + (state.applicationsOpen ? 'AÇILDI' : 'KAPATILDI') + ' (lig akışı).'); lfRender(true); break;
+    case 'lfDateSave': {
+      const v = document.getElementById('lfStartInp').value; if(!LF_RE_DATE.test(v)){ showToast('Geçerli bir tarih seç.', 'error'); return; }
+      const n = Number(state.currentCohortId) || 1, c = lfCfg(); c.weekStarts[n - 1] = v; for(let i = 0; i < n - 1; i++) if(c.weekStarts[i] === undefined) c.weekStarts[i] = null;
+      lfSave(c); state.startDate = lfWeekStart(n); state.endDate = lfWeekEnd(n); saveShared();
+      addActivity(`Hafta ${n} tarihleri: ${lfRange(n)}.`); showToast(`Hafta ${n}: ${lfRange(n)}`, 'success'); lfRender(true); break; }
+    case 'lfStartBtn': lfStart(); break;
+    case 'lfEndBtn': if(confirm('Yarışma şimdi bitirilsin mi? OPLab işlemleri kapanır ve final sıralama alınır.')){ finishCompetition('admin tarafından bitirildi (lig akışı)'); lfRender(true); } break;
+    case 'lfPublishBtn': lfPublish(); break;
+    case 'lfZirveBtn': lfZirve(); break;
+    case 'lfTransferBtn': lfTransfer(); break;
+    case 'lfCloseBtn': lfClose(); break;
+  }
+});
 
 /* ============ YARIŞMACI DEPOSU (29 Eylül 2026) ============ */
 // Firestore "competitors" koleksiyonu — her başvuru bir belge (competitors/{başvuruId}).
@@ -5813,6 +6176,7 @@ setInterval(checkCompetitionTimer, 5000);
 // saat hiç işlemez, "boşa geçen hafta" riski yok.
 function checkCohortRotation(){
   if(ligSeasonOn()) return; // sezon planında haftalar takvime göre yönetilir (LİG modülü)
+  if(state.ligFlow) return; // (30 Eylül 2026) lig akışında haftayı "HAFTAYI KAPAT" adımı kapatır
   if(!state.cohortStartedAt) return;
   const elapsedMs = Date.now() - new Date(state.cohortStartedAt).getTime();
   const totalMs = (state.cohortDurationDays || 7) * 86400000;
@@ -5943,14 +6307,14 @@ function renderGenelSiralama(){
 // handler'ındaki AYNI kontenjan/bekleme-listesi kuralı burada da uygulanır
 // (kontenjan doluysa yeni kayıt 'listede'ye düşer, admin isterse Zirve
 // Kayıt Yönetimi'nden elle onaylayabilir).
-function promoteToZirve(appId){
+function promoteToZirve(appId, skipConfirm){
   const app = state.applications.find(a => a.id === appId);
   if(!app){ showToast('Yarışmacı bulunamadı.', 'error'); return; }
   if(state.zirvePromotedAppIds && state.zirvePromotedAppIds[appId]){
     showToast(app.name+' zaten Zirve kaydına yükseltilmiş.', 'warn');
     return;
   }
-  const ok = confirm(`${app.name}, FinteLig performansıyla Zirve Kayıt Yönetimi'ne yükseltilsin mi?\n\nOtomatik bir Zirve kaydı açılır ve Zirve'nin kendi kontenjanına dahil olur (kontenjan doluysa bekleme listesine alınır).`);
+  const ok = skipConfirm === true || confirm(`${app.name}, FinteLig performansıyla Zirve Kayıt Yönetimi'ne yükseltilsin mi?\n\nOtomatik bir Zirve kaydı açılır ve Zirve'nin kendi kontenjanına dahil olur (kontenjan doluysa bekleme listesine alınır).`);
   if(!ok) return;
   const newId = Math.max(zirveIdCounter, 0, ...state.zirveRegistrations.map(z=>z.id||0)) + 1;
   zirveIdCounter = newId + 1;
@@ -7915,7 +8279,7 @@ document.addEventListener('focusout', () => { if(renderPending){ renderPending =
 document.addEventListener('click', e => { const n = e.target.closest('#page-yarisma [data-nav-lig]'); if(n){ e.preventDefault(); navigateTo(n.dataset.navLig); } });
 
 window.LIG = {
-  S, render, tick, onFinish, startNextWeek, assignWeekDetailHtml, unassignedApps, onPublish, extendPublic, rowExtras, penaltyFor, applyPenalties, approveGuard, approveIntoWeek, approveWeekSelectHtml,
+  S, render, tick, onFinish, weekByNo, historyFor, eligibleRanking, transferFinalist, startNextWeek, assignWeekDetailHtml, unassignedApps, onPublish, extendPublic, rowExtras, penaltyFor, applyPenalties, approveGuard, approveIntoWeek, approveWeekSelectHtml,
   weekInfoText, fillKota, fillYarismaCards, currentWeek, weekCloseMs, sessionEndFor, istMs, tradingDays, weekByNo,
   onNavigate(pageId){ if(pageId === 'page-yarisma' || pageId === 'page-oplab' || pageId === 'page-karar') render(true); },
   _test: { addBusinessDays, tieGroups, mulberry32, istDate, sessionNow, participationConflict, doLockout, weekApps, applyViolation, finalizeWeek, transferFinalist, instagramText, LIG_SCENES_NOTE }

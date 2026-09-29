@@ -754,6 +754,16 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
   #pub-kurallar .rules-body,#pub-kurallar .rules-sec>summary .t,#pub-kurallar p,#pub-kurallar span,#pub-kurallar b,#pub-kurallar td{color:#000 !important;}
   #pub-kurallar .rules-sec{border-color:#999;break-inside:avoid-page;}
 }
+
+/* (30 Eylül 2026) Haftalık kazananlar */
+.ww-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.ww-card{margin:0;padding:18px 20px}
+.ww-head{font-family:'Oswald',sans-serif;letter-spacing:.04em;font-size:15px;color:var(--text-dim);margin-bottom:10px}
+.ww-row{display:grid;grid-template-columns:26px 1fr auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:14px}
+.ww-row.first .ww-n{font-weight:700}
+.ww-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ww-z{margin-top:10px;font-size:12.5px;color:#9db4f5}
+.ww-c{margin-top:4px;font-size:12px;color:var(--text-dimmer)}
 </style>
 </head>
 <body>
@@ -884,6 +894,12 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           <div class="rank-card" style="border-color:var(--blue);"><div class="rank-num" style="color:#7ea3ff;">01</div><div class="rank-name" data-i18n="sonuc_undetermined">Henüz belirlenmedi</div><div class="rank-pct">--%</div></div>
           <div class="rank-card"><div class="rank-num">03</div><div class="rank-name" data-i18n="sonuc_undetermined">Henüz belirlenmedi</div><div class="rank-pct">--%</div></div>
         </div>
+      </div>
+
+      <div id="pubWeeklyWinners" style="margin-top:44px;display:none;">
+        <div class="pub-section-label" data-i18n="ww_label">FINTELIG LİGİ</div>
+        <h2 style="font-size:32px;margin-bottom:22px;" data-i18n="ww_h">HAFTALIK KAZANANLAR</h2>
+        <div class="ww-grid" id="pubWeeklyWinnersGrid"></div>
       </div>
 
       <div class="card" style="margin-top:32px;">
@@ -1253,6 +1269,8 @@ const I18N_EN = {
   rules_toc: 'CONTENTS',
   rules_modal_close: 'CLOSE',
   rules_modal_accept: 'I HAVE READ AND ACCEPT',
+  ww_label: 'FINTELIG LEAGUE',
+  ww_h: 'WEEKLY WINNERS',
   consent_gate_hint: 'To register, open the Competition Rules and the KVKK notice and confirm each with “I HAVE READ AND ACCEPT”.',
   consent_rules_a: 'I have read, understood and accept the FinTeLig',
   consent_rules_link: 'Competition Rules',
@@ -1599,6 +1617,9 @@ const T = {
   rules_modal_kvkk: {tr:'KVKK Aydınlatma Metni', en:'Personal Data Notice (KVKK)'},
   rules_expand: {tr:'TÜMÜNÜ AÇ', en:'EXPAND ALL'},
   rules_collapse: {tr:'TÜMÜNÜ KAPAT', en:'COLLAPSE ALL'},
+  ww_week: {tr:(n, d) => 'HAFTA ' + n + (d ? ' · ' + d : ''), en:(n, d) => 'WEEK ' + n + (d ? ' · ' + d : '')},
+  ww_zirve: {tr:'Zirve 27 temsilcisi', en:'Zirve 27 representative'},
+  ww_participants: {tr:(n) => n + ' yarışmacı', en:(n) => n + ' competitors'},
   consent_gate_hint: {tr:'Kayıt olmak için Yarışma Kurallarını ve KVKK metnini açıp “OKUDUM, KABUL EDİYORUM” ile onaylaman gerekir.', en:'To register, open the Competition Rules and the KVKK notice and confirm each with “I HAVE READ AND ACCEPT”.'},
 };
 
@@ -2180,6 +2201,7 @@ function hydrateFromShared(){
   state.deletedApplicationIds = Object.assign({}, shared.deletedApplicationIds, state.deletedApplicationIds);
   state.deletedZirveIds = Object.assign({}, shared.deletedZirveIds, state.deletedZirveIds);
   state.zirveKontenjan = shared.zirveKontenjan ?? state.zirveKontenjan;
+  state.ligFlow = shared.ligFlow ?? state.ligFlow;
   if(shared.appIdCounter) appIdCounter = shared.appIdCounter;
   if(shared.zirveIdCounter) zirveIdCounter = shared.zirveIdCounter;
 }
@@ -2641,7 +2663,29 @@ if(fsPortfolioDoc){
   setTimeout(()=>fetchPublicResultsIfNeeded(true), 3000);
   setInterval(()=>fetchPublicResultsIfNeeded(false), PUBLIC_RESULTS_POLL_MS);
 }
+// (30 Eylül 2026) Haftalık kazananlar — yalnızca admin'in İLAN ETTİĞİ haftalar (isim + getiri; işlem bilgisi yok, kural 4.9)
+function renderWeeklyWinners(){
+  const box = document.getElementById('pubWeeklyWinners'), grid = document.getElementById('pubWeeklyWinnersGrid');
+  if(!box || !grid) return;
+  const f = state.ligFlow || {};
+  const list = (Array.isArray(f.results) ? f.results : []).filter(r => r && Number(r.no) > 0 && r.publishedAt && Array.isArray(r.podium) && r.podium.length).sort((a, b) => b.no - a.no);
+  if(!list.length){ box.style.display = 'none'; grid.innerHTML = ''; return; }
+  const lang = (typeof currentLang !== 'undefined' && currentLang === 'en') ? 'en-GB' : 'tr-TR';
+  const day = iso => /^\d{4}-\d{2}-\d{2}$/.test(iso || '') ? new Date(iso + 'T12:00:00Z').toLocaleDateString(lang, { day: 'numeric', month: 'short', timeZone: 'UTC' }) : '';
+  const pct = p => { p = Number(p) || 0; return (p >= 0 ? '+' : '') + p.toFixed(2) + '%'; };
+  const medal = ['🥇', '🥈', '🥉'];
+  grid.innerHTML = list.map(r => {
+    const d = r.start && r.end ? day(r.start) + ' – ' + day(r.end) : '';
+    return `<div class="card ww-card"><div class="ww-head">${escapeHtml(t('ww_week', Number(r.no), d))}</div>`
+      + r.podium.slice(0, 3).map((p, i) => `<div class="ww-row${i === 0 ? ' first' : ''}"><span class="ww-m">${medal[i]}</span><span class="ww-n">${escapeHtml(String(p.name || ''))}</span><span class="ww-p" style="color:${(Number(p.pct) || 0) >= 0 ? 'var(--green)' : '#fca5a5'}">${pct(p.pct)}</span></div>`).join('')
+      + (r.zirve && r.zirve.name ? `<div class="ww-z">🏔 ${escapeHtml(t('ww_zirve'))}: <b>${escapeHtml(String(r.zirve.name))}</b></div>` : '')
+      + (r.participants ? `<div class="ww-c">${escapeHtml(t('ww_participants', Number(r.participants)))}</div>` : '')
+      + '</div>';
+  }).join('');
+  box.style.display = '';
+}
 function renderPublicSonuclar(){
+  try{ renderWeeklyWinners(); }catch(e){}
   const rankCards = document.querySelectorAll('#pub-sonuclar .rank-card');
   const tbody = document.querySelector('#pub-sonuclar table tbody');
   if(!rankCards.length || !tbody) return;
