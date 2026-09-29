@@ -8631,6 +8631,41 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
     save({ scenes: picked });
   });
 
+  // ---- SEÇİM SAHNE MODUNA DA UYGULANSIN --------------------------------
+  // İki ayrı sızıntı vardı:
+  //   1) Sahne modunun altındaki düğme çubuğu 7 sahnenin hepsini gösteriyordu.
+  //   2) Ekranda duran sahne listeden çıkarılırsa, bir sonraki tura kadar
+  //      ekranda kalmaya devam ediyordu.
+  // İkisi de burada kapanıyor: seçili olmayan düğmeler gizleniyor ve seçim
+  // dışında kalan bir sahne ekrandaysa anında ilk seçili sahneye geçiliyor.
+  function syncStageBar(){
+    var picked = cfg().scenes;
+    document.querySelectorAll('#stageModeOverlay .stage-ctrl-btn[data-mode]').forEach(function(b){
+      b.style.display = picked.indexOf(b.dataset.mode) >= 0 ? '' : 'none';
+    });
+  }
+
+  var fixing = false;
+  var origRender = window.renderStageMode;
+  if(typeof origRender === 'function'){
+    window.renderStageMode = function(){
+      if(!fixing){
+        var picked = cfg().scenes;
+        if(picked.length && picked.indexOf(state.viewMode) < 0){
+          fixing = true;
+          state.viewMode = picked[0];   // saveShared YOK: sonsuz döngü olmasın
+          fixing = false;
+        }
+      }
+      var out = origRender.apply(this, arguments);
+      syncStageBar();
+      return out;
+    };
+  }
+
+  var origPaint = paint;
+  paint = function(){ origPaint(); syncStageBar(); };
+
   paint();
   window.ftlScenePickPaint = paint;   // dışarıdan senkron geldiğinde tazelenir
 })();
