@@ -8081,8 +8081,15 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
   // sıralamanın DIŞINA alınıp en alta, grileşmiş "BAĞLANTI YOK" satırı olarak
   // yazılıyor. Veri yeniden gelmeye başlayınca hiçbir şey yapmaya gerek yok:
   // her çizimde baştan hesaplandığı için kişi kendiliğinden sıralamaya döner.
+  // VARSAYILAN: KAPALI. Sahne seçim panelindeki anahtarla açılıyor
+  // (state.yayinConfig.offlineCut). Kapalıyken herkes normal sıralamada kalır,
+  // bu özellik hiç devreye girmez.
   var STALE_MS = 120000;
+  function offlineCutOn(){
+    return !!(typeof state === 'object' && state && state.yayinConfig && state.yayinConfig.offlineCut);
+  }
   function isStale(c){
+    if(!offlineCutOn()) return false;
     var t = Date.parse(c && c.updatedAt || '');
     return isFinite(t) ? (Date.now() - t > STALE_MS) : false;
   }
@@ -8567,7 +8574,10 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
       '<select id="ftlSceneSec">' +
         [8,12,15,20,30,45].map(function(n){ return '<option value="' + n + '">' + n + ' sn</option>'; }).join('') +
       '</select>' +
-      '<span id="ftlSceneCount"></span></div>' +
+      '<span id="ftlSceneCount"></span>' +
+      '<label id="ftlOfflineCut" style="margin-left:auto;border:1px solid var(--border-strong);">' +
+        '<input type="checkbox" id="ftlOfflineCutInput">2 dk sessiz kalanı sıralamadan çıkar</label>' +
+    '</div>' +
     '<p class="fsp-warn" id="ftlSceneWarn" style="display:none;">Canlı İşlem Akışı seçili: yarışma sürerken otomatik akışa ALINMAZ (kural 4.9) — sadece elle seçince ekrana gelir.</p>';
 
   // Yayın/yarışma düğmelerinin altına, SAHNE MODU düğmesinin hemen üstüne
@@ -8586,6 +8596,9 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
       c.scenes.length + ' sahne · tur ' + Math.round(c.scenes.length * c.sceneSec / 60 * 10) / 10 + ' dk';
     document.getElementById('ftlSceneWarn').style.display =
       c.scenes.indexOf('İŞLEM AKIŞI') >= 0 ? 'block' : 'none';
+    var cut = !!(state.yayinConfig && state.yayinConfig.offlineCut);
+    document.getElementById('ftlOfflineCutInput').checked = cut;
+    document.getElementById('ftlOfflineCut').classList.toggle('on', cut);
   }
 
   function save(next){
@@ -8596,6 +8609,7 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
 
   box.addEventListener('change', function(e){
     if(e.target.id === 'ftlSceneSec'){ save({ sceneSec: Number(e.target.value) }); return; }
+    if(e.target.id === 'ftlOfflineCutInput'){ save({ offlineCut: e.target.checked }); return; }
     if(e.target.type !== 'checkbox') return;
     // Ekrana yansıyan sıra, düğme sırasının aynısı olsun diye SCENES sırasına göre toplanıyor
     var picked = SCENES.map(function(s){ return s.m; }).filter(function(m){
