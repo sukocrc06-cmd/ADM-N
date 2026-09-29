@@ -6209,14 +6209,16 @@ function exitStageMode(){
 document.getElementById('enterStageModeBtn')?.addEventListener('click', enterStageMode);
 document.getElementById('exitStageModeBtn')?.addEventListener('click', exitStageMode);
 
-// ESC ile tarayıcının KENDİ tam ekranından çıkılırsa (native davranış),
-// overlay'i de senkron kapatıyoruz — aksi halde overlay tam ekran olmadan
-// asılı kalırdı.
+// (29 Eylül 2026) ESC ile tarayıcının KENDİ tam ekranından çıkılırsa, sahne
+// modunu ARTIK KAPATMIYORUZ — projeksiyonda yanlışlıkla basılan tek bir ESC
+// yarışmanın ortasında ekranı admin paneline düşürüyordu. Bunun yerine sayfa
+// sonundaki sertleştirme bloğu devreye girip "çıkmak için tekrar ESC" ipucunu
+// gösteriyor; overlay ekranda kalmaya devam ediyor.
 ['fullscreenchange','webkitfullscreenchange'].forEach(evt=>{
   document.addEventListener(evt, ()=>{
     if(!document.fullscreenElement && !document.webkitFullscreenElement){
       const overlay = document.getElementById('stageModeOverlay');
-      if(overlay && !overlay.classList.contains('hidden')) overlay.classList.add('hidden');
+      if(overlay && !overlay.classList.contains('hidden') && typeof window.stageArmExit === 'function') window.stageArmExit();
     }
   });
 });
@@ -7761,6 +7763,173 @@ function yyOnNavigate(pageId){
   setTimeout(yyScale, 50);
 }
 yyRender();
+</script>
+
+<!-- ============ (29 Eylül 2026) SAHNE MODU SERTLEŞTİRME + OTOMATİK AKIŞ (Adım 1) ============
+     Projeksiyona yansıtılan sahne modunu "başlat ve izle" haline getirir:
+       - kontrol çubuğu gizli (fare alt kenara gidince belirir)
+       - fare imleci 3 sn sonra kaybolur
+       - tek ESC ekranı düşürmez (çift ESC çıkar, F tam ekrana döner)
+       - laptop uykuya / ekran koruyucuya geçmez (Wake Lock)
+       - dosyadan açılınca çıkan turuncu bant sahne modunda gizlenir
+       - seçili sahneler kendi kendine döner; ok tuşları / boşluk / 1-9 ile müdahale
+     Tamamı EK bir katmandır: mevcut fonksiyonlar (enterStageMode, renderStageMode,
+     saveShared, syncYayinUI) değiştirilmedi, sadece dışarıdan kullanılıyor. -->
+<style>
+body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important;}
+.stage-overlay .stage-controls{opacity:0;pointer-events:none;transition:opacity .25s ease;}
+.stage-overlay.ctl-show .stage-controls{opacity:1;pointer-events:auto;}
+.stage-overlay.idle{cursor:none;}
+#stageEscHint{
+  position:fixed;left:50%;bottom:30px;transform:translateX(-50%);z-index:2100;display:none;
+  background:rgba(5,7,15,.94);color:#e5e7eb;border:1px solid #334155;border-radius:10px;
+  padding:12px 20px;font:500 15px/1.4 'Inter',system-ui,sans-serif;letter-spacing:.01em;
+}
+#stageEscHint b{color:#fbbf24;font-weight:700;}
+</style>
+<script>
+(function(){
+  'use strict';
+  var ov = document.getElementById('stageModeOverlay');
+  if(!ov) return;
+
+  // Yarışma sürerken İŞLEM AKIŞI otomatik akışa ASLA girmez (kural 4.9/6.11).
+  var DEFAULT_SCENES = ['LİDERLİK','İLK 3','SIRALAMA','DURUM'];
+  var MANUAL_PAUSE_MS = 60000;   // elle sahne seçilince otomatik akış bu kadar susar
+  var IDLE_MS = 3000;            // imleç bu süre hareketsiz kalınca kaybolur
+
+  var wakeLock = null, idleTimer = null, ctlTimer = null;
+  var autoTimer = null, resumeTimer = null, autoPaused = false, escArmed = 0;
+
+  function isOpen(){ return !ov.classList.contains('hidden'); }
+
+  function cfg(){
+    var c = (typeof state === 'object' && state && state.yayinConfig) || {};
+    var list = (Array.isArray(c.scenes) && c.scenes.length) ? c.scenes.slice() : DEFAULT_SCENES.slice();
+    list = list.filter(function(m){ return m !== 'İŞLEM AKIŞI'; });
+    if(!list.length) list = DEFAULT_SCENES.slice();
+    var sec = Number(c.sceneSec);
+    if(!(sec >= 5 && sec <= 120)) sec = 15;
+    return { scenes: list, sec: sec };
+  }
+
+  function setScene(mode){
+    if(typeof state !== 'object' || !state || !mode || state.viewMode === mode) return;
+    state.viewMode = mode;
+    if(typeof syncYayinUI === 'function') syncYayinUI();
+    if(typeof saveShared === 'function') saveShared();
+  }
+
+  function step(dir){
+    var c = cfg(), i = c.scenes.indexOf(state.viewMode);
+    i = (i < 0) ? 0 : (i + dir + c.scenes.length) % c.scenes.length;
+    setScene(c.scenes[i]);
+  }
+
+  function startAuto(){
+    stopAuto();
+    autoTimer = setInterval(function(){
+      if(isOpen() && !autoPaused) step(1);
+    }, cfg().sec * 1000);
+  }
+  function stopAuto(){ if(autoTimer) clearInterval(autoTimer); autoTimer = null; }
+
+  function pauseAuto(ms){
+    autoPaused = true;
+    if(resumeTimer) clearTimeout(resumeTimer);
+    resumeTimer = setTimeout(function(){ autoPaused = false; startAuto(); }, ms || MANUAL_PAUSE_MS);
+    startAuto();
+  }
+
+  function lockScreen(){
+    if(!navigator.wakeLock || wakeLock) return;
+    navigator.wakeLock.request('screen').then(function(s){
+      wakeLock = s;
+      s.addEventListener('release', function(){ wakeLock = null; });
+    }).catch(function(){});
+  }
+  function unlockScreen(){
+    if(!wakeLock) return;
+    try{ wakeLock.release(); }catch(e){}
+    wakeLock = null;
+  }
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible' && isOpen()) lockScreen();
+  });
+
+  var hint = document.createElement('div');
+  hint.id = 'stageEscHint';
+  hint.innerHTML = 'Tam ekrandan çıkıldı — <b>F</b> ile geri dön, kapatmak için <b>ESC</b>\'ye tekrar bas';
+  document.body.appendChild(hint);
+  function showHint(on){ hint.style.display = on ? 'block' : 'none'; }
+
+  // admin.html'in fullscreenchange dinleyicisi bunu çağırır (overlay'i kapatmak yerine).
+  window.stageArmExit = function(){ escArmed = Date.now() + 6000; showHint(true); };
+
+  function goFullscreen(){
+    var req = ov.requestFullscreen || ov.webkitRequestFullscreen;
+    if(req){ try{ var p = req.call(ov); if(p && p.catch) p.catch(function(){}); }catch(e){} }
+    escArmed = 0; showHint(false);
+  }
+
+  function onMove(e){
+    ov.classList.remove('idle');
+    if(idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(function(){ if(isOpen()) ov.classList.add('idle'); }, IDLE_MS);
+    if(e.clientY > window.innerHeight - 90){
+      ov.classList.add('ctl-show');
+      if(ctlTimer){ clearTimeout(ctlTimer); ctlTimer = null; }
+    } else if(!ctlTimer){
+      ctlTimer = setTimeout(function(){ ov.classList.remove('ctl-show'); ctlTimer = null; }, 1200);
+    }
+  }
+
+  document.addEventListener('keydown', function(e){
+    if(!isOpen()) return;
+    var c = cfg();
+    if(e.key === 'ArrowRight'){ e.preventDefault(); pauseAuto(); step(1); }
+    else if(e.key === 'ArrowLeft'){ e.preventDefault(); pauseAuto(); step(-1); }
+    else if(e.code === 'Space'){
+      e.preventDefault();
+      autoPaused = !autoPaused;
+      if(resumeTimer){ clearTimeout(resumeTimer); resumeTimer = null; }
+    }
+    else if(e.key >= '1' && e.key <= '9'){
+      var m = c.scenes[Number(e.key) - 1];
+      if(m){ pauseAuto(); setScene(m); }
+    }
+    else if(e.key === 'f' || e.key === 'F'){ goFullscreen(); }
+    else if(e.key === 'Escape' && Date.now() < escArmed){
+      escArmed = 0; showHint(false);
+      if(typeof exitStageMode === 'function') exitStageMode();
+    }
+  }, true);
+
+  var ctl = ov.querySelector('.stage-controls');
+  if(ctl) ctl.addEventListener('click', function(e){
+    if(e.target.closest('.stage-ctrl-btn[data-mode]')) pauseAuto();
+  });
+
+  new MutationObserver(function(){
+    if(isOpen()){
+      document.addEventListener('mousemove', onMove);
+      if(idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(function(){ if(isOpen()) ov.classList.add('idle'); }, IDLE_MS);
+      autoPaused = false;
+      lockScreen();
+      startAuto();
+    } else {
+      document.removeEventListener('mousemove', onMove);
+      ov.classList.remove('idle','ctl-show');
+      if(idleTimer){ clearTimeout(idleTimer); idleTimer = null; }
+      if(ctlTimer){ clearTimeout(ctlTimer); ctlTimer = null; }
+      if(resumeTimer){ clearTimeout(resumeTimer); resumeTimer = null; }
+      escArmed = 0; showHint(false);
+      unlockScreen();
+      stopAuto();
+    }
+  }).observe(ov, { attributes: true, attributeFilter: ['class'] });
+})();
 </script>
 
 </body>
