@@ -6486,14 +6486,16 @@ function exitStageMode(){
 document.getElementById('enterStageModeBtn')?.addEventListener('click', enterStageMode);
 document.getElementById('exitStageModeBtn')?.addEventListener('click', exitStageMode);
 
-// ESC ile tarayıcının KENDİ tam ekranından çıkılırsa (native davranış),
-// overlay'i de senkron kapatıyoruz — aksi halde overlay tam ekran olmadan
-// asılı kalırdı.
+// (29 Eylül 2026) ESC ile tarayıcının KENDİ tam ekranından çıkılırsa, sahne
+// modunu ARTIK KAPATMIYORUZ — projeksiyonda yanlışlıkla basılan tek bir ESC
+// yarışmanın ortasında ekranı admin paneline düşürüyordu. Bunun yerine sayfa
+// sonundaki sertleştirme bloğu devreye girip "çıkmak için tekrar ESC" ipucunu
+// gösteriyor; overlay ekranda kalmaya devam ediyor.
 ['fullscreenchange','webkitfullscreenchange'].forEach(evt=>{
   document.addEventListener(evt, ()=>{
     if(!document.fullscreenElement && !document.webkitFullscreenElement){
       const overlay = document.getElementById('stageModeOverlay');
-      if(overlay && !overlay.classList.contains('hidden')) overlay.classList.add('hidden');
+      if(overlay && !overlay.classList.contains('hidden') && typeof window.stageArmExit === 'function') window.stageArmExit();
     }
   });
 });
@@ -8038,6 +8040,912 @@ function yyOnNavigate(pageId){
   setTimeout(yyScale, 50);
 }
 yyRender();
+</script>
+
+<!-- ============ (29 Eylül 2026) SAHNE MODU SERTLEŞTİRME + OTOMATİK AKIŞ (Adım 1) ============
+     Projeksiyona yansıtılan sahne modunu "başlat ve izle" haline getirir:
+       - kontrol çubuğu gizli (fare alt kenara gidince belirir)
+       - fare imleci 3 sn sonra kaybolur
+       - tek ESC ekranı düşürmez (çift ESC çıkar, F tam ekrana döner)
+       - laptop uykuya / ekran koruyucuya geçmez (Wake Lock)
+       - dosyadan açılınca çıkan turuncu bant sahne modunda gizlenir
+       - seçili sahneler kendi kendine döner; ok tuşları / boşluk / 1-9 ile müdahale
+     Tamamı EK bir katmandır: mevcut fonksiyonlar (enterStageMode, renderStageMode,
+     saveShared, syncYayinUI) değiştirilmedi, sadece dışarıdan kullanılıyor. -->
+<style>
+body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important;}
+.stage-overlay .stage-controls{opacity:0;pointer-events:none;transition:opacity .25s ease;}
+.stage-overlay.ctl-show .stage-controls{opacity:1;pointer-events:auto;}
+.stage-overlay.idle{cursor:none;}
+#stageEscHint{
+  position:fixed;left:50%;bottom:30px;transform:translateX(-50%);z-index:2100;display:none;
+  background:rgba(5,7,15,.94);color:#e5e7eb;border:1px solid #334155;border-radius:10px;
+  padding:12px 20px;font:500 15px/1.4 'Inter',system-ui,sans-serif;letter-spacing:.01em;
+}
+#stageEscHint b{color:#fbbf24;font-weight:700;}
+</style>
+<script>
+(function(){
+  'use strict';
+  var ov = document.getElementById('stageModeOverlay');
+  if(!ov) return;
+
+  // Yarışma sürerken İŞLEM AKIŞI otomatik akışa ASLA girmez (kural 4.9/6.11).
+  // Otomatik akış da düğme sırasını izler (İŞLEM AKIŞI hariç — kural 4.9).
+  var DEFAULT_SCENES = ['YARIŞ PİSTİ','SIRALAMA','LİDERLİK','ISI HARİTASI','İLK 3','DURUM'];
+  var MANUAL_PAUSE_MS = 60000;   // elle sahne seçilince otomatik akış bu kadar susar
+  var IDLE_MS = 3000;            // imleç bu süre hareketsiz kalınca kaybolur
+
+  var wakeLock = null, idleTimer = null, ctlTimer = null;
+  var autoTimer = null, resumeTimer = null, autoPaused = false, escArmed = false;
+
+  function isOpen(){ return !ov.classList.contains('hidden'); }
+
+  function cfg(){
+    var c = (typeof state === 'object' && state && state.yayinConfig) || {};
+    var list = (Array.isArray(c.scenes) && c.scenes.length) ? c.scenes.slice() : DEFAULT_SCENES.slice();
+    // İŞLEM AKIŞI panelden seçilebilir, ama yarışma SÜRERKEN otomatik akışa
+    // alınmaz (kural 4.9/6.11) — kendiliğinden ekrana gelmemeli. Yarışma
+    // bittikten sonra serbest.
+    if(state && state.competitionActive) list = list.filter(function(m){ return m !== 'İŞLEM AKIŞI'; });
+    if(!list.length) list = DEFAULT_SCENES.slice();
+    var sec = Number(c.sceneSec);
+    if(!(sec >= 5 && sec <= 120)) sec = 15;
+    return { scenes: list, sec: sec };
+  }
+
+  function setScene(mode){
+    if(typeof state !== 'object' || !state || !mode || state.viewMode === mode) return;
+    state.viewMode = mode;
+    if(typeof syncYayinUI === 'function') syncYayinUI();
+    if(typeof saveShared === 'function') saveShared();
+  }
+
+  function step(dir){
+    var c = cfg(), i = c.scenes.indexOf(state.viewMode);
+    i = (i < 0) ? 0 : (i + dir + c.scenes.length) % c.scenes.length;
+    setScene(c.scenes[i]);
+  }
+
+  function startAuto(){
+    stopAuto();
+    autoTimer = setInterval(function(){
+      // Demo sahnesi kendi akışını sürdüğü için bu döngü demo sırasında susar.
+      if(isOpen() && !autoPaused && !window.__ftlDemo) step(1);
+    }, cfg().sec * 1000);
+  }
+  function stopAuto(){ if(autoTimer) clearInterval(autoTimer); autoTimer = null; }
+
+  function pauseAuto(ms){
+    autoPaused = true;
+    if(resumeTimer) clearTimeout(resumeTimer);
+    resumeTimer = setTimeout(function(){ autoPaused = false; startAuto(); }, ms || MANUAL_PAUSE_MS);
+    startAuto();
+  }
+
+  var lockPending = false;
+  function lockScreen(){
+    // lockPending olmadan: istek asenkron çözüldüğü için arka arkaya gelen
+    // çağrılar wakeLock daha atanmadan onlarca istek açabiliyordu.
+    if(!navigator.wakeLock || wakeLock || lockPending) return;
+    lockPending = true;
+    navigator.wakeLock.request('screen').then(function(s){
+      lockPending = false;
+      wakeLock = s;
+      s.addEventListener('release', function(){ wakeLock = null; });
+    }).catch(function(){ lockPending = false; });
+  }
+  function unlockScreen(){
+    if(!wakeLock) return;
+    try{ wakeLock.release(); }catch(e){}
+    wakeLock = null;
+  }
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible' && isOpen()) lockScreen();
+  });
+
+  var hint = document.createElement('div');
+  hint.id = 'stageEscHint';
+  hint.innerHTML = 'Tam ekrandan çıkıldı — <b>F</b> ile geri dön, kapatmak için <b>ESC</b>\'ye tekrar bas';
+  document.body.appendChild(hint);
+  function showHint(on){ hint.style.display = on ? 'block' : 'none'; }
+
+  // admin.html'in fullscreenchange dinleyicisi bunu çağırır (overlay'i kapatmak yerine).
+  // ZAMAN SINIRI YOK: önceden 6 sn sonra sönüyordu ve kullanıcı tam ekran olmayan,
+  // kontrolleri gizli bir overlay'in altında kalıyordu — ekran donmuş gibi
+  // görünüyordu. Artık tam ekrandan çıkıldığı sürece ESC her an kapatır ve çıkış
+  // düğmesi de görünür kalır.
+  window.stageArmExit = function(){
+    escArmed = true;
+    showHint(true);
+    ov.classList.add('ctl-show');
+    ov.classList.remove('idle');
+  };
+
+  function goFullscreen(){
+    var req = ov.requestFullscreen || ov.webkitRequestFullscreen;
+    if(req){ try{ var p = req.call(ov); if(p && p.catch) p.catch(function(){}); }catch(e){} }
+    escArmed = false; showHint(false);
+  }
+
+  function onMove(e){
+    ov.classList.remove('idle');
+    if(idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(function(){ if(isOpen()) ov.classList.add('idle'); }, IDLE_MS);
+    if(e.clientY > window.innerHeight - 90){
+      ov.classList.add('ctl-show');
+      if(ctlTimer){ clearTimeout(ctlTimer); ctlTimer = null; }
+    } else if(!ctlTimer){
+      ctlTimer = setTimeout(function(){ ov.classList.remove('ctl-show'); ctlTimer = null; }, 1200);
+    }
+  }
+
+  document.addEventListener('keydown', function(e){
+    if(!isOpen()) return;
+    var c = cfg();
+    if(e.key === 'ArrowRight'){ e.preventDefault(); pauseAuto(); step(1); }
+    else if(e.key === 'ArrowLeft'){ e.preventDefault(); pauseAuto(); step(-1); }
+    else if(e.code === 'Space'){
+      e.preventDefault();
+      autoPaused = !autoPaused;
+      if(resumeTimer){ clearTimeout(resumeTimer); resumeTimer = null; }
+    }
+    else if(e.key >= '1' && e.key <= '9'){
+      var m = c.scenes[Number(e.key) - 1];
+      if(m){ pauseAuto(); setScene(m); }
+    }
+    else if(e.key === 'f' || e.key === 'F'){ goFullscreen(); }
+    else if(e.key === 'Escape'){
+      // İKİ BASIŞ KURALI, tarayıcının davranışından BAĞIMSIZ:
+      //   1. ESC  -> çıkışı silahlar + ipucunu gösterir (ekran ayakta kalır)
+      //   2. ESC  -> sahne modunu kapatır
+      // Neden böyle: bazı durumlarda ESC tam ekranı kapatmıyor ve
+      // 'fullscreenchange' HİÇ tetiklenmiyor. Çıkışı yalnızca o olaya bağlarsak
+      // kullanıcı, kontrolleri gizli bir overlay'in altında kalıcı olarak
+      // sıkışıyor — ekran donmuş gibi görünüyordu. Artık ikinci ESC her koşulda
+      // kapatır.
+      if(escArmed){
+        escArmed = false; showHint(false);
+        if(typeof exitStageMode === 'function') exitStageMode();
+      } else {
+        window.stageArmExit();
+      }
+    }
+  }, true);
+
+  var ctl = ov.querySelector('.stage-controls');
+  if(ctl) ctl.addEventListener('click', function(e){
+    if(e.target.closest('.stage-ctrl-btn[data-mode]')) pauseAuto();
+  });
+
+  // DİKKAT: bu gözlemci overlay'in class'ını izliyor, ama biz de her fare
+  // hareketinde 'idle'/'ctl-show' class'larını ekleyip çıkarıyoruz. Açılış/kapanış
+  // farkı kontrol edilmezse her fare kıpırtısı burayı tetikler; startAuto() sürekli
+  // sıfırlanır (sahne hiç dönmez) ve lockScreen() saniyede onlarca Wake Lock isteği
+  // açar — ekran kilitlenmiş gibi donar. Bu yüzden SADECE gerçek durum değişiminde
+  // iş yapılıyor.
+  var lastOpen = null;
+  new MutationObserver(function(){
+    var open = isOpen();
+    if(open === lastOpen) return;
+    lastOpen = open;
+    if(open){
+      document.addEventListener('mousemove', onMove);
+      if(idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(function(){ if(isOpen()) ov.classList.add('idle'); }, IDLE_MS);
+      autoPaused = false;
+      lockScreen();
+      startAuto();
+    } else {
+      document.removeEventListener('mousemove', onMove);
+      ov.classList.remove('idle','ctl-show');
+      if(idleTimer){ clearTimeout(idleTimer); idleTimer = null; }
+      if(ctlTimer){ clearTimeout(ctlTimer); ctlTimer = null; }
+      if(resumeTimer){ clearTimeout(resumeTimer); resumeTimer = null; }
+      escArmed = false; showHint(false);
+      unlockScreen();
+      stopAuto();
+    }
+  }).observe(ov, { attributes: true, attributeFilter: ['class'] });
+})();
+</script>
+
+<!-- ============ (29 Eylül 2026) YENİ SAHNELER: ISI HARİTASI + YARIŞ PİSTİ (Adım 2) ============
+     İkisi de YALNIZCA portföy değerinden (equity) türetiliyor; pozisyon, işlem
+     ya da hisse adı GÖSTERMİYOR (kural 4.9/6.11) — yarışma sürerken salondaki
+     ekrana yansıtılabilir.
+     buildViewModeHtml() DEĞİŞTİRİLMEDİ: burada sarmalanıyor (wrap), iki yeni mod
+     eklenip gerisi olduğu gibi eski fonksiyona devrediliyor. Blok silinirse panel
+     eski haline döner. -->
+<style>
+.stage-overlay[data-mode="ISI HARİTASI"]{--stage-accent:#22c55e;--stage-accent-glow:rgba(34,197,94,0.32);}
+.stage-overlay[data-mode="YARIŞ PİSTİ"]{--stage-accent:#f59e0b;--stage-accent-glow:rgba(245,158,11,0.32);}
+
+/* Bağlantısı kopan yarışmacı: sıralamanın dışında, en altta, soluk. */
+.yp-offline{opacity:.42;filter:grayscale(1);}
+.yp-offline-pill{
+  display:inline-block;background:rgba(148,163,184,.16);color:#cbd5e1;
+  border:1px solid rgba(148,163,184,.3);border-radius:999px;
+  padding:2px 9px;font-size:10px;font-weight:700;letter-spacing:.06em;white-space:nowrap;
+}
+.stage-content .yp-offline-pill{font-size:17px;padding:5px 16px;}
+.yp-offline .yp-track-rail{background:rgba(148,163,184,.08);}
+
+/* Diğer sahnelerdeki gibi kendi rengi olsun — renksiz kalınca sönük görünüyordu. */
+.stage-ctrl-btn[data-mode="ISI HARİTASI"]{color:#86efac;border-color:rgba(34,197,94,0.4);}
+.stage-ctrl-btn[data-mode="YARIŞ PİSTİ"]{color:#fcd34d;border-color:rgba(245,158,11,0.4);}
+.stage-ctrl-btn[data-mode="ISI HARİTASI"].active{background:#22c55e;color:#04240f;border-color:#22c55e;opacity:1;}
+.stage-ctrl-btn[data-mode="YARIŞ PİSTİ"].active{background:#f59e0b;color:#2b1a00;border-color:#f59e0b;opacity:1;}
+
+.yp-heat{display:grid;gap:10px;grid-template-columns:repeat(var(--heat-cols,4),minmax(0,1fr));}
+.yp-heat-cell{
+  border-radius:14px;padding:14px 12px;min-height:84px;box-sizing:border-box;
+  display:flex;flex-direction:column;justify-content:space-between;
+  border:1px solid rgba(255,255,255,.10);transition:background .6s ease;
+}
+.yp-heat-name{
+  font-weight:700;font-size:13px;line-height:1.25;color:#f8fafc;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.yp-heat-pct{font-family:'Oswald',sans-serif;font-size:22px;font-weight:700;letter-spacing:.01em;color:#fff;}
+.stage-content .yp-heat{gap:16px;}
+.stage-content .yp-heat-cell{min-height:132px;padding:20px 18px;border-radius:20px;}
+.stage-content .yp-heat-name{font-size:21px;}
+.stage-content .yp-heat-pct{font-size:40px;}
+
+.yp-track-lane{display:flex;align-items:center;gap:10px;margin-bottom:9px;}
+.yp-track-pos{
+  width:22px;text-align:right;font-family:'Oswald',sans-serif;font-weight:700;
+  font-size:13px;color:var(--text-dim);flex:none;
+}
+.yp-track-name{width:120px;flex:none;font-weight:600;font-size:12.5px;color:#e2e8f0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.yp-track-rail{
+  position:relative;flex:1;height:14px;border-radius:999px;
+  background:rgba(148,163,184,.13);overflow:hidden;
+}
+/* Genişlik yerine scaleX: her karede yeniden layout hesaplatmaz, projeksiyona
+   bağlı laptopta 20 şerit aynı anda akarken takılmayı önler. */
+.yp-track-fill{
+  position:absolute;inset:0;width:100%;border-radius:999px;
+  background:linear-gradient(90deg,rgba(245,158,11,.30),var(--track-col,#f59e0b));
+  transform-origin:left center;
+  transition:transform 4.6s linear;
+}
+/* Nokta, verinin 5 sn'de bir gelişine yayılarak kayar — sıçramak yerine akar. */
+.yp-track-dot{
+  position:absolute;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;
+  background:var(--track-col,#f59e0b);border:2px solid #05070f;
+  transition:left 4.6s linear;
+}
+.yp-track-val{width:78px;flex:none;text-align:right;font-family:'Oswald',sans-serif;
+  font-weight:700;font-size:13.5px;}
+.stage-content .yp-track-lane{gap:18px;margin-bottom:18px;}
+.stage-content .yp-track-pos{width:44px;font-size:26px;}
+.stage-content .yp-track-name{width:260px;font-size:24px;}
+.stage-content .yp-track-rail{height:26px;}
+.stage-content .yp-track-dot{width:34px;height:34px;margin:-17px 0 0 -17px;border-width:3px;}
+.stage-content .yp-track-val{width:150px;font-size:27px;}
+</style>
+<script>
+(function(){
+  'use strict';
+  if(typeof buildViewModeHtml !== 'function') return;
+  var base = buildViewModeHtml;
+
+  // Getiriyi renge çevirir: pozitif yeşil, negatif kırmızı, sıfıra yakın nötr.
+  // Yoğunluk, o anki listenin EN BÜYÜK mutlak getirisine göre normalize edilir —
+  // böylece herkes %1 bandındayken de fark görünür kalır.
+  // Renk OPAK üretiliyor (saydam değil): sahne zemini #05070f üzerine önceden
+  // karıştırılıyor. Görünüm birebir aynı, ama sıra değişiminde bir kare
+  // diğerinin üstünden geçerken alttaki yazı şeffaflıktan sızmıyor.
+  function heatColor(pct, maxAbs){
+    var t = maxAbs > 0 ? Math.min(1, Math.abs(pct) / maxAbs) : 0;
+    var a = 0.14 + t * 0.62;
+    var c = [148,163,184]; a = 0.16;
+    if(pct > 0.05){ c = [34,197,94]; a = 0.14 + t * 0.62; }
+    else if(pct < -0.05){ c = [239,68,68]; a = 0.14 + t * 0.62; }
+    var bg = [5,7,15];
+    return 'rgb(' + c.map(function(v, i){
+      return Math.round(v * a + bg[i] * (1 - a));
+    }).join(',') + ')';
+  }
+
+  // ---- BAĞLANTISI KOPAN YARIŞMACI (2 dk kuralı) ----------------------------
+  // Biri laptopunu kapatır ya da bağlantısı giderse son gönderdiği değer
+  // canlıymış gibi ekranda kalıyor ve sıralamada yerini koruyordu —
+  // projeksiyonda YANLIŞ bilgi. Artık 2 dakikadır veri göndermeyen herkes
+  // sıralamanın DIŞINA alınıp en alta, grileşmiş "BAĞLANTI YOK" satırı olarak
+  // yazılıyor. Veri yeniden gelmeye başlayınca hiçbir şey yapmaya gerek yok:
+  // her çizimde baştan hesaplandığı için kişi kendiliğinden sıralamaya döner.
+  // VARSAYILAN: KAPALI. Sahne seçim panelindeki anahtarla açılıyor
+  // (state.yayinConfig.offlineCut). Kapalıyken herkes normal sıralamada kalır,
+  // bu özellik hiç devreye girmez.
+  var STALE_MS = 120000;
+  function offlineCutOn(){
+    return !!(typeof state === 'object' && state && state.yayinConfig && state.yayinConfig.offlineCut);
+  }
+  function isStale(c){
+    if(!offlineCutOn()) return false;
+    var t = Date.parse(c && c.updatedAt || '');
+    return isFinite(t) ? (Date.now() - t > STALE_MS) : false;
+  }
+  function byEquity(a, b){ return (b.equity || 0) - (a.equity || 0); }
+
+  function offlineRows(list, startRank){
+    return list.slice().sort(byEquity).map(function(c, i){
+      var id = c.id || c.email || c.name || ('off' + i);
+      return '<div class="yp-row yp-offline" data-comp-id="' + escapeAttr(id) + '"' +
+          ' data-rank="' + (startRank + i + 1) + '">' +
+        '<span class="yp-rank">' + (startRank + i + 1) + '</span>' +
+        '<div class="yp-row-main"><span class="yp-name">' + (escapeHtml(c.name) || 'İsimsiz') + '</span></div>' +
+        '<span class="yp-offline-pill">BAĞLANTI YOK</span>' +
+      '</div>';
+    }).join('');
+  }
+
+  window.buildViewModeHtml = function(mode, data){
+    var fresh = [], stale = [];
+    (data || []).forEach(function(c){ (isStale(c) ? stale : fresh).push(c); });
+
+    if(mode !== 'ISI HARİTASI' && mode !== 'YARIŞ PİSTİ'){
+      // İLK 3 zaten dereceye girenleri gösteriyor; DURUM/İŞLEM AKIŞI liste değil.
+      // Kopanlar yalnızca sıralama listelerinin altına ekleniyor.
+      var html = base(mode, fresh);
+      if(stale.length && (mode === 'LİDERLİK' || mode === 'SIRALAMA')){
+        var shownCount = (mode === 'LİDERLİK') ? Math.min(fresh.length, 5) : Math.min(fresh.length, 10);
+        html += offlineRows(stale, shownCount);
+      }
+      return html;
+    }
+
+    data = fresh;
+    var sorted = data.slice().sort(function(a,b){ return (b.equity||0) - (a.equity||0); });
+    if(!sorted.length){
+      return '<div class="yp-section-label">' + (mode === 'ISI HARİTASI' ? 'ISI HARİTASI' : 'YARIŞ PİSTİ') + '</div>' +
+        (stale.length
+          ? offlineRows(stale, 0)
+          : '<div style="text-align:center;color:var(--text-dim);font-size:13px;">Henüz veri gönderen yarışmacı yok.</div>');
+    }
+
+    var pcts = sorted.map(function(c){ return pctReturn(c.equity||0); });
+    var maxAbs = Math.max.apply(null, pcts.map(Math.abs).concat([0.01]));
+
+    if(mode === 'ISI HARİTASI'){
+      var cols = sorted.length <= 4 ? 2 : (sorted.length <= 9 ? 3 : (sorted.length <= 16 ? 4 : 5));
+      return '<div class="yp-section-label">ISI HARİTASI</div>' +
+        '<div class="yp-heat" style="--heat-cols:' + cols + ';">' +
+        sorted.map(function(c, i){
+          var pct = pcts[i];
+          var dq = isRankExcluded(c.id);
+          var hid = c.id || c.email || c.name || ('r' + i);
+          return '<div class="yp-heat-cell" data-comp-id="' + escapeAttr(hid) + '" data-rank="' + (i + 1) + '"' +
+            ' style="background:' + heatColor(pct, maxAbs) + ';' + (dq ? 'opacity:.45;' : '') + '">' +
+            '<div class="yp-heat-name">' + (escapeHtml(c.name) || 'İsimsiz') + '</div>' +
+            '<div class="yp-heat-pct">' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%</div>' +
+          '</div>';
+        }).join('') +
+        stale.slice().sort(byEquity).map(function(c, i){
+          var oid = c.id || c.email || c.name || ('off' + i);
+          return '<div class="yp-heat-cell yp-offline" data-comp-id="' + escapeAttr(oid) + '"' +
+              ' data-rank="' + (sorted.length + i + 1) + '">' +
+            '<div class="yp-heat-name">' + (escapeHtml(c.name) || 'İsimsiz') + '</div>' +
+            '<div class="yp-offline-pill">BAĞLANTI YOK</div>' +
+          '</div>';
+        }).join('') + '</div>';
+    }
+
+    // YARIŞ PİSTİ — herkes bir şerit. Konum, gösterilen listenin en kötüsü (%0)
+    // ile en iyisi (%100) arasına normalize edilir; tek kişi kalırsa tam sağda.
+    var shown = sorted.slice(0, 12);
+    var best = Math.max.apply(null, pcts.slice(0, shown.length));
+    var worst = Math.min.apply(null, pcts.slice(0, shown.length));
+    var range = best - worst;
+    return '<div class="yp-section-label">YARIŞ PİSTİ</div>' +
+      shown.map(function(c, i){
+        var pct = pcts[i];
+        var posPct = range > 0 ? ((pct - worst) / range) * 100 : 100;
+        posPct = Math.max(4, Math.min(100, posPct));
+        var col = pct >= 0 ? '#22c55e' : '#ef4444';
+        var dq = isRankExcluded(c.id);
+        var tid = c.id || c.email || c.name || ('r' + i);
+        return '<div class="yp-track-lane" data-comp-id="' + escapeAttr(tid) + '" data-rank="' + (i + 1) + '"' +
+            (dq ? ' style="opacity:.45;"' : '') + '>' +
+          '<span class="yp-track-pos">' + (i + 1) + '</span>' +
+          '<span class="yp-track-name">' + (escapeHtml(c.name) || 'İsimsiz') + '</span>' +
+          '<span class="yp-track-rail" style="--track-col:' + col + ';">' +
+            '<span class="yp-track-fill" style="transform:scaleX(' + (posPct / 100).toFixed(4) + ');"></span>' +
+            '<span class="yp-track-dot" style="left:' + posPct.toFixed(1) + '%;"></span>' +
+          '</span>' +
+          '<span class="yp-track-val" style="color:' + col + ';">' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%</span>' +
+        '</div>';
+      }).join('') +
+      stale.slice().sort(byEquity).map(function(c, i){
+        var oid = c.id || c.email || c.name || ('off' + i);
+        return '<div class="yp-track-lane yp-offline" data-comp-id="' + escapeAttr(oid) + '"' +
+            ' data-rank="' + (shown.length + i + 1) + '">' +
+          '<span class="yp-track-pos">' + (shown.length + i + 1) + '</span>' +
+          '<span class="yp-track-name">' + (escapeHtml(c.name) || 'İsimsiz') + '</span>' +
+          '<span class="yp-track-rail"></span>' +
+          '<span class="yp-track-val"><span class="yp-offline-pill">BAĞLANTI YOK</span></span>' +
+        '</div>';
+      }).join('');
+  };
+
+  // İki sahneyi hem sahne modu çubuğuna hem panel içi kısayollara ekler
+  // (markup'a dokunmadan, mevcut düğmelerin yanına aynı sınıflarla).
+  function addBtn(container, cls, mode, label, before){
+    if(!container || container.querySelector('[data-mode="' + mode + '"]')) return;
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = cls;
+    b.dataset.mode = mode;
+    b.textContent = label;
+    if(before) container.insertBefore(b, before); else container.appendChild(b);
+  }
+  var ctl = document.querySelector('#stageModeOverlay .stage-controls');
+  addBtn(ctl, 'stage-ctrl-btn', 'ISI HARİTASI', 'Isı Haritası', document.getElementById('exitStageModeBtn'));
+  addBtn(ctl, 'stage-ctrl-btn', 'YARIŞ PİSTİ', 'Yarış Pisti', document.getElementById('exitStageModeBtn'));
+  var sc = document.getElementById('viewModeShortcuts');
+  addBtn(sc, 'shortcut-btn', 'ISI HARİTASI', 'Isı Haritası');
+  addBtn(sc, 'shortcut-btn', 'YARIŞ PİSTİ', 'Yarış Pisti');
+
+  // Düğme sırası: yarışma sırasında en çok kullanılandan en aza doğru.
+  // Tek yerden yönetiliyor — hem sahne çubuğu hem panel kısayolları aynı sırayı
+  // alıyor. Çıkış düğmesi her zaman en sonda kalır.
+  var ORDER = ['YARIŞ PİSTİ','SIRALAMA','LİDERLİK','ISI HARİTASI','İLK 3','İŞLEM AKIŞI','DURUM'];
+  function reorder(container){
+    if(!container) return;
+    ORDER.forEach(function(mode){
+      var b = container.querySelector('[data-mode="' + mode + '"]');
+      if(b) container.appendChild(b);          // appendChild taşır, kopyalamaz
+    });
+    var exit = container.querySelector('#exitStageModeBtn');
+    if(exit) container.appendChild(exit);
+  }
+  reorder(ctl);
+  reorder(sc);
+
+  if(typeof syncYayinUI === 'function') syncYayinUI();
+})();
+</script>
+
+<!-- ============ (29 Eylül 2026) YARIŞ HİSSİ: FLIP + SOLLAMA + SIRA ROZETİ (Adım 3) ============
+     SORUN: renderStageMode/renderYayinPreview her güncellemede innerHTML'i baştan
+     kuruyordu — sıra değişince satırlar ışınlanıyor, "yukarı çıkma" hareketi hiç
+     görünmüyordu. Parlama efekti "bir şey oldu" diyor ama geçişin kendisi kayıptı.
+
+     ÇÖZÜM (FLIP): yeniden çizmeden ÖNCE her satırın ekrandaki yeri ölçülüyor,
+     çizimden SONRA yeni yeri ölçülüyor; fark ters yönde transform olarak uygulanıp
+     sıfıra doğru animasyonla bırakılıyor. Satırlar birbirinin üstünden gerçekten
+     kayarak geçiyor. Yalnız transform/opacity kullanılıyor (layout tetiklenmiyor).
+
+     Üstüne iki şey: sıra ilerleyenin çevresinde yeşil sollama halkası ve isimlerin
+     yanında yarışma başına göre ▲/▼ sıra farkı rozeti.
+
+     Orijinal render fonksiyonları DEĞİŞTİRİLMEDİ, sarmalandı. Blok silinirse panel
+     eski davranışına döner. Hiçbir şey pozisyon/işlem göstermiyor (kural 4.9). -->
+<style>
+.yp-row,.yp-track-lane,.yp-heat-cell,.yp-podium-card{position:relative;}
+.yp-delta{
+  font-family:'Oswald',sans-serif;font-size:12px;font-weight:700;
+  margin-left:8px;letter-spacing:.02em;flex:none;
+}
+.yp-delta.up{color:#22c55e;}
+.yp-delta.down{color:#ef4444;}
+.stage-content .yp-delta{font-size:21px;margin-left:14px;}
+.yp-heat-cell .yp-delta,.yp-podium-card .yp-delta{position:absolute;top:8px;right:10px;margin:0;}
+/* Kayan satır, üstünden geçtiği satırın yazısıyla karışmasın diye hareket
+   boyunca opak bir zemin alıyor ve üste çıkıyor. */
+.yp-moving{background:#0a1020;border-radius:12px;box-shadow:0 8px 26px rgba(0,0,0,.55);}
+.yp-moving.yp-heat-cell{box-shadow:0 8px 26px rgba(0,0,0,.55);}
+.yp-overtook{animation:ypOvertake 1300ms ease-out;}
+@keyframes ypOvertake{
+  0%{box-shadow:0 0 0 0 rgba(34,197,94,.55);}
+  100%{box-shadow:0 0 0 16px rgba(34,197,94,0);}
+}
+</style>
+<script>
+(function(){
+  'use strict';
+  var MOVE_MS = 900;        // satırın yeni yerine kayma süresi
+  var base = {};            // compId -> yarışma başındaki sıra (rozet için)
+  var prev = {};            // compId -> bir önceki çizimdeki sıra (sollama için)
+
+  function rects(root){
+    var m = {};
+    root.querySelectorAll('[data-comp-id]').forEach(function(el){
+      m[el.dataset.compId] = el.getBoundingClientRect();
+    });
+    return m;
+  }
+
+  function flip(root, old){
+    if(!old) return;
+    root.querySelectorAll('[data-comp-id]').forEach(function(el){
+      var was = old[el.dataset.compId];
+      if(!was) return;
+      var now = el.getBoundingClientRect();
+      var dx = was.left - now.left, dy = was.top - now.top;
+      if(Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+      el.style.transition = 'none';
+      el.style.transform = 'translate(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px)';
+      // yukarı çıkan satır üstte kalsın: daha çok yol alan daha yüksek katmanda
+      el.style.zIndex = String(4 + Math.min(6, Math.round(Math.max(Math.abs(dy), Math.abs(dx)) / 20)));
+      el.classList.add('yp-moving');
+      requestAnimationFrame(function(){
+        el.style.transition = 'transform ' + MOVE_MS + 'ms cubic-bezier(.22,.61,.36,1)';
+        el.style.transform = '';
+        setTimeout(function(){
+          el.style.transition = ''; el.style.zIndex = ''; el.style.transform = '';
+          el.classList.remove('yp-moving');
+        }, MOVE_MS + 60);
+      });
+    });
+  }
+
+  function marks(root){
+    var seen = {};
+    root.querySelectorAll('[data-comp-id][data-rank]').forEach(function(el){
+      var id = el.dataset.compId, r = parseInt(el.dataset.rank, 10);
+      if(!isFinite(r)) return;
+      seen[id] = r;
+      if(base[id] == null) base[id] = r;
+
+      // sollama: bir önceki çizime göre sıra ilerlediyse yeşil halka
+      if(prev[id] != null && r < prev[id]){
+        el.classList.remove('yp-overtook');
+        void el.offsetWidth;
+        el.classList.add('yp-overtook');
+        setTimeout(function(){ el.classList.remove('yp-overtook'); }, 1350);
+      }
+
+      // rozet: yarışma başındaki sıraya göre fark
+      var d = base[id] - r;
+      var b = el.querySelector('.yp-delta');
+      if(!d){ if(b) b.remove(); return; }
+      if(!b){
+        b = document.createElement('span');
+        b.className = 'yp-delta';
+        el.appendChild(b);
+      }
+      b.className = 'yp-delta ' + (d > 0 ? 'up' : 'down');
+      b.textContent = (d > 0 ? '▲' : '▼') + Math.abs(d);
+    });
+    prev = seen;
+  }
+
+  function wrap(fnName, rootId){
+    var orig = window[fnName];
+    if(typeof orig !== 'function') return;
+    window[fnName] = function(){
+      var root = document.getElementById(rootId);
+      var old = root ? rects(root) : null;
+      var out = orig.apply(this, arguments);
+      if(root){ flip(root, old); marks(root); }
+      return out;
+    };
+  }
+  wrap('renderStageMode', 'stageContent');
+  wrap('renderYayinPreview', 'yayinPreviewContent');
+
+  // Yarışma yeniden başlatılınca rozetler sıfırlanır (yoksa geçen yarışmanın
+  // sıra farkı taşınırdı).
+  var wasActive = !!(typeof state === 'object' && state && state.competitionActive);
+  setInterval(function(){
+    var on = !!(typeof state === 'object' && state && state.competitionActive);
+    if(on && !wasActive){ base = {}; prev = {}; }
+    wasActive = on;
+  }, 2000);
+})();
+</script>
+
+<!-- ============ (29 Eylül 2026) DEMO SAHNE (Adım 4) ============
+     "DEMO" düğmesi: sahte yarışmacılarla sahne modunu açar, sıralamayı hızlı
+     hızlı değiştirip eklenen tüm özellikleri (FLIP kayma geçişleri, sollama
+     halkası, ▲/▼ sıra rozeti, yarış pisti, ısı haritası) arka arkaya gösterir.
+     Salonda kurulum/prova yaparken ve özellikleri anlatırken kullanılır.
+
+     GÜVENLİK: Demo sırasında saveShared() geçici olarak susturuluyor ve
+     rankingPool() sahte veriyle değiştiriliyor — Firestore'a, paylaşılan
+     belgeye ya da gerçek yarışma verisine HİÇBİR ŞEY yazılmıyor. Demo bitince
+     ikisi de aynen geri veriliyor. -->
+<style>
+#ftlDemoBadge{
+  position:fixed;top:18px;right:22px;z-index:2100;display:none;
+  background:#7c3aed;color:#fff;border-radius:999px;padding:7px 16px;
+  font:700 13px/1 'Oswald',sans-serif;letter-spacing:.14em;
+  box-shadow:0 6px 20px rgba(124,58,237,.45);
+}
+#ftlDemoBadge.on{display:block;animation:ftlDemoPulse 2s ease-in-out infinite;}
+@keyframes ftlDemoPulse{0%,100%{opacity:1;}50%{opacity:.62;}}
+#ftlDemoBtn{margin-top:10px;background:linear-gradient(90deg,#7c3aed,#db2777);color:#fff;border:none;}
+</style>
+<script>
+(function(){
+  'use strict';
+  var TICK_MS = 1300;     // veri ne sıklıkla değişsin
+  var SCENE_MS = 5000;    // sahne ne sıklıkla değişsin
+  var N = 10;             // sahte yarışmacı sayısı
+  // Demo da PANELDE SEÇİLİ sahneleri gösterir — yoksa "seçmediğim sahneler
+  // yine çıkıyor" oluyordu. Panelde seçim yoksa bu liste yedek olarak kullanılır.
+  var FALLBACK = ['YARIŞ PİSTİ','SIRALAMA','LİDERLİK','ISI HARİTASI','İLK 3'];
+  function scenes(){
+    var c = (typeof state === 'object' && state && state.yayinConfig) || {};
+    return (Array.isArray(c.scenes) && c.scenes.length) ? c.scenes.slice() : FALLBACK.slice();
+  }
+
+  var on = false, rows = [], tickT = null, sceneT = null, si = 0;
+  var origPool = null, origSave = null, origLive = null, origMode = null;
+
+  var badge = document.createElement('div');
+  badge.id = 'ftlDemoBadge';
+  badge.textContent = 'DEMO';
+  document.body.appendChild(badge);
+
+  function seed(){
+    rows = [];
+    for(var i = 0; i < N; i++){
+      rows.push({
+        id: 'demo' + i,
+        name: 'Yarışmacı ' + (i < 9 ? '0' : '') + (i + 1),
+        email: 'demo' + i + '@ornek',
+        equity: 100000,
+        drift: (Math.random() - 0.45) * 0.9,   // kimisi yükselen, kimisi düşen eğilimde
+        updatedAt: new Date().toISOString()
+      });
+    }
+  }
+
+  // Rastgele yürüyüş: oynaklık bilerek yüksek tutuluyor ki sıralama sık
+  // değişsin ve kayma/sollama efektleri demo boyunca sürekli görünsün.
+  function tick(){
+    var now = new Date().toISOString();
+    rows.forEach(function(r){
+      var chg = (Math.random() - 0.5) * 2.6 + r.drift;
+      r.equity = Math.max(40000, r.equity * (1 + chg / 100));
+      r.updatedAt = now;
+      if(Math.random() < 0.08) r.drift = (Math.random() - 0.45) * 0.9;  // eğilim değişsin
+    });
+    if(typeof renderStageMode === 'function') renderStageMode();
+  }
+
+  function nextScene(){
+    var list = scenes();
+    si = (si + 1) % list.length;
+    state.viewMode = list[si];
+    if(typeof syncYayinUI === 'function') syncYayinUI();   // saveShared YOK
+  }
+
+  function start(){
+    if(on) return;
+    on = true; window.__ftlDemo = true;
+    seed(); si = 0;
+
+    origPool = window.rankingPool;
+    origSave = window.saveShared;
+    origLive = state.broadcastLive;
+    origMode = state.viewMode;
+
+    window.rankingPool = function(){ return rows; };
+    window.saveShared = function(){};          // demo hiçbir şey yazmaz
+    state.broadcastLive = true;
+    state.viewMode = scenes()[0];
+
+    badge.classList.add('on');
+    if(typeof enterStageMode === 'function') enterStageMode();
+    if(typeof renderStageMode === 'function') renderStageMode();
+
+    tickT = setInterval(tick, TICK_MS);
+    sceneT = setInterval(nextScene, SCENE_MS);
+  }
+
+  function stop(){
+    if(!on) return;
+    on = false; window.__ftlDemo = false;
+    clearInterval(tickT); clearInterval(sceneT); tickT = sceneT = null;
+    if(origPool) window.rankingPool = origPool;
+    if(origSave) window.saveShared = origSave;
+    state.broadcastLive = origLive;
+    state.viewMode = origMode;
+    badge.classList.remove('on');
+    if(typeof syncYayinUI === 'function') syncYayinUI();
+  }
+
+  // Sahne modu kapanınca (ESC ya da ✕) demo da biter.
+  var ov = document.getElementById('stageModeOverlay');
+  if(ov){
+    var wasOpen = false;
+    new MutationObserver(function(){
+      var open = !ov.classList.contains('hidden');
+      if(wasOpen && !open) stop();
+      wasOpen = open;
+    }).observe(ov, { attributes: true, attributeFilter: ['class'] });
+  }
+
+  // Düğme: Yayın Yönetim sayfasında "SAHNE MODU"nun hemen altına eklenir.
+  var anchor = document.getElementById('enterStageModeBtn');
+  if(anchor && !document.getElementById('ftlDemoBtn')){
+    var b = document.createElement('button');
+    b.id = 'ftlDemoBtn';
+    b.type = 'button';
+    b.className = anchor.className;
+    b.textContent = '🎬 DEMO SAHNE (sahte yarışmacılarla)';
+    b.addEventListener('click', start);
+    anchor.parentNode.insertBefore(b, anchor.nextSibling);
+    var note = document.createElement('p');
+    note.className = 'note-box';
+    note.style.marginTop = '8px';
+    note.textContent = 'Sahte yarışmacılarla sahne modunu açar; sıralama hızlı hızlı değişir, tüm sahneler sırayla döner. Gerçek veriye ve yarışmaya hiçbir şey yazılmaz — çıkmak için ESC.';
+    b.parentNode.insertBefore(note, b.nextSibling);
+  }
+
+  window.ftlDemoStart = start;
+  window.ftlDemoStop = stop;
+})();
+</script>
+
+<!-- ============ (29 Eylül 2026) SAHNE SEÇİM PANELİ (Adım 5) ============
+     Yayın Kontrolleri ile SAHNE MODU düğmeleri ARASINA giriyor: sahne modunda
+     hangi sahnelerin döneceğini ve kaç saniyede bir değişeceğini buradan
+     seçiyorsun — artık koda gömülü değil.
+
+     Seçim state.yayinConfig'e yazılıp saveShared() ile paylaşılıyor, yani
+     telefondan da aynı ayar görünür. Sertleştirme bloğundaki cfg() zaten bu
+     alanı okuyor, o yüzden seçtiğin an otomatik akış yeni listeye göre döner.
+
+     İŞLEM AKIŞI seçilebilir ama yarışma AKTİFKEN otomatik akışa alınmaz
+     (kural 4.9/6.11) — elle seçilebilir, kendiliğinden ekrana gelmez. -->
+<style>
+#ftlScenePick{margin:14px 0 16px;padding:14px 16px;border:1px solid var(--border-strong);border-radius:12px;background:var(--card-bg-2);}
+#ftlScenePick .fsp-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px;}
+#ftlScenePick .fsp-title{font-size:13px;font-weight:700;letter-spacing:.06em;color:var(--text);}
+#ftlScenePick .fsp-sub{font-size:11.5px;color:var(--text-dim);}
+#ftlScenePick .fsp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:7px;}
+#ftlScenePick label{
+  display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;
+  border:1px solid var(--border-strong);border-radius:9px;padding:8px 10px;
+  font-size:12px;font-weight:600;color:var(--text-dim);transition:all .15s;
+}
+#ftlScenePick label:hover{border-color:var(--blue);}
+#ftlScenePick label.on{color:var(--text);border-color:var(--blue);background:rgba(61,111,238,.12);}
+#ftlScenePick label.warn.on{border-color:#f59e0b;background:rgba(245,158,11,.12);}
+#ftlScenePick input{accent-color:var(--blue);width:15px;height:15px;cursor:pointer;}
+#ftlScenePick .fsp-foot{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap;font-size:12px;color:var(--text-dim);}
+#ftlScenePick select{padding:5px 9px;border-radius:7px;font-size:12px;}
+#ftlScenePick .fsp-warn{font-size:11px;color:#fbbf24;margin:9px 0 0;}
+</style>
+<script>
+(function(){
+  'use strict';
+  var SCENES = [
+    { m:'YARIŞ PİSTİ',  t:'Yarış Pisti' },
+    { m:'SIRALAMA',     t:'Genel Sıralama' },
+    { m:'LİDERLİK',     t:'Liderlik Tablosu' },
+    { m:'ISI HARİTASI', t:'Isı Haritası' },
+    { m:'İLK 3',        t:'İlk 3' },
+    { m:'İŞLEM AKIŞI',  t:'Canlı İşlem Akışı', warn:true },
+    { m:'DURUM',        t:'Yarışma Durumu' }
+  ];
+  var DEF = ['YARIŞ PİSTİ','SIRALAMA','LİDERLİK','ISI HARİTASI','İLK 3','DURUM'];
+
+  var anchor = document.getElementById('enterStageModeBtn');
+  if(!anchor || document.getElementById('ftlScenePick')) return;
+
+  function cfg(){
+    var c = (state.yayinConfig && typeof state.yayinConfig === 'object') ? state.yayinConfig : {};
+    var list = Array.isArray(c.scenes) && c.scenes.length
+      ? c.scenes.filter(function(m){ return SCENES.some(function(s){ return s.m === m; }); })
+      : DEF.slice();
+    if(!list.length) list = DEF.slice();
+    var sec = Number(c.sceneSec);
+    if(!(sec >= 5 && sec <= 120)) sec = 15;
+    return { scenes: list, sceneSec: sec };
+  }
+
+  var box = document.createElement('div');
+  box.id = 'ftlScenePick';
+  box.innerHTML =
+    '<div class="fsp-head"><span class="fsp-title">SAHNE MODUNDA NE DÖNSÜN?</span>' +
+      '<span class="fsp-sub">Seçtiklerin sırayla döner. En az bir sahne seçili kalmalı.</span></div>' +
+    '<div class="fsp-grid">' +
+      SCENES.map(function(s){
+        return '<label data-m="' + s.m + '"' + (s.warn ? ' class="warn"' : '') + '>' +
+          '<input type="checkbox" value="' + s.m + '">' + s.t + '</label>';
+      }).join('') +
+    '</div>' +
+    '<div class="fsp-foot"><span>Sahne süresi</span>' +
+      '<select id="ftlSceneSec">' +
+        [8,12,15,20,30,45].map(function(n){ return '<option value="' + n + '">' + n + ' sn</option>'; }).join('') +
+      '</select>' +
+      '<span id="ftlSceneCount"></span>' +
+      '<label id="ftlOfflineCut" style="margin-left:auto;border:1px solid var(--border-strong);">' +
+        '<input type="checkbox" id="ftlOfflineCutInput">2 dk sessiz kalanı sıralamadan çıkar</label>' +
+    '</div>' +
+    '<p class="fsp-warn" id="ftlSceneWarn" style="display:none;">Canlı İşlem Akışı seçili: yarışma sürerken otomatik akışa ALINMAZ (kural 4.9) — sadece elle seçince ekrana gelir.</p>';
+
+  // Yayın/yarışma düğmelerinin altına, SAHNE MODU düğmesinin hemen üstüne
+  anchor.parentNode.insertBefore(box, anchor);
+
+  function paint(){
+    var c = cfg();
+    box.querySelectorAll('label').forEach(function(l){
+      var on = c.scenes.indexOf(l.dataset.m) >= 0;
+      l.classList.toggle('on', on);
+      l.querySelector('input').checked = on;
+    });
+    var sel = document.getElementById('ftlSceneSec');
+    if(document.activeElement !== sel) sel.value = String(c.sceneSec);
+    document.getElementById('ftlSceneCount').textContent =
+      c.scenes.length + ' sahne · tur ' + Math.round(c.scenes.length * c.sceneSec / 60 * 10) / 10 + ' dk';
+    document.getElementById('ftlSceneWarn').style.display =
+      c.scenes.indexOf('İŞLEM AKIŞI') >= 0 ? 'block' : 'none';
+    var cut = !!(state.yayinConfig && state.yayinConfig.offlineCut);
+    document.getElementById('ftlOfflineCutInput').checked = cut;
+    document.getElementById('ftlOfflineCut').classList.toggle('on', cut);
+  }
+
+  function save(next){
+    state.yayinConfig = Object.assign({}, state.yayinConfig || {}, next);
+    if(typeof saveShared === 'function') saveShared();
+    paint();
+  }
+
+  box.addEventListener('change', function(e){
+    if(e.target.id === 'ftlSceneSec'){ save({ sceneSec: Number(e.target.value) }); return; }
+    if(e.target.id === 'ftlOfflineCutInput'){ save({ offlineCut: e.target.checked }); return; }
+    if(e.target.type !== 'checkbox') return;
+    // Ekrana yansıyan sıra, düğme sırasının aynısı olsun diye SCENES sırasına göre toplanıyor
+    var picked = SCENES.map(function(s){ return s.m; }).filter(function(m){
+      var i = box.querySelector('input[value="' + m + '"]');
+      return i && i.checked;
+    });
+    if(!picked.length){
+      if(typeof showToast === 'function') showToast('En az bir sahne seçili kalmalı.', 'warn');
+      paint();
+      return;
+    }
+    save({ scenes: picked });
+  });
+
+  // ---- SEÇİM SAHNE MODUNA DA UYGULANSIN --------------------------------
+  // İki ayrı sızıntı vardı:
+  //   1) Sahne modunun altındaki düğme çubuğu 7 sahnenin hepsini gösteriyordu.
+  //   2) Ekranda duran sahne listeden çıkarılırsa, bir sonraki tura kadar
+  //      ekranda kalmaya devam ediyordu.
+  // İkisi de burada kapanıyor: seçili olmayan düğmeler gizleniyor ve seçim
+  // dışında kalan bir sahne ekrandaysa anında ilk seçili sahneye geçiliyor.
+  function syncStageBar(){
+    var picked = cfg().scenes;
+    document.querySelectorAll('#stageModeOverlay .stage-ctrl-btn[data-mode]').forEach(function(b){
+      b.style.display = picked.indexOf(b.dataset.mode) >= 0 ? '' : 'none';
+    });
+  }
+
+  var fixing = false;
+  var origRender = window.renderStageMode;
+  if(typeof origRender === 'function'){
+    window.renderStageMode = function(){
+      if(!fixing){
+        var picked = cfg().scenes;
+        if(picked.length && picked.indexOf(state.viewMode) < 0){
+          fixing = true;
+          state.viewMode = picked[0];   // saveShared YOK: sonsuz döngü olmasın
+          fixing = false;
+        }
+      }
+      var out = origRender.apply(this, arguments);
+      syncStageBar();
+      return out;
+    };
+  }
+
+  var origPaint = paint;
+  paint = function(){ origPaint(); syncStageBar(); };
+
+  paint();
+  window.ftlScenePickPaint = paint;   // dışarıdan senkron geldiğinde tazelenir
+})();
 </script>
 
 </body>
