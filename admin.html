@@ -7794,7 +7794,7 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
   if(!ov) return;
 
   // Yarışma sürerken İŞLEM AKIŞI otomatik akışa ASLA girmez (kural 4.9/6.11).
-  var DEFAULT_SCENES = ['LİDERLİK','İLK 3','SIRALAMA','DURUM'];
+  var DEFAULT_SCENES = ['LİDERLİK','YARIŞ PİSTİ','ISI HARİTASI','İLK 3','SIRALAMA','DURUM'];
   var MANUAL_PAUSE_MS = 60000;   // elle sahne seçilince otomatik akış bu kadar susar
   var IDLE_MS = 3000;            // imleç bu süre hareketsiz kalınca kaybolur
 
@@ -7929,6 +7929,154 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
       stopAuto();
     }
   }).observe(ov, { attributes: true, attributeFilter: ['class'] });
+})();
+</script>
+
+<!-- ============ (29 Eylül 2026) YENİ SAHNELER: ISI HARİTASI + YARIŞ PİSTİ (Adım 2) ============
+     İkisi de YALNIZCA portföy değerinden (equity) türetiliyor; pozisyon, işlem
+     ya da hisse adı GÖSTERMİYOR (kural 4.9/6.11) — yarışma sürerken salondaki
+     ekrana yansıtılabilir.
+     buildViewModeHtml() DEĞİŞTİRİLMEDİ: burada sarmalanıyor (wrap), iki yeni mod
+     eklenip gerisi olduğu gibi eski fonksiyona devrediliyor. Blok silinirse panel
+     eski haline döner. -->
+<style>
+.stage-overlay[data-mode="ISI HARİTASI"]{--stage-accent:#22c55e;--stage-accent-glow:rgba(34,197,94,0.32);}
+.stage-overlay[data-mode="YARIŞ PİSTİ"]{--stage-accent:#f59e0b;--stage-accent-glow:rgba(245,158,11,0.32);}
+
+.yp-heat{display:grid;gap:10px;grid-template-columns:repeat(var(--heat-cols,4),minmax(0,1fr));}
+.yp-heat-cell{
+  border-radius:14px;padding:14px 12px;min-height:84px;box-sizing:border-box;
+  display:flex;flex-direction:column;justify-content:space-between;
+  border:1px solid rgba(255,255,255,.10);transition:background .6s ease;
+}
+.yp-heat-name{
+  font-weight:700;font-size:13px;line-height:1.25;color:#f8fafc;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.yp-heat-pct{font-family:'Oswald',sans-serif;font-size:22px;font-weight:700;letter-spacing:.01em;color:#fff;}
+.stage-content .yp-heat{gap:16px;}
+.stage-content .yp-heat-cell{min-height:132px;padding:20px 18px;border-radius:20px;}
+.stage-content .yp-heat-name{font-size:21px;}
+.stage-content .yp-heat-pct{font-size:40px;}
+
+.yp-track-lane{display:flex;align-items:center;gap:10px;margin-bottom:9px;}
+.yp-track-pos{
+  width:22px;text-align:right;font-family:'Oswald',sans-serif;font-weight:700;
+  font-size:13px;color:var(--text-dim);flex:none;
+}
+.yp-track-name{width:120px;flex:none;font-weight:600;font-size:12.5px;color:#e2e8f0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.yp-track-rail{
+  position:relative;flex:1;height:14px;border-radius:999px;
+  background:rgba(148,163,184,.13);overflow:hidden;
+}
+.yp-track-fill{
+  position:absolute;inset:0 auto 0 0;border-radius:999px;
+  background:linear-gradient(90deg,rgba(245,158,11,.30),var(--track-col,#f59e0b));
+  transition:width 1.1s cubic-bezier(.22,.61,.36,1);
+}
+.yp-track-dot{
+  position:absolute;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;
+  background:var(--track-col,#f59e0b);border:2px solid #05070f;
+  transition:left 1.1s cubic-bezier(.22,.61,.36,1);
+}
+.yp-track-val{width:78px;flex:none;text-align:right;font-family:'Oswald',sans-serif;
+  font-weight:700;font-size:13.5px;}
+.stage-content .yp-track-lane{gap:18px;margin-bottom:18px;}
+.stage-content .yp-track-pos{width:44px;font-size:26px;}
+.stage-content .yp-track-name{width:260px;font-size:24px;}
+.stage-content .yp-track-rail{height:26px;}
+.stage-content .yp-track-dot{width:34px;height:34px;margin:-17px 0 0 -17px;border-width:3px;}
+.stage-content .yp-track-val{width:150px;font-size:27px;}
+</style>
+<script>
+(function(){
+  'use strict';
+  if(typeof buildViewModeHtml !== 'function') return;
+  var base = buildViewModeHtml;
+
+  // Getiriyi renge çevirir: pozitif yeşil, negatif kırmızı, sıfıra yakın nötr.
+  // Yoğunluk, o anki listenin EN BÜYÜK mutlak getirisine göre normalize edilir —
+  // böylece herkes %1 bandındayken de fark görünür kalır.
+  function heatColor(pct, maxAbs){
+    var t = maxAbs > 0 ? Math.min(1, Math.abs(pct) / maxAbs) : 0;
+    var a = 0.14 + t * 0.62;
+    if(pct > 0.05) return 'rgba(34,197,94,' + a.toFixed(3) + ')';
+    if(pct < -0.05) return 'rgba(239,68,68,' + a.toFixed(3) + ')';
+    return 'rgba(148,163,184,0.16)';
+  }
+
+  window.buildViewModeHtml = function(mode, data){
+    if(mode !== 'ISI HARİTASI' && mode !== 'YARIŞ PİSTİ') return base(mode, data);
+
+    var sorted = data.slice().sort(function(a,b){ return (b.equity||0) - (a.equity||0); });
+    if(!sorted.length){
+      return '<div class="yp-section-label" style="text-align:center;">' +
+        (mode === 'ISI HARİTASI' ? 'ISI HARİTASI' : 'YARIŞ PİSTİ') +
+        '</div><div style="text-align:center;color:var(--text-dim);font-size:13px;">Henüz veri gönderen yarışmacı yok.</div>';
+    }
+
+    var pcts = sorted.map(function(c){ return pctReturn(c.equity||0); });
+    var maxAbs = Math.max.apply(null, pcts.map(Math.abs).concat([0.01]));
+
+    if(mode === 'ISI HARİTASI'){
+      var cols = sorted.length <= 4 ? 2 : (sorted.length <= 9 ? 3 : (sorted.length <= 16 ? 4 : 5));
+      return '<div class="yp-section-label">ISI HARİTASI</div>' +
+        '<div class="yp-heat" style="--heat-cols:' + cols + ';">' +
+        sorted.map(function(c, i){
+          var pct = pcts[i];
+          var dq = isRankExcluded(c.id);
+          return '<div class="yp-heat-cell" style="background:' + heatColor(pct, maxAbs) + ';' + (dq ? 'opacity:.45;' : '') + '">' +
+            '<div class="yp-heat-name">' + (escapeHtml(c.name) || 'İsimsiz') + '</div>' +
+            '<div class="yp-heat-pct">' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%</div>' +
+          '</div>';
+        }).join('') + '</div>';
+    }
+
+    // YARIŞ PİSTİ — herkes bir şerit. Konum, gösterilen listenin en kötüsü (%0)
+    // ile en iyisi (%100) arasına normalize edilir; tek kişi kalırsa tam sağda.
+    var shown = sorted.slice(0, 12);
+    var best = Math.max.apply(null, pcts.slice(0, shown.length));
+    var worst = Math.min.apply(null, pcts.slice(0, shown.length));
+    var range = best - worst;
+    return '<div class="yp-section-label">YARIŞ PİSTİ</div>' +
+      shown.map(function(c, i){
+        var pct = pcts[i];
+        var posPct = range > 0 ? ((pct - worst) / range) * 100 : 100;
+        posPct = Math.max(4, Math.min(100, posPct));
+        var col = pct >= 0 ? '#22c55e' : '#ef4444';
+        var dq = isRankExcluded(c.id);
+        return '<div class="yp-track-lane"' + (dq ? ' style="opacity:.45;"' : '') + '>' +
+          '<span class="yp-track-pos">' + (i + 1) + '</span>' +
+          '<span class="yp-track-name">' + (escapeHtml(c.name) || 'İsimsiz') + '</span>' +
+          '<span class="yp-track-rail" style="--track-col:' + col + ';">' +
+            '<span class="yp-track-fill" style="width:' + posPct.toFixed(1) + '%;"></span>' +
+            '<span class="yp-track-dot" style="left:' + posPct.toFixed(1) + '%;"></span>' +
+          '</span>' +
+          '<span class="yp-track-val" style="color:' + col + ';">' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%</span>' +
+        '</div>';
+      }).join('');
+  };
+
+  // İki sahneyi hem sahne modu çubuğuna hem panel içi kısayollara ekler
+  // (markup'a dokunmadan, mevcut düğmelerin yanına aynı sınıflarla).
+  function addBtn(container, cls, mode, label, before){
+    if(!container || container.querySelector('[data-mode="' + mode + '"]')) return;
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = cls;
+    b.dataset.mode = mode;
+    b.textContent = label;
+    if(before) container.insertBefore(b, before); else container.appendChild(b);
+  }
+  var ctl = document.querySelector('#stageModeOverlay .stage-controls');
+  addBtn(ctl, 'stage-ctrl-btn', 'ISI HARİTASI', 'Isı Haritası', document.getElementById('exitStageModeBtn'));
+  addBtn(ctl, 'stage-ctrl-btn', 'YARIŞ PİSTİ', 'Yarış Pisti', document.getElementById('exitStageModeBtn'));
+  var sc = document.getElementById('viewModeShortcuts');
+  addBtn(sc, 'shortcut-btn', 'ISI HARİTASI', 'Isı Haritası');
+  addBtn(sc, 'shortcut-btn', 'YARIŞ PİSTİ', 'Yarış Pisti');
+
+  if(typeof syncYayinUI === 'function') syncYayinUI();
 })();
 </script>
 
