@@ -995,6 +995,14 @@ body.theme-light .test-notice{color:#b91c1c;background:rgba(239,68,68,.08);}
           <div class="field-label" style="margin-bottom:8px;" data-i18n="basvuru_status_label">BAŞVURU DURUMU</div>
           <div style="font-family:'Oswald',sans-serif;font-size:19px;margin-bottom:10px;" data-i18n="basvuru_admin_required">ADMİN ONAYI GEREKLİ</div>
           <p style="color:var(--text-dim);font-size:12.5px;line-height:1.6;" data-i18n="basvuru_admin_desc">Başvuru gönderildikten sonra yarışma erişimi admin panelinden onaylanır.</p>
+          <div id="basvuruSayacBox" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+            <div class="field-label" style="margin-bottom:6px;" data-i18n="basvuru_sayac_label">GELEN BAŞVURU</div>
+            <div id="basvuruSayacNum" style="font-family:'Oswald',sans-serif;font-size:30px;line-height:1.1;">–</div>
+            <div id="basvuruSayacBarWrap" style="height:7px;border-radius:999px;background:rgba(148,163,184,.16);overflow:hidden;margin:10px 0 8px;">
+              <div id="basvuruSayacBar" style="height:100%;width:0;border-radius:999px;background:var(--green);transition:width .6s ease,background .4s ease;"></div>
+            </div>
+            <div id="basvuruSayacSub" style="color:var(--text-dim);font-size:12px;"></div>
+          </div>
         </div>
       </div>
 
@@ -1005,6 +1013,10 @@ body.theme-light .test-notice{color:#b91c1c;background:rgba(239,68,68,.08);}
           <div id="basvuruClosedNotice" class="empty-state hidden" style="padding:16px;border:1px solid var(--yellow);border-radius:var(--radius-sm);margin-bottom:18px;">
             <strong style="color:var(--yellow);" data-i18n="basvuru_closed_title">Başvurular şu anda kapalı</strong>
             <span data-i18n="basvuru_closed_desc">Admin katılımı açtığında başvuru formu tekrar aktif olacak.</span>
+          </div>
+          <div id="basvuruKontenjanNotice" class="empty-state hidden" style="padding:18px;border:1px solid #ef4444;border-radius:var(--radius-sm);margin-bottom:18px;">
+            <strong style="color:#fca5a5;display:block;margin-bottom:6px;font-size:15px;" data-i18n="basvuru_quota_title">Kontenjan dolmuştur</strong>
+            <span data-i18n="basvuru_quota_desc">Başvurunuz için teşekkür ederiz. Yeni kayıtların açılması için Instagram hesabımızdan yapılacak duyuruyu takip edin.</span>
           </div>
           <form id="pubBasvuruForm">
             <div class="field-row">
@@ -1361,6 +1373,9 @@ const I18N_EN = {
   basvuru_form_desc: 'Enter your details to join the competition.',
   basvuru_closed_title: 'Applications are currently closed',
   basvuru_closed_desc: 'The application form will reopen once admin enables participation.',
+  basvuru_quota_title: 'The quota is full',
+  basvuru_quota_desc: 'Thank you for your interest. Follow the announcement on our Instagram account for new registrations.',
+  basvuru_sayac_label: 'APPLICATIONS RECEIVED',
   basvuru_field_name: 'Full Name',
   basvuru_ph_name: 'Enter your first and last name',
   basvuru_field_email: 'Email',
@@ -1545,6 +1560,11 @@ const T = {
   zform_toast_success: {tr:(club)=>`${club} için Zirve kaydı gönderildi.`, en:(club)=>`Summit registration submitted for ${club}.`},
 
   basvuru_toast_closed: {tr:'Başvurular şu anda kapalı.', en:'Applications are currently closed.'},
+  basvuru_toast_quota: {tr:'Kontenjan dolmuştur. Yeni kayıtlar için Instagram duyurumuzu bekleyin.', en:'The quota is full. Please wait for our Instagram announcement for new registrations.'},
+  basvuru_quota_badge: {tr:'KONTENJAN DOLDU', en:'QUOTA FULL'},
+  basvuru_sayac_unlimited: {tr:'Kontenjan sınırı yok.', en:'No quota limit.'},
+  basvuru_sayac_full: {tr:'Kontenjan doldu — yeni başvuru alınmıyor.', en:'Quota full — no new applications.'},
+  basvuru_sayac_left: {tr:(n)=>n + ' kişilik yer kaldı.', en:(n)=>n + ' place' + (n === 1 ? '' : 's') + ' left.'},
   basvuru_toast_required: {tr:'Lütfen zorunlu alanları (ad soyad, e-posta, kurum, öğrenci numarası) doldurun.', en:'Please fill in the required fields (full name, email, institution, student number).'},
   basvuru_toast_pwlen: {tr:'Lütfen en az 6 karakterli bir şifre belirle. Bu şifreyle OPLab\'a giriş yapacaksın.', en:'Please set a password of at least 6 characters. You\'ll use this password to log in to OPLab.'},
   basvuru_toast_dupemail: {tr:'Bu e-posta adresiyle daha önce başvuru yapılmış. Bir e-posta ile yalnızca bir kez başvurulabilir.', en:'An application has already been made with this email address. Only one application is allowed per email.'},
@@ -1649,6 +1669,10 @@ function t(key, ...args){
 const state = {
   competitionActive: false,
   applicationsOpen: false,
+  // (9 Ekim 2026) Başvuru kontenjanı. Dolduğunda form kapanır ve yeni
+  // başvuranlara "kontenjan doldu" bildirimi gösterilir. 0 = sınırsız.
+  // Değeri admin panelinden ayarlanır (Yarışma Ayarları → Başvuru Kontenjanı).
+  basvuruKontenjan: 60,
   zirveOpen: true,
   oplabEnabled: true,
   broadcastLive: false,
@@ -2202,6 +2226,7 @@ function hydrateFromShared(){
   const shared = loadShared();
   if(!shared) return;
   state.applicationsOpen = shared.applicationsOpen ?? state.applicationsOpen;
+  state.basvuruKontenjan = shared.basvuruKontenjan ?? state.basvuruKontenjan;
   state.zirveOpen = shared.zirveOpen ?? state.zirveOpen;
   state.oplabEnabled = shared.oplabEnabled ?? state.oplabEnabled;
   state.competitionActive = shared.competitionActive ?? state.competitionActive;
@@ -2225,6 +2250,9 @@ function onSharedDataUpdated(){
   // (24 Eylül 2026) Admin sonuçları az önce yayınladıysa sıralamayı hemen getir.
   try{ fetchPublicResultsIfNeeded(false); }catch(e){ /* sayfa henüz tam yüklenmedi */ }
   syncGlobalStatus();
+  // (9 Ekim 2026) Kontenjan ve anlık başvuru sayacı, başka bir cihazdan gelen
+  // her güncellemede tazelensin — sayfa yenilemeden dolduğunda form kapanır.
+  try{ updatePublicBasvuruAvailability(); }catch(e){}
   processCheckinParam();
   processEmailVerifyParam();
   updateEmailVerifyStatusUI();
@@ -2793,17 +2821,66 @@ function firebaseConnNoticeHtml(){
   }
   return '';
 }
+/* ============ (9 Ekim 2026) BAŞVURU KONTENJANI ============
+   Kontenjan dolunca form kapanır ve başvurmak isteyene "kontenjan doldu,
+   yeni kayıtlar için Instagram duyurusunu bekleyin" bildirimi gösterilir.
+
+   Sayıma HANGİ başvurular giriyor: durumu 'bekliyor' veya 'onayli' olanlar.
+   Reddedilen bir başvuru kontenjandan düşer (yerini boşaltır) — aksi halde
+   admin birini reddettiğinde o yer kalıcı olarak ölü kalırdı. */
+function basvuruKontenjanSayisi(){
+  return (state.applications || []).filter(a => a.status === 'bekliyor' || a.status === 'onayli').length;
+}
+function basvuruKontenjanLimiti(){
+  const n = Number(state.basvuruKontenjan);
+  return (isFinite(n) && n > 0) ? n : 0;   // 0 = sınırsız
+}
+function basvuruKontenjanDoluMu(){
+  const limit = basvuruKontenjanLimiti();
+  return limit > 0 && basvuruKontenjanSayisi() >= limit;
+}
+
 function updatePublicBasvuruAvailability(){
-  const open = state.applicationsOpen;
+  const full = basvuruKontenjanDoluMu();
+  const open = state.applicationsOpen && !full;
   const connReady = firebaseConnState === 'ok';
   const katilimEl = document.getElementById('pubKatilimDurum');
-  katilimEl.textContent = open ? t('common_open') : t('common_closed');
+  katilimEl.textContent = full ? t('basvuru_quota_badge') : (open ? t('common_open') : t('common_closed'));
   katilimEl.style.color = open ? 'var(--green)' : '#fca5a5';
-  document.getElementById('basvuruClosedNotice').classList.toggle('hidden', open);
+  // Kontenjan dolduysa "başvurular kapalı" yerine kontenjan bildirimi çıkar
+  document.getElementById('basvuruClosedNotice').classList.toggle('hidden', open || full);
+  const quotaNotice = document.getElementById('basvuruKontenjanNotice');
+  if(quotaNotice) quotaNotice.classList.toggle('hidden', !full);
   document.getElementById('pbSubmitBtn').disabled = !open || !connReady;
   document.querySelectorAll('#pubBasvuruForm input, #pubBasvuruForm textarea').forEach(el => el.disabled = !open || !connReady);
   const connNoticeEl = document.getElementById('basvuruConnNotice');
   if(connNoticeEl) connNoticeEl.innerHTML = firebaseConnNoticeHtml();
+  renderBasvuruSayac();
+}
+
+/* Anlık başvuru sayacı — başvuru sayfasındaki durum kartında. */
+function renderBasvuruSayac(){
+  const wrap = document.getElementById('basvuruSayacBox');
+  if(!wrap) return;
+  const limit = basvuruKontenjanLimiti();
+  const count = basvuruKontenjanSayisi();
+  const numEl = document.getElementById('basvuruSayacNum');
+  const barEl = document.getElementById('basvuruSayacBar');
+  const subEl = document.getElementById('basvuruSayacSub');
+  if(numEl) numEl.textContent = limit > 0 ? (count + ' / ' + limit) : String(count);
+  if(barEl){
+    const pct = limit > 0 ? Math.min(100, (count / limit) * 100) : 0;
+    barEl.style.width = pct.toFixed(1) + '%';
+    barEl.style.background = pct >= 100 ? '#ef4444' : (pct >= 85 ? 'var(--yellow)' : 'var(--green)');
+  }
+  if(subEl){
+    const kalan = limit > 0 ? Math.max(0, limit - count) : 0;
+    subEl.textContent = limit <= 0 ? t('basvuru_sayac_unlimited')
+      : (kalan > 0 ? t('basvuru_sayac_left', kalan) : t('basvuru_sayac_full'));
+    subEl.style.color = (limit > 0 && kalan === 0) ? '#fca5a5' : 'var(--text-dim)';
+  }
+  const barWrap = document.getElementById('basvuruSayacBarWrap');
+  if(barWrap) barWrap.style.display = limit > 0 ? '' : 'none';
 }
 
 function updatePublicZirveAvailability(){
@@ -2894,6 +2971,15 @@ function refreshDynamicPublicText(){
 document.getElementById('pubBasvuruForm').addEventListener('submit', function(e){
   e.preventDefault();
   if(!state.applicationsOpen){ showToast(t('basvuru_toast_closed'), 'error'); return; }
+  // (9 Ekim 2026) Kontenjan dolduysa burada da kesin engel: form kapansa bile
+  // Enter'la gönderme ya da başka bir sekmede açık kalmış eski sayfa üzerinden
+  // kayıt gelmesin. Ekrandaki bildirim de anında güncelleniyor.
+  if(basvuruKontenjanDoluMu()){
+    updatePublicBasvuruAvailability();
+    showToast(t('basvuru_toast_quota'), 'error');
+    document.getElementById('basvuruKontenjanNotice').scrollIntoView({behavior:'smooth', block:'center'});
+    return;
+  }
   // (22 Eylül 2026 — Madde 4) Düğme zaten devre dışıysa normalde buraya hiç
   // gelinmez, ama Enter tuşuyla formu göndermek gibi bir yol var mı diye
   // ikinci bir güvence katmanı: bağlantı 'ok' değilse gönderimi burada da
