@@ -1344,6 +1344,17 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           </div>
           <div class="field-row">
             <div class="field">
+              <label>Başvuru Kontenjanı (0 = sınırsız)</label>
+              <input type="number" id="inpBasvuruKontenjan" min="0" step="1" placeholder="60">
+            </div>
+            <div class="field">
+              <label>Şu Anki Başvuru</label>
+              <div id="basvuruKontenjanDurum" style="font-family:'Oswald',sans-serif;font-size:22px;padding-top:6px;">–</div>
+            </div>
+          </div>
+          <p class="section-desc" style="margin-top:-4px;">Kontenjan dolunca sitedeki başvuru formu otomatik kapanır ve başvurmak isteyene "kontenjan dolmuştur, yeni kayıtlar için Instagram duyurusunu bekleyin" bildirimi gösterilir. Sayıma bekleyen + onaylı başvurular girer; reddedilen başvuru yerini boşaltır.</p>
+          <div class="field-row">
+            <div class="field">
               <label>Haftalık Kota (0 = sınırsız)</label>
               <input type="number" id="inpWeeklyQuota" min="0" step="1" placeholder="5">
             </div>
@@ -2069,6 +2080,9 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 const state = {
   competitionActive: false,
   applicationsOpen: false,
+  // (9 Ekim 2026) Başvuru kontenjanı — dolunca site başvuru formunu kapatır
+  // ve başvuranlara "kontenjan doldu" bildirimi gösterir. 0 = sınırsız.
+  basvuruKontenjan: 60,
   zirveOpen: true,
   oplabEnabled: true,
   // (9 Ağustos 2026 — piyasa saatlerinden bağımsız alım-satım durdurma)
@@ -2483,6 +2497,7 @@ let sharedSaveInFlight = false, sharedSaveAgain = false;
 function buildSharedPayload(){
   return {
     applicationsOpen: state.applicationsOpen,
+    basvuruKontenjan: state.basvuruKontenjan,
     zirveOpen: state.zirveOpen,
     oplabEnabled: state.oplabEnabled,
     tradingHalted: state.tradingHalted,
@@ -2646,6 +2661,7 @@ function hydrateFromShared(){
   const shared = loadShared();
   if(!shared) return;
   state.applicationsOpen = shared.applicationsOpen ?? state.applicationsOpen;
+  state.basvuruKontenjan = shared.basvuruKontenjan ?? state.basvuruKontenjan;
   state.zirveOpen = shared.zirveOpen ?? state.zirveOpen;
   state.oplabEnabled = shared.oplabEnabled ?? state.oplabEnabled;
   state.tradingHalted = shared.tradingHalted ?? state.tradingHalted;
@@ -3538,6 +3554,17 @@ function syncYarismaSettingsUI(){
   const cohortDaysEl = document.getElementById('inpCohortDays');
   if(quotaEl && document.activeElement !== quotaEl) quotaEl.value = state.weeklyQuota ?? 5;
   if(cohortDaysEl && document.activeElement !== cohortDaysEl) cohortDaysEl.value = state.cohortDurationDays || 7;
+  // (9 Ekim 2026) Başvuru kontenjanı + anlık doluluk
+  const bkEl = document.getElementById('inpBasvuruKontenjan');
+  if(bkEl && document.activeElement !== bkEl) bkEl.value = state.basvuruKontenjan ?? 60;
+  const bkDurum = document.getElementById('basvuruKontenjanDurum');
+  if(bkDurum){
+    const limit = Number(state.basvuruKontenjan) > 0 ? Number(state.basvuruKontenjan) : 0;
+    const say = (state.applications || []).filter(a => a.status === 'bekliyor' || a.status === 'onayli').length;
+    bkDurum.textContent = limit > 0 ? (say + ' / ' + limit) : (say + ' (sınırsız)');
+    bkDurum.style.color = (limit > 0 && say >= limit) ? 'var(--red)'
+      : (limit > 0 && say >= limit * 0.85) ? 'var(--yellow)' : 'var(--green)';
+  }
 
   const katilimGroup = document.getElementById('toggleKatilim');
   if(katilimGroup){
@@ -3610,6 +3637,8 @@ document.getElementById('saveSettingsBtn').addEventListener('click', function(){
   const katilim = document.querySelector('#toggleKatilim .toggle-opt.active').dataset.value;
   const yarisma = document.querySelector('#toggleYarisma .toggle-opt.active').dataset.value;
   state.applicationsOpen = katilim === 'acik';
+  const basvuruKotaRaw = parseInt(document.getElementById('inpBasvuruKontenjan').value, 10);
+  state.basvuruKontenjan = (isNaN(basvuruKotaRaw) || basvuruKotaRaw < 0) ? 0 : basvuruKotaRaw;
   const wasActive = state.competitionActive;
   const wantsActive = ligSeasonOn() ? wasActive : yarisma === 'aktif';
 
