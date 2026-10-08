@@ -3981,32 +3981,48 @@ const kvStatusMap = {bekliyor:{label:'ONAY BEKLİYOR', cls:'yellow'}, onayli:{la
 /* ============ FinteLig LİGİ — HAFTALIK AKIŞ (30 Eylül 2026) ============ */
 // state.ligFlow (shared_state): { totalWeeks, quota, days, week1Start, weekStarts:[iso], results:[{no,...}], resetAt, completedAt }
 // NOT: Firestore merge:true haritaları birleştirir (anahtar silinmez) — bu yüzden haftalık veriler DİZİ olarak tutulur.
-const LF_DEFAULTS = { totalWeeks: 5, quota: 15, days: 4, week1Start: '2026-10-12' };
+const LF_DEFAULTS = { totalWeeks: 4, quota: 15, days: 4, week1Start: '2026-10-12', closingDate: '2026-11-06' };
+// (30 Eylül 2026) Afişteki resmî takvim
+const LF_SCHEDULE_VER = 'afis-2026-10';
+const LF_SCHEDULE = [['2026-10-12', '2026-10-15'], ['2026-10-16', '2026-10-21'], ['2026-10-22', '2026-10-27'], ['2026-11-02', '2026-11-05']];
 const LF_RE_DATE = /^\d{4}-\d{2}-\d{2}$/;
 function lfCfg(){
   const f = state.ligFlow || {};
   const num = (v, lo, hi, d) => { v = Number(v); return (v >= lo && v <= hi) ? Math.round(v) : d; };
   return {
     on: !!state.ligFlow,
-    totalWeeks: num(f.totalWeeks, 1, 20, LF_DEFAULTS.totalWeeks),
+    // takvim sürümü yoksa (eski 5 haftalık kayıt) afişteki 4 haftalık takvim geçerli
+    totalWeeks: f.scheduleVer === LF_SCHEDULE_VER ? num(f.totalWeeks, 1, 20, LF_DEFAULTS.totalWeeks) : LF_DEFAULTS.totalWeeks,
     quota: num(f.quota, 1, 200, LF_DEFAULTS.quota),
     days: num(f.days, 1, 7, LF_DEFAULTS.days),
     week1Start: LF_RE_DATE.test(f.week1Start || '') ? f.week1Start : LF_DEFAULTS.week1Start,
-    weekStarts: Array.isArray(f.weekStarts) ? f.weekStarts.map(x => LF_RE_DATE.test(x || '') ? x : null) : [],
+    weekStarts: (f.scheduleVer === LF_SCHEDULE_VER && Array.isArray(f.weekStarts)) ? f.weekStarts.map(x => LF_RE_DATE.test(x || '') ? x : null) : [],
+    weekEnds: (f.scheduleVer === LF_SCHEDULE_VER && Array.isArray(f.weekEnds)) ? f.weekEnds.map(x => LF_RE_DATE.test(x || '') ? x : null) : [],
+    closingDate: LF_RE_DATE.test(f.closingDate || '') ? f.closingDate : LF_DEFAULTS.closingDate,
+    scheduleVer: f.scheduleVer || null,
     results: Array.isArray(f.results) ? f.results.filter(r => r && typeof r === 'object' && Number(r.no) > 0) : [],
     resetAt: Number(f.resetAt) || null,
     completedAt: Number(f.completedAt) || null
   };
 }
 function lfSave(c){
-  state.ligFlow = { totalWeeks: c.totalWeeks, quota: c.quota, days: c.days, week1Start: c.week1Start, weekStarts: c.weekStarts.map(x => x || null), results: c.results, resetAt: c.resetAt || null, completedAt: c.completedAt || null };
+  const pad = (arr) => { const out = []; for(let i = 0; i < c.totalWeeks; i++) out.push((arr && arr[i]) || null); return out; };
+  state.ligFlow = { totalWeeks: c.totalWeeks, quota: c.quota, days: c.days, week1Start: c.week1Start, weekStarts: pad(c.weekStarts), weekEnds: pad(c.weekEnds),
+    closingDate: c.closingDate || LF_DEFAULTS.closingDate, scheduleVer: LF_SCHEDULE_VER, results: c.results, resetAt: c.resetAt || null, completedAt: c.completedAt || null };
 }
 function lfAddDays(iso, n){ const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
-function lfWeekStart(n, c){ c = c || lfCfg(); if(c.weekStarts[n - 1]) return c.weekStarts[n - 1]; if(n <= 1) return c.week1Start; return lfAddDays(lfWeekStart(n - 1, c), 7); }
-function lfWeekEnd(n, c){ c = c || lfCfg(); return lfAddDays(lfWeekStart(n, c), c.days - 1); }
+// Hafta sonunu atlayarak n işlem günü ileri (resmî tatiller admin tarafından tarihle ayarlanır)
+function lfAddTradingDays(iso, n){ let d = iso, k = 0; for(let i = 0; i < 60 && k < n; i++){ d = lfAddDays(d, 1); const w = new Date(d + 'T12:00:00Z').getUTCDay(); if(w !== 0 && w !== 6) k++; } return d; }
+function lfWeekStart(n, c){ c = c || lfCfg(); if(c.weekStarts[n - 1]) return c.weekStarts[n - 1]; if(LF_SCHEDULE[n - 1]) return LF_SCHEDULE[n - 1][0]; if(n <= 1) return c.week1Start; return lfAddTradingDays(lfWeekEnd(n - 1, c), 1); }
+function lfWeekEnd(n, c){
+  c = c || lfCfg();
+  if(c.weekEnds[n - 1]) return c.weekEnds[n - 1];
+  if(!c.weekStarts[n - 1] && LF_SCHEDULE[n - 1]) return LF_SCHEDULE[n - 1][1];
+  return lfAddTradingDays(lfWeekStart(n, c), c.days - 1);
+}
 function lfDay(iso, withDow){ const d = new Date(iso + 'T12:00:00Z'); return d.toLocaleDateString('tr-TR', Object.assign({ day: 'numeric', month: 'long', timeZone: 'UTC' }, withDow ? { weekday: 'long' } : {})); }
 function lfRange(n, c){ return lfDay(lfWeekStart(n, c), true) + ' – ' + lfDay(lfWeekEnd(n, c), true); }
-function lfShort(n, c){ const a = lfWeekStart(n, c), b = lfWeekEnd(n, c); return lfDay(a).replace(/ [^ ]+$/, '') + '–' + lfDay(b); }
+function lfShort(n, c){ const a = lfWeekStart(n, c), b = lfWeekEnd(n, c); return (a.slice(0, 7) === b.slice(0, 7) ? lfDay(a).replace(/ [^ ]+$/, '') : lfDay(a)) + '–' + lfDay(b); }
 function lfResult(n, c){ return (c || lfCfg()).results.find(r => Number(r.no) === Number(n)) || null; }
 function lfSetResult(n, patch){ const c = lfCfg(); let r = c.results.find(x => Number(x.no) === Number(n)); if(!r){ r = { no: n }; c.results.push(r); c.results.sort((a, b) => a.no - b.no); } Object.assign(r, patch); lfSave(c); return r; }
 function lfLigWeek(n){ try{ return window.LIG ? LIG.weekByNo(n) : null; }catch(e){ return null; } }
@@ -4033,13 +4049,26 @@ function lfHasTestData(){
   if(lfCfg().resetAt) return false;
   return (state.applications || []).length > 0 || (state.competitionHistory || []).length > 0 || (state.cohortHistory || []).length > 0;
 }
+let lfScheduleMigrated = false;
+function lfMigrateSchedule(){
+  if(lfScheduleMigrated || !state.ligFlow || state.ligFlow.scheduleVer === LF_SCHEDULE_VER) return;
+  if(AUTH_ENABLED && !isAdminUser(firebase.auth().currentUser)) return;
+  lfScheduleMigrated = true;
+  const c = lfCfg();
+  lfSave(c);
+  const n = Number(state.currentCohortId) || 1;
+  if(!state.competitionActive && n <= c.totalWeeks){ state.startDate = lfWeekStart(n, c); state.endDate = lfWeekEnd(n, c); }
+  addActivity('Lig takvimi afişe göre güncellendi: ' + LF_SCHEDULE.map((w, i) => 'Hafta ' + (i + 1) + ' ' + lfShort(i + 1, c)).join(', ') + ', kapanış ' + lfDay(c.closingDate) + '.');
+  saveShared();
+}
 function lfRender(force){
   const card = document.getElementById('ligFlowCard'); if(!card) return;
+  try{ lfMigrateSchedule(); }catch(e){}
   if(!force && card.contains(document.activeElement) && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
   const c = lfCfg(), cur = Number(state.currentCohortId) || 1;
   const finished = cur > c.totalWeeks;
   document.getElementById('lfSummary').innerHTML = c.on
-    ? `${c.totalWeeks} hafta · haftada ${c.quota} yarışmacı · ${c.days} gün (Pazartesi–${['', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'][c.days]}) · her haftanın 1.'si Zirve'ye. ${finished ? '<b>Lig tamamlandı.</b>' : 'Şu an: <b>Hafta ' + cur + '</b>.'}`
+    ? `${c.totalWeeks} hafta · haftada ${c.quota} yarışmacı · her hafta ${c.days} işlem günü · her haftanın 1.'si Zirve'ye · kapanış töreni <b>${escapeHtml(lfDay(c.closingDate, true))}</b>. ${finished ? '<b>Lig tamamlandı.</b>' : 'Şu an: <b>Hafta ' + cur + '</b>.'}`
     : 'Lig henüz kurulmadı. Test verilerini silip 1. haftayı hazırlamak için aşağıdaki düğmeyi kullan.';
   // test verisi bandı
   const ban = document.getElementById('lfBanner');
@@ -4061,7 +4090,7 @@ function lfRender(force){
 }
 function lfFinishedHtml(c){
   const rows = c.results.filter(r => r.zirve).map(r => `<li><b>Hafta ${r.no}</b> — ${escapeHtml(r.zirve.name)} (${r.zirve.rank}. sıra, ${lfPct(r.zirve.pct)})</li>`).join('');
-  return `<div class="lf-step now"><div class="n">🏁</div><div><h4>Lig tamamlandı — sıra Zirve'de</h4><p>${c.totalWeeks} haftanın Zirve temsilcileri:</p><ul style="margin:0 0 10px 18px;font-size:13px;line-height:1.8;">${rows || '<li>—</li>'}</ul><div class="btn-row"><button type="button" class="btn btn-blue" data-nav="page-zirve">ZİRVE KAYITLARINA GİT</button><button type="button" class="btn" data-nav="page-gecmis">YARIŞMA GEÇMİŞİ</button></div></div></div>`;
+  return `<div class="lf-step now"><div class="n">🏁</div><div><h4>Lig tamamlandı — kapanış töreni ${escapeHtml(lfDay(c.closingDate, true))}</h4><p>${c.totalWeeks} haftanın Zirve temsilcileri:</p><ul style="margin:0 0 10px 18px;font-size:13px;line-height:1.8;">${rows || '<li>—</li>'}</ul><div class="btn-row"><button type="button" class="btn btn-blue" data-nav="page-zirve">ZİRVE KAYITLARINA GİT</button><button type="button" class="btn" data-nav="page-gecmis">YARIŞMA GEÇMİŞİ</button></div></div></div>`;
 }
 function lfStepsHtml(n, c){
   const ph = lfPhase(n), apps = lfWeekApps(n), pend = (state.applications || []).filter(a => a.status === 'bekliyor').length;
@@ -4077,8 +4106,8 @@ function lfStepsHtml(n, c){
   if(at <= 0){
     h += `<p>Onaylı: <b>${apps.length}/${c.quota}</b>${pend ? ' · bekleyen başvuru: <b>' + pend + '</b>' : ''} · Başvurular şu an <b style="color:${state.applicationsOpen ? 'var(--green)' : 'var(--yellow)'}">${state.applicationsOpen ? 'AÇIK' : 'KAPALI'}</b>.</p>`
       + `<div class="btn-row"><button type="button" class="btn" data-nav="page-basvuru">BAŞVURU ONAYLARI</button><button type="button" class="btn" id="lfAppsToggle">${state.applicationsOpen ? 'BAŞVURULARI KAPAT' : 'BAŞVURULARI AÇ'}</button></div>`
-      + `<p style="margin-top:12px;">Yarışma günleri: <b>${escapeHtml(lfRange(n, c))}</b>. Farklı bir tarih gerekiyorsa başlangıcı değiştir (bitiş ${c.days} gün sonrası olur):</p>`
-      + `<div class="btn-row" style="align-items:center;"><input type="date" id="lfStartInp" value="${lfWeekStart(n, c)}"><button type="button" class="btn" id="lfDateSave">TARİHİ KAYDET</button></div>`
+      + `<p style="margin-top:12px;">Yarışma günleri: <b>${escapeHtml(lfRange(n, c))}</b>. Gerekirse değiştir:</p>`
+      + `<div class="btn-row" style="align-items:center;"><label style="font-size:12px;color:var(--text-dim);">Başlangıç</label><input type="date" id="lfStartInp" value="${lfWeekStart(n, c)}"><label style="font-size:12px;color:var(--text-dim);">Bitiş</label><input type="date" id="lfEndInp" value="${lfWeekEnd(n, c)}"><button type="button" class="btn" id="lfDateSave">TARİHİ KAYDET</button></div>`
       + `<div class="btn-row" style="margin-top:12px;"><button type="button" class="btn btn-green" id="lfStartBtn" ${apps.length ? '' : 'disabled'}>▶ HAFTA ${n} YARIŞMASINI BAŞLAT</button></div>`
       + `<p style="margin-top:8px;">Başlat'a ilk gün seans açılmadan bas. Yarışma ${escapeHtml(lfDay(lfWeekEnd(n, c), true))} gün sonunda kendiliğinden biter — bunun için o saatte bir admin paneli sekmesi açık olmalı (değilse panel açıldığı anda biter).</p>`;
   } else h += `<p>${apps.length} yarışmacı · ${escapeHtml(lfRange(n, c))}</p>`;
@@ -4153,7 +4182,7 @@ function lfReset(){
   state.zirveRegistrations = (state.zirveRegistrations || []).filter(z => !z.fromFinteligAppId);
   try{ if(window.LIG){ const s = LIG.S(); s.weeks = []; } }catch(e){}
   try{ localStorage.removeItem('fintelig_lig_samples_v2'); }catch(e){}
-  lfSave(Object.assign(c, { weekStarts: [], results: [], resetAt: Date.now(), completedAt: null }));
+  lfSave(Object.assign(c, { results: [], resetAt: Date.now(), completedAt: null }));
   state.startDate = lfWeekStart(1); state.endDate = lfWeekEnd(1);
   addActivity(`Lig sıfırlandı: test verileri silindi (${apps.length} başvuru, yedek indirildi). Hafta 1: ${lfRange(1)}.`);
   saveShared();
@@ -4249,8 +4278,10 @@ function lfOpenSettings(){
   const back = document.createElement('div'); back.className = 'lig-modal-back'; back.id = 'lfModal';
   back.innerHTML = `<div class="lig-modal" role="dialog" aria-modal="true"><h3 class="section-title" style="font-size:17px;margin:0 0 12px;">Lig ayarları</h3>
     <div class="field-row"><div class="field"><label>Toplam hafta</label><input type="number" id="lfTot" min="1" max="20" value="${c.totalWeeks}"></div><div class="field"><label>Haftalık kontenjan</label><input type="number" id="lfQuota" min="1" max="200" value="${c.quota}"></div></div>
-    <div class="field-row"><div class="field"><label>Yarışma günü (Pazartesi'den)</label><input type="number" id="lfDays" min="1" max="7" value="${c.days}"></div><div class="field"><label>Hafta 1 başlangıcı</label><input type="date" id="lfW1" value="${c.week1Start}"></div></div>
-    <p class="section-desc">Sonraki haftalar varsayılan olarak bir önceki haftadan 7 gün sonra başlar; her haftanın tarihini o hafta sırası gelince akış kartından değiştirebilirsin.</p>
+    <div class="field-row"><div class="field"><label>Haftada işlem günü</label><input type="number" id="lfDays" min="1" max="7" value="${c.days}"></div><div class="field"><label>Kapanış töreni</label><input type="date" id="lfClosing" value="${c.closingDate}"></div></div>
+    <div style="font-size:11px;letter-spacing:.06em;color:var(--text-dim);margin:6px 0 8px;">HAFTA TARİHLERİ (başlangıç – bitiş)</div>
+    <div id="lfWeekDates">${Array.from({ length: c.totalWeeks }, (_, i) => `<div class="field-row" style="align-items:center;margin-bottom:6px;"><div style="min-width:64px;font-weight:600;font-size:13px;">Hafta ${i + 1}</div><input type="date" data-ws="${i}" value="${lfWeekStart(i + 1, c)}"><input type="date" data-we="${i}" value="${lfWeekEnd(i + 1, c)}"></div>`).join('')}</div>
+    <p class="section-desc">Afişteki takvim: 12–15 Ekim, 16–21 Ekim, 22–27 Ekim, 2–5 Kasım; kapanış töreni 6 Kasım. Hafta sayısını değiştirirsen kaydedip ayarları yeniden aç — yeni haftaların tarih satırları görünür.</p>
     <div class="btn-row"><button type="button" class="btn btn-blue" id="lfSaveSet">KAYDET</button><button type="button" class="btn" id="lfCloseSet">KAPAT</button></div>
     <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border-strong);"><p class="section-desc" style="margin-bottom:8px;">Tehlikeli bölge: tüm başvuruları, geçmişi ve sonuçları silip ligi baştan kurar (önce yedek iner).</p><button type="button" class="btn btn-red" id="lfResetBtn2">🗑 LİGİ SIFIRLA</button></div></div>`;
   document.body.appendChild(back);
@@ -4263,12 +4294,21 @@ function lfOpenSettings(){
     cc.totalWeeks = Math.max(1, Math.min(20, parseInt(back.querySelector('#lfTot').value, 10) || cc.totalWeeks));
     cc.quota = Math.max(1, Math.min(200, parseInt(back.querySelector('#lfQuota').value, 10) || cc.quota));
     cc.days = Math.max(1, Math.min(7, parseInt(back.querySelector('#lfDays').value, 10) || cc.days));
-    const w1 = back.querySelector('#lfW1').value; if(LF_RE_DATE.test(w1)) cc.week1Start = w1;
+    const cl = back.querySelector('#lfClosing').value; if(LF_RE_DATE.test(cl)) cc.closingDate = cl;
+    let bad = '';
+    back.querySelectorAll('[data-ws]').forEach(inp => {
+      const i = +inp.dataset.ws, st = inp.value, en = (back.querySelector('[data-we="' + i + '"]') || {}).value;
+      if(LF_RE_DATE.test(st)) cc.weekStarts[i] = st;
+      if(LF_RE_DATE.test(en)) cc.weekEnds[i] = en;
+      if(LF_RE_DATE.test(st) && LF_RE_DATE.test(en) && en < st) bad = 'Hafta ' + (i + 1) + ': bitiş başlangıçtan önce.';
+    });
+    if(bad){ showToast(bad, 'error'); return; }
+    if(cc.weekStarts[0]) cc.week1Start = cc.weekStarts[0];
     if(!cc.resetAt) cc.resetAt = Date.now();
     lfSave(cc); state.weeklyQuota = cc.quota; state.cohortDurationDays = cc.days;
     const n = Number(state.currentCohortId) || 1;
     if(!state.competitionActive){ state.startDate = lfWeekStart(n, cc); state.endDate = lfWeekEnd(n, cc); }
-    saveShared(); addActivity(`Lig ayarları güncellendi: ${cc.totalWeeks} hafta × ${cc.quota} kişi, ${cc.days} gün.`);
+    saveShared(); addActivity(`Lig ayarları güncellendi: ${cc.totalWeeks} hafta × ${cc.quota} kişi · ` + Array.from({ length: cc.totalWeeks }, (_, i) => 'H' + (i + 1) + ' ' + lfShort(i + 1, cc)).join(', ') + ` · kapanış ${lfDay(cc.closingDate)}.`);
     close(); lfRenderAll(); showToast('Lig ayarları kaydedildi.', 'success');
   });
 }
@@ -4281,8 +4321,11 @@ document.getElementById('ligFlowCard')?.addEventListener('click', function(e){
     case 'lfSettingsBtn': lfOpenSettings(); break;
     case 'lfAppsToggle': state.applicationsOpen = !state.applicationsOpen; saveShared(); try{ syncYarismaSettingsUI(); syncGlobalStatus(); }catch(err){} addActivity('Başvurular ' + (state.applicationsOpen ? 'AÇILDI' : 'KAPATILDI') + ' (lig akışı).'); lfRender(true); break;
     case 'lfDateSave': {
-      const v = document.getElementById('lfStartInp').value; if(!LF_RE_DATE.test(v)){ showToast('Geçerli bir tarih seç.', 'error'); return; }
-      const n = Number(state.currentCohortId) || 1, c = lfCfg(); c.weekStarts[n - 1] = v; for(let i = 0; i < n - 1; i++) if(c.weekStarts[i] === undefined) c.weekStarts[i] = null;
+      const v = document.getElementById('lfStartInp').value, ve = document.getElementById('lfEndInp').value;
+      if(!LF_RE_DATE.test(v) || !LF_RE_DATE.test(ve)){ showToast('Geçerli tarihler seç.', 'error'); return; }
+      if(ve < v){ showToast('Bitiş, başlangıçtan önce olamaz.', 'error'); return; }
+      const n = Number(state.currentCohortId) || 1, c = lfCfg(); c.weekStarts[n - 1] = v; c.weekEnds[n - 1] = ve;
+      for(let i = 0; i < c.totalWeeks; i++){ if(c.weekStarts[i] === undefined) c.weekStarts[i] = null; if(c.weekEnds[i] === undefined) c.weekEnds[i] = null; }
       lfSave(c); state.startDate = lfWeekStart(n); state.endDate = lfWeekEnd(n); saveShared();
       addActivity(`Hafta ${n} tarihleri: ${lfRange(n)}.`); showToast(`Hafta ${n}: ${lfRange(n)}`, 'success'); lfRender(true); break; }
     case 'lfStartBtn': lfStart(); break;
