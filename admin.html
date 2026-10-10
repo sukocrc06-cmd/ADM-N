@@ -5800,26 +5800,59 @@ function renderCanliDetay(){
   });
 }
 
+/* (10 Ekim 2026) Açılır liste ÖNCEDEN yalnızca oplabPortfolioData'dan
+   kuruluyordu — yani sadece OPLab'a girip canlı veri GÖNDERMİŞ yarışmacılar
+   görünüyordu. Onaylı 15 kişiden henüz giriş yapmamış olanlar listede hiç
+   çıkmıyor, admin de "yarışmacı kayıp mı?" diye düşünüyordu.
+   Artık liste ONAYLI YARIŞMACILARIN TAMAMINDAN kuruluyor; canlı verisi
+   olmayanlar "veri yok" etiketiyle görünüyor ve seçilebiliyor.
+   Havuz ölçütü rankingPool() ile aynı (sezon/hafta, pastCompetitor, lockout). */
+function portfoyAdaylari(){
+  const season = (typeof ligSeasonOn === 'function') ? ligSeasonOn() : false;
+  const apps = (state.applications || []).filter(a =>
+    a.status === 'onayli' && !a.pastCompetitor &&
+    (!season || Number(a.cohortId) === Number(state.currentCohortId)) &&
+    !(a.lockedOut && !a.lockOverride));
+  const liveById = {};
+  (oplabPortfolioData || []).forEach(c => { liveById[String(c.id)] = c; });
+  const list = apps.map(a => ({
+    id: a.id,
+    name: a.name,
+    email: a.email,
+    live: liveById[String(a.id)] || null
+  }));
+  // Onaylı listede olmayan ama canlı verisi gelen kayıtlar (eski/hayalet
+  // kayıtlar) da görünmeye devam etsin — "listeden kaldır" düğmesi bunlar için.
+  const seen = new Set(apps.map(a => String(a.id)));
+  (oplabPortfolioData || []).forEach(c => {
+    if(!seen.has(String(c.id))) list.push({ id: c.id, name: c.name, email: c.email, live: c, ghost: true });
+  });
+  return list.sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'tr'));
+}
+
 function populatePortfoySelect(){
   const select = document.getElementById('portfoySelect');
   const removeBtn = document.getElementById('removeGhostPortfoyBtn');
   if(!select) return;
-  const data = oplabPortfolioData;
-  if(!data.length){
-    select.innerHTML = '<option value="">Henüz veri gönderen yarışmacı yok</option>';
+  const list = portfoyAdaylari();
+  if(!list.length){
+    select.innerHTML = '<option value="">Onaylı yarışmacı yok</option>';
     select.disabled = true;
     selectedPortfoyAppId = null;
     if(removeBtn) removeBtn.disabled = true;
     return;
   }
   select.disabled = false;
-  const sorted = data.slice().sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'tr'));
-  select.innerHTML = sorted.map(c=>`<option value="${escapeAttr(c.id)}">${escapeHtml(c.name) || 'İsimsiz'} (${escapeHtml(c.email) || 'e-posta yok'})</option>`).join('');
-  if(!selectedPortfoyAppId || !sorted.some(c=>c.id===selectedPortfoyAppId)){
-    selectedPortfoyAppId = sorted[0].id;
+  select.innerHTML = list.map(c=>{
+    const etiket = c.ghost ? ' — eski kayıt' : (c.live ? '' : ' — veri yok');
+    return `<option value="${escapeAttr(c.id)}">${escapeHtml(c.name) || 'İsimsiz'} (${escapeHtml(c.email) || 'e-posta yok'})${etiket}</option>`;
+  }).join('');
+  if(!selectedPortfoyAppId || !list.some(c=>c.id===selectedPortfoyAppId)){
+    // Açılışta canlı verisi OLAN birini seç — boş ekranla karşılaşmasın
+    selectedPortfoyAppId = (list.find(c=>c.live) || list[0]).id;
   }
   select.value = selectedPortfoyAppId;
-  if(removeBtn) removeBtn.disabled = false;
+  if(removeBtn) removeBtn.disabled = !(list.find(c=>c.id===selectedPortfoyAppId) || {}).live;
 }
 document.getElementById('removeGhostPortfoyBtn').addEventListener('click', ()=>{
   if(!selectedPortfoyAppId) return;
@@ -5852,7 +5885,10 @@ function renderKullaniciPortfoyleri(){
   const balanceBtn = document.getElementById('portfoyBalanceSetBtn');
   const balanceResetBtn = document.getElementById('portfoyBalanceResetBtn');
 
-  if(!data.length || !selectedPortfoyAppId){
+  // (10 Ekim 2026) Seçili kişinin canlı verisi yoksa da sayfa artık boş
+  // kalmıyor: aşağıdaki "veri yok" durumu gösteriliyor, liste ve seçim duruyor.
+  const secili = data.find(x=>x.id===selectedPortfoyAppId);
+  if(!selectedPortfoyAppId || !secili){
     siraEl.textContent = '--';
     degerVal.textContent = '-- TL'; degerVal.className = 'stat-value gray';
     degerSub.textContent = `Başlangıç: ${fmtTRY(getBaslangicBakiyesi())}`;
@@ -5862,7 +5898,12 @@ function renderKullaniciPortfoyleri(){
     acikPosVal.textContent = '0';
     sonGuncelleme.textContent = 'Veri yok';
     positionsBody.innerHTML = `<tr><td colspan="4"><div class="empty-state" style="padding:20px 0;">Pozisyon bulunmuyor.</div></td></tr>`;
-    detayNot.textContent = 'Henüz veri yok.';
+    // Kim seçiliyse adıyla birlikte NEDEN veri olmadığını yaz — "yarışmacı
+    // listede yok" ile "yarışmacı henüz giriş yapmadı" karışmasın.
+    const aday = portfoyAdaylari().find(x=>x.id===selectedPortfoyAppId);
+    detayNot.textContent = aday
+      ? `${aday.name || 'Bu yarışmacı'} henüz OPLab'a giriş yapmadı — canlı portföy verisi gelmedi.`
+      : 'Henüz veri yok.';
     if(balanceInput){ balanceInput.disabled = true; balanceInput.value = ''; }
     if(balanceBtn) balanceBtn.disabled = true;
     if(balanceResetBtn) balanceResetBtn.disabled = true;
@@ -5874,7 +5915,7 @@ function renderKullaniciPortfoyleri(){
   }
 
   const sorted = data.slice().sort((a,b)=> (b.equity||0) - (a.equity||0));
-  const c = data.find(x=>x.id===selectedPortfoyAppId) || sorted[0];
+  const c = secili;
   const rank = sorted.findIndex(x=>x.id===c.id) + 1;
   const pct = pctReturn(c.equity||0);
   const pctTRY = (c.equity||0) - getBaslangicBakiyesi();
