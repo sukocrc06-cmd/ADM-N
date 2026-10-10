@@ -3883,15 +3883,40 @@ function renderOplabVisitorList(){
     container.innerHTML = `<div class="empty-state"><div class="icon">—</div><strong>Henüz doğrulanmış ziyaretçi yok</strong><span>Bir yarışmacı OPLab'da e-postasıyla doğrulandığında burada listelenecek.</span></div>`;
     return;
   }
+  // (10 Ekim 2026) Aktivasyon sayisi ile yarismaci listesi neden tutmuyor?
+  // Bu belge, OPLab'a giren HERKESI kalici olarak tutar: onayi kaldirilmis,
+  // gecmis haftadan kalan ya da henuz canli portfoy gondermemis kisiler de
+  // burada sayilir. Her satirda bunu rozetlerle gosteriyoruz ki "10 aktivasyon
+  // ama listede 7 kisi" karisikligi ortadan kalksin.
+  const aktifIds = new Set((typeof portfoyAdaylari === 'function'
+    ? portfoyAdaylari().filter(x => !x.ghost) : []).map(x => String(x.id)));
+  const canliIds = new Set((oplabPortfolioData || []).map(c => String(c.id)));
   const sorted = oplabActivityVisitors.slice().sort((a,b)=> new Date(b.lastVisit||0) - new Date(a.lastVisit||0));
-  container.innerHTML = sorted.map(v => `
-    <div class="list-item" style="cursor:default;">
+  const sayac = { aktif: 0, disarida: 0, verisiz: 0 };
+  const satirlar = sorted.map(v => {
+    const id = String(v.id);
+    const listede = aktifIds.has(id);
+    const canli = canliIds.has(id);
+    if(listede) sayac.aktif++; else sayac.disarida++;
+    if(listede && !canli) sayac.verisiz++;
+    const rozet = !listede
+      ? '<span class="status-pill" style="border-color:var(--text-dimmer);color:var(--text-dim);">yarışmacı listesinde değil</span>'
+      : (canli ? '' : '<span class="status-pill yellow">canlı veri yok</span>');
+    return `
+    <div class="list-item" style="cursor:default;${listede ? '' : 'opacity:.6;'}">
       <div>
         <div style="font-weight:600;font-size:14px;">${escapeHtml(v.name) || 'İsimsiz'}</div>
         <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${escapeHtml(v.email) || '—'} • ${v.lastVisit ? new Date(v.lastVisit).toLocaleString('tr-TR') : '—'}</div>
       </div>
-      <span class="status-pill green">${v.visitCount || 1} ziyaret</span>
-    </div>`).join('');
+      <div style="display:flex;gap:7px;align-items:center;">${rozet}<span class="status-pill green">${v.visitCount || 1} ziyaret</span></div>
+    </div>`;
+  }).join('');
+  const ozet = `<p class="section-desc" style="margin:0 0 12px;">
+    ${sorted.length} aktivasyon · bunların <b>${sayac.aktif}</b> tanesi şu anki yarışmacı listesinde` +
+    (sayac.disarida ? ` · <b>${sayac.disarida}</b> tanesi listede değil (onayı kaldırılmış / geçmiş hafta)` : '') +
+    (sayac.verisiz ? ` · <b>${sayac.verisiz}</b> yarışmacı giriş yapmış ama canlı veri göndermemiş` : '') +
+    `.</p>`;
+  container.innerHTML = ozet + satirlar;
 }
 
 document.getElementById('saveOplabSettingsBtn').addEventListener('click', function(){
@@ -5813,8 +5838,13 @@ function portfoyAdaylari(){
     a.status === 'onayli' && !a.pastCompetitor &&
     (!season || Number(a.cohortId) === Number(state.currentCohortId)) &&
     !(a.lockedOut && !a.lockOverride));
-  const liveById = {};
+  const liveById = {}, actById = {};
   (oplabPortfolioData || []).forEach(c => { liveById[String(c.id)] = c; });
+  // Aktivasyon (oplab_activity) AYRI bir belge: kisi OPLab'a girdiginde yazilir.
+  // Canli portfoy ise islem ekrani acikken ~5 sn'de bir yazilir. Ikisi
+  // ayrismis olabilir — "girdi ama portfoy gelmedi" durumunu gorebilmek icin
+  // ikisini de tasiyoruz.
+  (oplabActivityVisitors || []).forEach(v => { actById[String(v.id)] = v; });
   // id'ler HER ZAMAN metin: <option value> metin dondurur ve
   // oplabPortfolioData'daki id'ler de metindir. state.applications'taki id
   // ise SAYI — karistirilirsa (x.id === selectedPortfoyAppId) hep false olur
@@ -5823,13 +5853,14 @@ function portfoyAdaylari(){
     id: String(a.id),
     name: a.name,
     email: a.email,
-    live: liveById[String(a.id)] || null
+    live: liveById[String(a.id)] || null,
+    act: actById[String(a.id)] || null
   }));
   // Onaylı listede olmayan ama canlı verisi gelen kayıtlar (eski/hayalet
   // kayıtlar) da görünmeye devam etsin — "listeden kaldır" düğmesi bunlar için.
   const seen = new Set(apps.map(a => String(a.id)));
   (oplabPortfolioData || []).forEach(c => {
-    if(!seen.has(String(c.id))) list.push({ id: String(c.id), name: c.name, email: c.email, live: c, ghost: true });
+    if(!seen.has(String(c.id))) list.push({ id: String(c.id), name: c.name, email: c.email, live: c, act: actById[String(c.id)] || null, ghost: true });
   });
   return list.sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'tr'));
 }
@@ -5848,7 +5879,12 @@ function populatePortfoySelect(){
   }
   select.disabled = false;
   select.innerHTML = list.map(c=>{
-    const etiket = c.ghost ? ' — eski kayıt' : (c.live ? '' : ' — veri yok');
+    // Uc ayri durum birbirine karismasin:
+    //   canli portfoy var            -> etiket yok
+    //   giris yapmis, portfoy yok    -> "giris yapti, veri yok"
+    //   hic giris yapmamis           -> "hic giris yapmadi"
+    const etiket = c.ghost ? ' — eski kayıt'
+      : (c.live ? '' : (c.act ? ' — giriş yaptı, veri yok' : ' — hiç giriş yapmadı'));
     return `<option value="${escapeAttr(c.id)}">${escapeHtml(c.name) || 'İsimsiz'} (${escapeHtml(c.email) || 'e-posta yok'})${etiket}</option>`;
   }).join('');
   if(!selectedPortfoyAppId || !list.some(c=>c.id===String(selectedPortfoyAppId))){
@@ -5906,9 +5942,16 @@ function renderKullaniciPortfoyleri(){
     // Kim seçiliyse adıyla birlikte NEDEN veri olmadığını yaz — "yarışmacı
     // listede yok" ile "yarışmacı henüz giriş yapmadı" karışmasın.
     const aday = portfoyAdaylari().find(x=>x.id===String(selectedPortfoyAppId));
-    detayNot.textContent = aday
-      ? `${aday.name || 'Bu yarışmacı'} henüz OPLab'a giriş yapmadı — canlı portföy verisi gelmedi.`
-      : 'Henüz veri yok.';
+    if(!aday){
+      detayNot.textContent = 'Henüz veri yok.';
+    } else if(aday.act){
+      // ONEMLI: bu kisi OPLab'a GIRMIS (aktivasyon kaydi var) ama canli
+      // portfoy belgesinde kaydi yok. "Giris yapmadi" demek yanlis olurdu.
+      const sonZiyaret = aday.act.lastVisit ? new Date(aday.act.lastVisit).toLocaleString('tr-TR') : 'bilinmiyor';
+      detayNot.textContent = `${aday.name || 'Bu yarışmacı'} OPLab'a giriş yapmış (son ziyaret: ${sonZiyaret}) ama canlı portföy verisi gelmemiş — işlem ekranını açmamış ya da sekmesi kapalı olabilir.`;
+    } else {
+      detayNot.textContent = `${aday.name || 'Bu yarışmacı'} OPLab'a hiç giriş yapmamış — aktivasyon kaydı da yok.`;
+    }
     if(balanceInput){ balanceInput.disabled = true; balanceInput.value = ''; }
     if(balanceBtn) balanceBtn.disabled = true;
     if(balanceResetBtn) balanceResetBtn.disabled = true;
