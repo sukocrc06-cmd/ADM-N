@@ -1936,9 +1936,9 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           <div class="stat-sub">OptiPulseLab alım-satım platformu</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">TOPLAM AKTİVASYON</div>
+          <div class="stat-label">DOĞRULANMIŞ YARIŞMACI</div>
           <div class="stat-value blue" id="oplabActivityCount">0</div>
-          <div class="stat-sub">Doğrulanmış benzersiz yarışmacı</div>
+          <div class="stat-sub" id="oplabActivitySub">Doğrulanmış benzersiz yarışmacı</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">SON ZİYARET</div>
@@ -3863,8 +3863,36 @@ function syncOplabSettingsUI(){
     durumEl.className = 'stat-value' + (state.oplabEnabled ? ' green' : '');
     durumEl.style.color = state.oplabEnabled ? '' : '#fca5a5';
   }
+  // (10 Ekim 2026) Kart artik ham aktivasyon sayisini degil, "ONAYLI
+  // YARISMACILARDAN kaci OPLab'a girdi" bilgisini gosteriyor (or. 10 / 15).
+  // Ham sayi, listede olmayan (onayi kaldirilmis / gecmis hafta) ziyaretcileri
+  // de icerdigi icin tek basina yaniltiyordu; o sayi alt satirda duruyor.
   const countEl = document.getElementById('oplabActivityCount');
-  if(countEl){ countEl.textContent = oplabActivityCount; }
+  const subEl = document.getElementById('oplabActivitySub');
+  if(countEl){
+    const yarismacilar = (typeof portfoyAdaylari === 'function')
+      ? portfoyAdaylari().filter(x => !x.ghost) : [];
+    const toplam = yarismacilar.length;
+    const giren = yarismacilar.filter(x => x.act).length;
+    if(toplam){
+      // Buyuk rakam = ONAYLI (dogrulanmis) yarismaci sayisi — Yarismaci
+      // Deposu'ndaki liste neyi gosteriyorsa bu kart da onu gosterir.
+      // OPLab'a kacinin girdigi bilgisi alt satirda duruyor.
+      countEl.textContent = String(toplam);
+      countEl.className = 'stat-value blue';
+      const kalan = toplam - giren;
+      if(subEl) subEl.textContent = kalan
+        ? giren + ' tanesi OPLab\'a girdi · ' + kalan + ' tanesi henüz girmedi'
+        : 'Hepsi OPLab\'a giriş yaptı';
+    } else {
+      countEl.textContent = oplabActivityCount;
+      countEl.className = 'stat-value blue';
+      if(subEl) subEl.textContent = 'Doğrulanmış benzersiz yarışmacı';
+    }
+    if(subEl && oplabActivityCount > giren){
+      subEl.textContent += ' · toplam ' + oplabActivityCount + ' aktivasyon kaydı';
+    }
+  }
   const sonZiyaretEl = document.getElementById('oplabSonZiyaret');
   if(sonZiyaretEl){
     if(oplabActivityVisitors.length){
