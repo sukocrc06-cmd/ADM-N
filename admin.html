@@ -5815,8 +5815,12 @@ function portfoyAdaylari(){
     !(a.lockedOut && !a.lockOverride));
   const liveById = {};
   (oplabPortfolioData || []).forEach(c => { liveById[String(c.id)] = c; });
+  // id'ler HER ZAMAN metin: <option value> metin dondurur ve
+  // oplabPortfolioData'daki id'ler de metindir. state.applications'taki id
+  // ise SAYI — karistirilirsa (x.id === selectedPortfoyAppId) hep false olur
+  // ve secim her cizimde basa doner (kisiler arasi gecis calismaz).
   const list = apps.map(a => ({
-    id: a.id,
+    id: String(a.id),
     name: a.name,
     email: a.email,
     live: liveById[String(a.id)] || null
@@ -5825,7 +5829,7 @@ function portfoyAdaylari(){
   // kayıtlar) da görünmeye devam etsin — "listeden kaldır" düğmesi bunlar için.
   const seen = new Set(apps.map(a => String(a.id)));
   (oplabPortfolioData || []).forEach(c => {
-    if(!seen.has(String(c.id))) list.push({ id: c.id, name: c.name, email: c.email, live: c, ghost: true });
+    if(!seen.has(String(c.id))) list.push({ id: String(c.id), name: c.name, email: c.email, live: c, ghost: true });
   });
   return list.sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'tr'));
 }
@@ -5847,10 +5851,11 @@ function populatePortfoySelect(){
     const etiket = c.ghost ? ' — eski kayıt' : (c.live ? '' : ' — veri yok');
     return `<option value="${escapeAttr(c.id)}">${escapeHtml(c.name) || 'İsimsiz'} (${escapeHtml(c.email) || 'e-posta yok'})${etiket}</option>`;
   }).join('');
-  if(!selectedPortfoyAppId || !list.some(c=>c.id===selectedPortfoyAppId)){
+  if(!selectedPortfoyAppId || !list.some(c=>c.id===String(selectedPortfoyAppId))){
     // Açılışta canlı verisi OLAN birini seç — boş ekranla karşılaşmasın
     selectedPortfoyAppId = (list.find(c=>c.live) || list[0]).id;
   }
+  selectedPortfoyAppId = String(selectedPortfoyAppId);
   select.value = selectedPortfoyAppId;
   if(removeBtn) removeBtn.disabled = !(list.find(c=>c.id===selectedPortfoyAppId) || {}).live;
 }
@@ -5887,7 +5892,7 @@ function renderKullaniciPortfoyleri(){
 
   // (10 Ekim 2026) Seçili kişinin canlı verisi yoksa da sayfa artık boş
   // kalmıyor: aşağıdaki "veri yok" durumu gösteriliyor, liste ve seçim duruyor.
-  const secili = data.find(x=>x.id===selectedPortfoyAppId);
+  const secili = data.find(x=>String(x.id)===String(selectedPortfoyAppId));
   if(!selectedPortfoyAppId || !secili){
     siraEl.textContent = '--';
     degerVal.textContent = '-- TL'; degerVal.className = 'stat-value gray';
@@ -5900,7 +5905,7 @@ function renderKullaniciPortfoyleri(){
     positionsBody.innerHTML = `<tr><td colspan="4"><div class="empty-state" style="padding:20px 0;">Pozisyon bulunmuyor.</div></td></tr>`;
     // Kim seçiliyse adıyla birlikte NEDEN veri olmadığını yaz — "yarışmacı
     // listede yok" ile "yarışmacı henüz giriş yapmadı" karışmasın.
-    const aday = portfoyAdaylari().find(x=>x.id===selectedPortfoyAppId);
+    const aday = portfoyAdaylari().find(x=>x.id===String(selectedPortfoyAppId));
     detayNot.textContent = aday
       ? `${aday.name || 'Bu yarışmacı'} henüz OPLab'a giriş yapmadı — canlı portföy verisi gelmedi.`
       : 'Henüz veri yok.';
@@ -5916,7 +5921,7 @@ function renderKullaniciPortfoyleri(){
 
   const sorted = data.slice().sort((a,b)=> (b.equity||0) - (a.equity||0));
   const c = secili;
-  const rank = sorted.findIndex(x=>x.id===c.id) + 1;
+  const rank = sorted.findIndex(x=>String(x.id)===String(c.id)) + 1;
   const pct = pctReturn(c.equity||0);
   const pctTRY = (c.equity||0) - getBaslangicBakiyesi();
 
