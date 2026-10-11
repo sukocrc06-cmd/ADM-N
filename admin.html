@@ -11,7 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <!-- (22 Eylül 2026 — Madde 3) EmailJS kaldırıldı, e-posta artık api/send-
-     email.js üzerinden sunucu tarafında (Resend ile) gönderiliyor — b
+     email.js üzerinden sunucu tarafında (Resend ile) gönderiliyor — bu
      CDN kütüphanesine artık gerek yok. -->
 <style>
 /* ============ RESET & BASE ============ */
@@ -2010,6 +2010,22 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
       </div>
 
       <div id="ligDuyuruRoot"></div>
+
+      <div class="card">
+        <h3 class="section-title">Kişiye Özel Alım-Satım Durumu</h3>
+        <p class="section-desc">Yukarıdaki "Alım-Satım Durumu" anahtarı HERKESİ birden kapatır. Burada ise tek tek kapatıp açarsınız — haftası gelmemiş yarışmacı siteye girebilir, gezebilir ama AL/SAT yapamaz.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+          <button class="btn" id="oplabKapatHaftaDisi" type="button">BU HAFTANIN DIŞINDAKİLERİ KAPAT</button>
+          <button class="btn" id="oplabAcHepsi" type="button">HEPSİNE İZİN VER</button>
+          <span class="section-desc" style="margin:0;align-self:center;" id="oplabErisimOzet"></span>
+        </div>
+        <div class="search-row" style="margin-bottom:12px;">
+          <input type="text" id="oplabKisiAra" placeholder="Yarışmacı ara: ad, e-posta...">
+        </div>
+        <div id="oplabKisiErisimList">
+          <div class="empty-state"><div class="icon">—</div><span>Onaylı yarışmacı yok.</span></div>
+        </div>
+      </div>
 
       <div class="card">
         <h3 class="section-title">Doğrulanmış Ziyaretçiler</h3>
@@ -7632,7 +7648,9 @@ function revokeViolation(app, idx){
   const v = (app.violations || [])[idx]; if(!v || v.revoked) return;
   if(!confirm(`Bu ihlal kaydı geri alınsın mı?\n\n${v.reason}\n\nKesinti ise sıralamadan geri alınır, diskalifiye kaldırılır.`)) return;
   v.revoked = true; v.revokedAt = Date.now();
-  if(v.action === 'lock') app.tradeLockUntil = null;
+  // (11 Ekim 2026) Ihlal geri alinirken tradeLockUntil temizleniyor; ama bu
+  // kisiye ELLE kalici alim-satim blogu konmussa onu silmemeli.
+  if(v.action === 'lock') app.tradeLockUntil = app.tradingBlocked ? FTL_BLOCK_UNTIL : null;
   if(v.action === 'cut' && v.cutAmount) app.penaltyTotal = Math.max(0, Math.round(((Number(app.penaltyTotal) || 0) - v.cutAmount) * 100) / 100);
   if(v.action === 'dq'){ app.disqualified = false; app.dqReason = null; }
   saveShared();
@@ -9498,6 +9516,171 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
 
   paint();
   window.ftlScenePickPaint = paint;   // dışarıdan senkron geldiğinde tazelenir
+})();
+</script>
+
+<!-- ============ (11 Ekim 2026) KİŞİYE ÖZEL ALIM-SATIM KONTROLÜ ============
+     Yukarıdaki "Alım-Satım Durumu" anahtarı state.tradingHalted ile HERKESİ
+     birden kapatıyordu. Haftası gelmemiş yarışmacıları tek tek durdurabilmek
+     için kişi bazlı bir anahtar gerekiyordu.
+
+     NASIL ÇALIŞIYOR — OPLab'a hiç dokunmadan:
+     Şemada zaten var olan ve OPLab'ın (finteclubBridge.js) OKUDUĞU
+     `applications[i].tradeLockUntil` alanı kullanılıyor. OPLab bu zaman damgası
+     geçmemişse o kişinin işlemlerini kilitliyor (yaptırım akışı da bunu
+     kullanıyor — kural 21.2). Elle blok için bu alan çok ileri bir tarihe
+     (FTL_BLOCK_UNTIL) yazılıyor, yani süresiz kilit demek.
+
+     `tradingBlocked` ise adminin kendi niyetini saklayan temiz bayrak: yaptırım
+     kaynaklı geçici kilitle, elle konan kalıcı bloğu birbirine karıştırmamak
+     için. İhlal geri alındığında tradeLockUntil temizlenirken bu bayrak
+     kontrol edilip blok korunuyor. -->
+<script>
+(function(){
+  'use strict';
+  // 2099 — "süresiz" anlamına gelen, OPLab'ın zaten anladığı bir zaman damgası
+  window.FTL_BLOCK_UNTIL = 4070908800000;
+
+  function esc(v){
+    return String(v == null ? '' : v)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Alım-satımı kapalı olan yarışmacılar (onaylı havuz, Kullanıcı
+  // Portföyleri'ndeki ölçütün aynısı)
+  function kisiler(){
+    // NOT: ligSeasonOn() bu kurulumda HER ZAMAN false donuyor (sezon takvimi
+    // kapali), o yuzden haftayi ondan sormak anlamsiz. Hafta bilgisi
+    // applications[i].cohortId'de tutuluyor ve Yarismaci Deposu'nda
+    // "Hafta 1/2..." olarak gorunuyor — karsilastirmayi dogrudan onun uzerinden
+    // yapiyoruz.
+    const buHafta = Number(state.currentCohortId);
+    return (state.applications || []).filter(a =>
+      a.status === 'onayli' && !a.pastCompetitor &&
+      !(a.lockedOut && !a.lockOverride))
+      .map(a => ({
+        app: a,
+        haftaDisi: !!(a.cohortId && isFinite(buHafta) && Number(a.cohortId) !== buHafta),
+        blok: !!a.tradingBlocked
+      }))
+      .sort((x,y)=> String(x.app.name||'').localeCompare(String(y.app.name||''), 'tr'));
+  }
+
+  function uygula(app, kapat){
+    app.tradingBlocked = !!kapat;
+    if(kapat){
+      // Yaptirimdan gelen (kisa sureli) kilit varsa once saklayalim: blok
+      // kaldirilinca geri gelsin. Aksi halde birini elle kapatip acmak,
+      // kural 21.2 kesintisini sessizce silerdi.
+      const mevcut = Number(app.tradeLockUntil);
+      if(isFinite(mevcut) && mevcut > Date.now() && mevcut !== window.FTL_BLOCK_UNTIL){
+        app.tradeLockPrev = mevcut;
+      }
+      app.tradeLockUntil = window.FTL_BLOCK_UNTIL;
+    } else if(app.tradeLockUntil === window.FTL_BLOCK_UNTIL){
+      const geri = Number(app.tradeLockPrev);
+      app.tradeLockUntil = (isFinite(geri) && geri > Date.now()) ? geri : null;
+      delete app.tradeLockPrev;
+    }
+  }
+
+  function render(){
+    const kutu = document.getElementById('oplabKisiErisimList');
+    if(!kutu) return;
+    const hepsi = kisiler();
+    const q = ((document.getElementById('oplabKisiAra') || {}).value || '').toLowerCase().trim();
+    const list = q ? hepsi.filter(k =>
+      String(k.app.name||'').toLowerCase().includes(q) ||
+      String(k.app.email||'').toLowerCase().includes(q)) : hepsi;
+
+    const kapali = hepsi.filter(k => k.blok).length;
+    const ozet = document.getElementById('oplabErisimOzet');
+    if(ozet){
+      ozet.textContent = hepsi.length
+        ? `${hepsi.length} yarışmacıdan ${kapali} tanesinin alım-satımı kapalı`
+        : '';
+    }
+
+    if(!list.length){
+      kutu.innerHTML = `<div class="empty-state"><div class="icon">—</div><span>${q ? 'Aramayla eşleşen yarışmacı yok.' : 'Onaylı yarışmacı yok.'}</span></div>`;
+      return;
+    }
+
+    kutu.innerHTML = list.map(k => {
+      const a = k.app;
+      const rozet = k.blok
+        ? '<span class="status-pill red">ALIM-SATIM KAPALI</span>'
+        : '<span class="status-pill green">İŞLEM YAPABİLİR</span>';
+      const hafta = k.haftaDisi ? '<span class="status-pill yellow">bu hafta değil</span>' : '';
+      return `
+      <div class="list-item" style="cursor:default;${k.blok ? 'opacity:.72;' : ''}">
+        <div>
+          <div style="font-weight:600;font-size:14px;">${esc(a.name) || 'İsimsiz'}</div>
+          <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${esc(a.email) || '—'}${a.cohortId ? ' • Hafta ' + esc(a.cohortId) : ''}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          ${hafta}${rozet}
+          <button class="btn lig-sm" data-ftlblock="${esc(a.id)}" data-kapat="${k.blok ? '0' : '1'}">${k.blok ? 'İzin ver' : 'Kapat'}</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function kaydet(mesaj){
+    if(typeof saveShared === 'function') saveShared();
+    if(mesaj && typeof addActivity === 'function') addActivity(mesaj);
+    render();
+    if(typeof showToast === 'function' && mesaj) showToast(mesaj, 'success');
+  }
+
+  document.addEventListener('click', function(e){
+    const btn = e.target.closest('[data-ftlblock]');
+    if(!btn) return;
+    const app = (state.applications || []).find(x => String(x.id) === String(btn.dataset.ftlblock));
+    if(!app) return;
+    const kapat = btn.dataset.kapat === '1';
+    uygula(app, kapat);
+    kaydet(`${app.name} — alım-satım ${kapat ? 'KAPATILDI' : 'açıldı'} (kişiye özel).`);
+  });
+
+  const ara = document.getElementById('oplabKisiAra');
+  if(ara) ara.addEventListener('input', render);
+
+  const btnHafta = document.getElementById('oplabKapatHaftaDisi');
+  if(btnHafta) btnHafta.addEventListener('click', function(){
+    const hedef = kisiler().filter(k => k.haftaDisi && !k.blok);
+    if(!hedef.length){
+      if(typeof showToast === 'function') showToast('Bu haftanın dışında, alım-satımı açık yarışmacı yok.', 'warn');
+      return;
+    }
+    if(!confirm(`${hedef.length} yarışmacının alım-satımı kapatılsın mı? (Bu haftanın yarışmacısı olmayanlar)`)) return;
+    hedef.forEach(k => uygula(k.app, true));
+    kaydet(`${hedef.length} yarışmacının alım-satımı kapatıldı (bu haftanın dışındakiler).`);
+  });
+
+  const btnAc = document.getElementById('oplabAcHepsi');
+  if(btnAc) btnAc.addEventListener('click', function(){
+    const hedef = kisiler().filter(k => k.blok);
+    if(!hedef.length){
+      if(typeof showToast === 'function') showToast('Zaten herkesin alım-satımı açık.', 'warn');
+      return;
+    }
+    if(!confirm(`${hedef.length} yarışmacının alım-satımı yeniden açılsın mı?`)) return;
+    hedef.forEach(k => uygula(k.app, false));
+    kaydet(`${hedef.length} yarışmacının alım-satımı yeniden açıldı.`);
+  });
+
+  // Başka cihazdan senkron gelince liste tazelensin
+  const origSync = window.syncOplabSettingsUI;
+  if(typeof origSync === 'function'){
+    window.syncOplabSettingsUI = function(){
+      const out = origSync.apply(this, arguments);
+      try{ render(); }catch(e){}
+      return out;
+    };
+  }
+  render();
+  window.ftlKisiBlokRender = render;
 })();
 </script>
 
