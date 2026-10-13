@@ -4371,6 +4371,134 @@ function lfClose(){
   addActivity(last ? 'FinteLig ligi tamamlandı.' : `Hafta ${n} kapatıldı — Hafta ${n + 1} onayları açık.`);
   lfRenderAll();
 }
+/* ============ (13 Ekim 2026) AKTİF HAFTAYI GERİ AL ============
+   12 Ekim'de haftalık rotasyon (checkCohortRotation) BAYAT bir
+   cohortStartedAt (28 Eylül) yüzünden 20 saniye içinde üç kez tetiklendi:
+   Hafta 1 → 2 → 3 → 4. Hiçbir haftada onaylı yarışmacı olmadığı için
+   arşivlenen veri yok (cohortHistory boş kaldı), ama lig "Hafta 4"te
+   göründü ve sonraki onaylar yanlış haftaya yazılacaktı.
+
+   Bu fonksiyon hafta numarasını, YARIŞMAYI VE HAFTAYI BİTİRMEDEN geri alır.
+   Yarışmacılara, portföylere, canlı sıralamaya, başvurulara dokunmaz —
+   yalnızca "kaçıncı haftadayız" bilgisini ve o yanlış ilerlemenin bıraktığı
+   boş kayıtları düzeltir. Süren yarışma kesintisiz devam eder.
+
+   REDDEDER: geri dönülecek haftadan itibaren GERÇEKTEN arşivlenmiş bir hafta
+   varsa (cohortHistory kaydı ya da katılımcısı olan Yarışma Geçmişi kaydı) —
+   o veriyi bozmamak için. Böyle bir durumda hiçbir şey değiştirilmez. */
+function lfRewindPlan(target){
+  const c = lfCfg(), cur = Number(state.currentCohortId) || 1;
+  // Geri alınamaz veri: gerçekten arşivlenmiş haftalar
+  const archived = (state.cohortHistory || []).filter(h => Number(h.cohortId) >= target);
+  const realHist = (state.competitionHistory || []).filter(h =>
+    Number(h.weekNo || 0) >= target && (Number(h.participantCount) > 0 || (h.ranking || []).length > 0));
+  return {
+    cur: cur, target: target, c: c, archived: archived, realHist: realHist,
+    // o yanlış ilerlemenin bıraktığı BOŞ yarışma geçmişi kayıtları
+    emptyHist: (state.competitionHistory || []).filter(h =>
+      Number(h.weekNo || 0) >= target && !(Number(h.participantCount) > 0) && !((h.ranking || []).length > 0)),
+    // olmayan bir haftaya yazılmış onaylı yarışmacılar → hedef haftaya taşınır
+    movedApps: (state.applications || []).filter(a =>
+      a.status === 'onayli' && Number(a.cohortId) > target && Number(a.cohortId) <= cur),
+    // boş rotasyonun "geçmiş yarışmacı" yaptıkları → geri alınır
+    unarchive: (state.applications || []).filter(a => Number(a.cohortId) >= target && a.pastCompetitor),
+    // hedeften sonraki haftaların sonuç kaydı (olmaması gerekir) → silinir
+    dropResults: c.results.filter(r => Number(r.no) > target),
+    // hedeften sonraki haftaların tarihleri elle değiştirilmişse afiş takvimine döner
+    dateFix: Array.from({ length: c.totalWeeks }, (_, i) => i + 1).filter(n =>
+      n > target && LF_SCHEDULE[n - 1] &&
+      ((c.weekStarts[n - 1] && c.weekStarts[n - 1] !== LF_SCHEDULE[n - 1][0]) ||
+       (c.weekEnds[n - 1] && c.weekEnds[n - 1] !== LF_SCHEDULE[n - 1][1])))
+  };
+}
+function lfRewindWeek(){
+  if(AUTH_ENABLED && !isAdminUser(firebase.auth().currentUser)){ showToast('Hafta düzeltmesi için admin hesabıyla giriş yapmalısın.', 'error'); return; }
+  const cur = Number(state.currentCohortId) || 1;
+  const raw = prompt(`Hangi haftaya dönülsün? (1 – ${cur})\n\nŞu an Hafta ${cur} görünüyor. Yarışma ve tüm veriler yerinde kalır; sadece hafta numarası ve yanlış ilerlemenin bıraktığı boş kayıtlar düzeltilir.`, '1');
+  if(raw === null) return;
+  const target = parseInt(String(raw).trim(), 10);
+  if(!(target >= 1 && target <= cur)){ showToast(`1 ile ${cur} arasında bir hafta numarası gir.`, 'error'); return; }
+  if(target === cur){ showToast(`Zaten Hafta ${cur}'tesin.`, 'warn'); return; }
+  const p = lfRewindPlan(target);
+  if(p.archived.length){
+    alert(`GERİ ALINAMAZ\n\nHafta ${p.archived.map(h => h.cohortId).sort((a, b) => a - b).join(', ')} gerçekten arşivlenmiş — Genel Sıralama'da yarışmacıları var.\n\nO haftaların verisini bozmamak için hafta numarası geri alınmadı. Hiçbir şey değişmedi.`);
+    return;
+  }
+  if(p.realHist.length){
+    alert(`GERİ ALINAMAZ\n\nYarışma Geçmişi'nde Hafta ${p.realHist.map(h => h.weekNo).join(', ')} için katılımcılı sonuç kaydı var.\n\nO sonuçları bozmamak için hafta numarası geri alınmadı. Hiçbir şey değişmedi.`);
+    return;
+  }
+  const c = p.c, live = !!state.competitionActive;
+  const lines = [
+    `HAFTA ${cur} → HAFTA ${target} GERİ ALINSIN MI?`, '',
+    `Yapılacak:`,
+    `• Aktif hafta: Hafta ${cur} → Hafta ${target} (${lfRange(target, c)})`,
+    `• Yayındaki hafta etiketi: Hafta ${target}`,
+    live ? `• Süren yarışma KESİNTİSİZ devam eder (bitirilmez, OPLab kapanmaz, sıralama sıfırlanmaz)`
+         : `• Yarışma tarihleri Hafta ${target} takvimine çekilir`
+  ];
+  if(p.movedApps.length) lines.push(`• ${p.movedApps.length} onaylı yarışmacı Hafta ${target}'e taşınır (olmayan bir haftaya yazılmışlardı)`);
+  if(p.unarchive.length) lines.push(`• ${p.unarchive.length} yarışmacının "geçmiş yarışmacı" etiketi kaldırılır`);
+  if(p.emptyHist.length) lines.push(`• Yarışma Geçmişi'nden ${p.emptyHist.length} BOŞ kayıt silinir (katılımcısı/sıralaması olmayan)`);
+  if(p.dropResults.length) lines.push(`• Hafta ${p.dropResults.map(r => r.no).join(', ')} sonuç kaydı silinir`);
+  if(p.dateFix.length) lines.push(`• Hafta ${p.dateFix.join(', ')} tarihleri afiş takvimine döner`);
+  lines.push('', `DOKUNULMAYAN: başvurular, portföyler, canlı sıralama, Zirve kayıtları, ayarlar, kontenjan.`,
+    '', 'Önce tüm verinin yedeği (JSON) bilgisayarına inecek.');
+  if(!confirm(lines.join('\n'))) return;
+  if(!lfBackupDownload() && !confirm('Yedek dosyası indirilemedi. Yine de devam edilsin mi?')) return;
+
+  state.currentCohortId = target;
+  state.broadcastWeekNo = target;
+  // Bayat saat bir daha rotasyonu tetiklemesin: süren yarışma varsa onun
+  // başlangıcı, yoksa hiç (kimse onaylanmadıysa saat işlemez).
+  state.cohortStartedAt = live
+    ? new Date(Number(state.competitionStartedAt) || Date.now()).toISOString()
+    : null;
+  if(!live){ state.startDate = lfWeekStart(target, c); state.endDate = lfWeekEnd(target, c); }
+  p.movedApps.forEach(a => { a.cohortId = target; });
+  p.unarchive.forEach(a => { a.pastCompetitor = false; a.pastCompetitorAt = null; });
+  if(p.emptyHist.length){
+    const drop = new Set(p.emptyHist.map(h => String(h.id)));
+    state.competitionHistory = (state.competitionHistory || []).filter(h => !drop.has(String(h.id)));
+  }
+  // LİG modülü hafta kayıtları: hedef ve sonrası için yanlış ilerlemenin
+  // bıraktığı "bitti/ilan edildi" damgalarını temizle (gerçek arşiv yok —
+  // yukarıdaki iki kontrol bunu garanti ediyor).
+  try{
+    if(window.LIG){
+      const s = LIG.S();
+      // Hafta kayıtları SİLİNMİYOR (kontenjan/VİOP/kura ayarları korunur) —
+      // yalnızca hedef haftadan itibaren yaşam döngüsü damgaları temizlenir.
+      (s.weeks || []).filter(w => Number(w.no) >= target).forEach(w => {
+        const self = Number(w.no) === target;
+        Object.assign(w, {
+          status: (self && live) ? 'active' : 'planned',
+          startedAt: (self && live) ? (Number(state.competitionStartedAt) || null) : null,
+          finishedAt: null, historyId: null, resultsPublishedAt: null, objectionDeadline: null,
+          ceremonyAt: null, finalizedAt: null, lockoutDoneAt: null, finalist: null, finalistHistory: [], objections: []
+        });
+        w.start = lfWeekStart(Number(w.no), c); w.end = lfWeekEnd(Number(w.no), c);
+      });
+    }
+  }catch(e){ console.warn('[Lig] hafta kaydı düzeltilemedi:', e); }
+  state.resultsPublished = false;
+  // Eşitlik ek süresi yalnızca iptal edilen haftalara aitse düşer
+  if(state.tieBreak && Number(state.tieBreak.weekNo || 0) > target) state.tieBreak = null;
+  const cc = lfCfg();
+  cc.results = cc.results.filter(r => Number(r.no) <= target);
+  p.dateFix.forEach(n => { cc.weekStarts[n - 1] = LF_SCHEDULE[n - 1][0]; cc.weekEnds[n - 1] = LF_SCHEDULE[n - 1][1]; });
+  cc.completedAt = null;
+  lfSave(cc);
+  addActivity(`Aktif hafta elle düzeltildi: Hafta ${cur} → Hafta ${target} (${lfRange(target, cc)}).`
+    + (p.movedApps.length ? ` ${p.movedApps.length} yarışmacı taşındı.` : '')
+    + (p.unarchive.length ? ` ${p.unarchive.length} yarışmacı geçmişten geri alındı.` : '')
+    + (p.emptyHist.length ? ` ${p.emptyHist.length} boş geçmiş kaydı silindi.` : '')
+    + (live ? ' Süren yarışmaya dokunulmadı.' : ''));
+  saveShared();
+  schedulePublicLeaderboard(true);
+  lfRenderAll();
+  showToast(`Hafta ${target}'e dönüldü — veriler yerinde.`, 'success');
+}
 function lfOpenSettings(){
   const c = lfCfg();
   const back = document.createElement('div'); back.className = 'lig-modal-back'; back.id = 'lfModal';
@@ -4381,12 +4509,14 @@ function lfOpenSettings(){
     <div id="lfWeekDates">${Array.from({ length: c.totalWeeks }, (_, i) => `<div class="field-row" style="align-items:center;margin-bottom:6px;"><div style="min-width:64px;font-weight:600;font-size:13px;">Hafta ${i + 1}</div><input type="date" data-ws="${i}" value="${lfWeekStart(i + 1, c)}"><input type="date" data-we="${i}" value="${lfWeekEnd(i + 1, c)}"></div>`).join('')}</div>
     <p class="section-desc">Afişteki takvim: 12–15 Ekim, 16–21 Ekim, 22–27 Ekim, 2–5 Kasım; kapanış töreni 6 Kasım. Hafta sayısını değiştirirsen kaydedip ayarları yeniden aç — yeni haftaların tarih satırları görünür.</p>
     <div class="btn-row"><button type="button" class="btn btn-blue" id="lfSaveSet">KAYDET</button><button type="button" class="btn" id="lfCloseSet">KAPAT</button></div>
-    <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border-strong);"><p class="section-desc" style="margin-bottom:8px;">Tehlikeli bölge: tüm başvuruları, geçmişi ve sonuçları silip ligi baştan kurar (önce yedek iner).</p><button type="button" class="btn btn-red" id="lfResetBtn2">🗑 LİGİ SIFIRLA</button></div></div>`;
+    <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border-strong);"><p class="section-desc" style="margin-bottom:8px;">Yanlış haftaday sanız (ör. haftalar atlandı): aktif hafta numarasını <b>yarışmayı ve haftayı bitirmeden</b> geri alır. Yarışmacılar, portföyler ve canlı sıralama olduğu gibi kalır; gerçekten arşivlenmiş bir hafta varsa işlem reddedilir.</p><button type="button" class="btn" id="lfRewindBtn" style="border-color:var(--yellow);color:var(--yellow);">↩ AKTİF HAFTAYI GERİ AL</button>
+    <p class="section-desc" style="margin:14px 0 8px;">Tehlikeli bölge: tüm başvuruları, geçmişi ve sonuçları silip ligi baştan kurar (önce yedek iner).</p><button type="button" class="btn btn-red" id="lfResetBtn2">🗑 LİGİ SIFIRLA</button></div></div>`;
   document.body.appendChild(back);
   const close = () => back.remove();
   back.addEventListener('click', e => { if(e.target === back) close(); });
   back.querySelector('#lfCloseSet').addEventListener('click', close);
   back.querySelector('#lfResetBtn2').addEventListener('click', () => { close(); lfReset(); });
+  back.querySelector('#lfRewindBtn').addEventListener('click', () => { close(); lfRewindWeek(); });
   back.querySelector('#lfSaveSet').addEventListener('click', () => {
     const cc = lfCfg();
     cc.totalWeeks = Math.max(1, Math.min(20, parseInt(back.querySelector('#lfTot').value, 10) || cc.totalWeeks));
@@ -6379,15 +6509,37 @@ setInterval(checkCompetitionTimer, 5000);
 // edilebilir) o haftanın süresi dolup dolmadığına bakar. Süre, o haftaya
 // ONAYLANAN İLK kişiyle başlar (cohortStartedAt) — kimse onaylanmadıysa
 // saat hiç işlemez, "boşa geçen hafta" riski yok.
+// (13 Ekim 2026) Zincirleme rotasyon koruması: bu zamanlayıcı 5 saniyede bir
+// çalışıyor, rotateCohort ise cohortStartedAt'i null'lıyor. Firestore yazması
+// henüz dönmemişken ya da bayat bir damga varken art arda tetiklenirse
+// haftalar saniyeler içinde atlanır — 12 Ekim'de Hafta 1→4 böyle oldu.
+// Bir sayfa oturumunda en fazla 60 saniyede bir rotasyona izin verilir.
+let lastCohortRotationAt = 0;
 function checkCohortRotation(){
   if(ligSeasonOn()) return; // sezon planında haftalar takvime göre yönetilir (LİG modülü)
   if(state.ligFlow) return; // (30 Eylül 2026) lig akışında haftayı "HAFTAYI KAPAT" adımı kapatır
   if(!state.cohortStartedAt) return;
-  const elapsedMs = Date.now() - new Date(state.cohortStartedAt).getTime();
+  const startMs = new Date(state.cohortStartedAt).getTime();
+  if(!isFinite(startMs)) return;
+  const elapsedMs = Date.now() - startMs;
   const totalMs = (state.cohortDurationDays || 7) * 86400000;
-  if(elapsedMs >= totalMs){
-    rotateCohort('hafta süresi doldu');
+  if(elapsedMs < totalMs) return;
+  // (13 Ekim 2026) BAYAT DAMGA: hafta süresinin bir haftadan fazla üstüne
+  // çıkmışsa bu "biten hafta" değil, kimsenin kapatmadığı eski bir damgadır
+  // (ör. test haftasından kalan). Arşivlenecek yarışmacı da yoksa haftayı
+  // ilerletmek yerine saati sıfırla — atlanan hafta oluşmaz.
+  const cohortId = state.currentCohortId || 1;
+  const hasCompetitors = (state.applications || []).some(a => a.status === 'onayli' && !a.pastCompetitor && a.cohortId === cohortId);
+  if(elapsedMs > totalMs + 7 * 86400000 && !hasCompetitors){
+    state.cohortStartedAt = null;
+    addActivity(`Hafta ${cohortId} saati bayat bir başlangıç damgasıyla (${new Date(startMs).toLocaleString('tr-TR')}) dolmuş görünüyordu ve haftada onaylı yarışmacı yok — hafta ilerletilmedi, saat sıfırlandı.`);
+    saveShared();
+    try{ syncYarismaSettingsUI(); }catch(e){}
+    return;
   }
+  if(Date.now() - lastCohortRotationAt < 60000) return;
+  lastCohortRotationAt = Date.now();
+  rotateCohort('hafta süresi doldu');
 }
 
 // O haftanın (state.currentCohortId) hâlâ AKTİF onaylı yarışmacılarını
