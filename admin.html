@@ -4350,10 +4350,81 @@ function lfTransfer(){
   addActivity(`Hafta ${n}: Zirve temsil hakkı ${now.finalist.name} yarışmacısına devredildi.`);
   lfRenderAll();
 }
-function lfClose(){
+/* ============ (13 Ekim 2026) HAFTA İŞLEMLERİ İÇİN ŞİFRE DOĞRULAMASI ============
+   Hafta geçişi ve yarışmayı erken bitirme geri alınamaz işlemler; önceden tek
+   bir confirm() kutusu vardı, yanlışlıkla "Tamam"a basmak yetiyordu. Artık bu
+   üç işlem şifre ister:
+     • Lig akışı adım 5 — HAFTA n'İ KAPAT        (lfClose)
+     • Yarışma Ayarları — HAFTAYI ŞİMDİ BİTİR    (endCohortNowBtn)
+     • Lig akışı adım 2 — ⏹ ŞİMDİ BİTİR          (lfEndBtn)
+
+   ŞİFREYİ DEĞİŞTİRMEK İÇİN: yalnızca aşağıdaki HAFTA_ISLEM_SIFRESI satırını
+   değiştir, başka hiçbir yere dokunma.
+
+   UYARI: Bu şifre tarayıcıya inen dosyanın içinde duruyor — sayfa kaynağını
+   açan biri görebilir. Amacı yetkisiz kişiyi durdurmak DEĞİL (onu Firebase
+   admin girişi yapıyor), yanlışlıkla tıklamayı engellemek. */
+const HAFTA_ISLEM_SIFRESI = '123456';
+const HAFTA_ISLEM_DENEME_HAKKI = 3;
+
+// Başlık + "ne olacak" listesi + şifre kutusu gösterir.
+// Promise<boolean> döner: şifre doğruysa true, iptal/yanlış şifrede false.
+function haftaIslemOnayi(baslik, satirlar, dugmeMetni){
+  return new Promise(function(resolve){
+    let kalan = HAFTA_ISLEM_DENEME_HAKKI, bitti = false;
+    const back = document.createElement('div');
+    back.className = 'lig-modal-back';
+    back.innerHTML = `<div class="lig-modal" role="dialog" aria-modal="true" aria-labelledby="hioBaslik" style="max-width:520px;">
+      <h3 class="section-title" id="hioBaslik" style="font-size:17px;margin:0 0 12px;color:var(--yellow);">${escapeHtml(baslik)}</h3>
+      <div style="font-size:13px;line-height:1.9;margin-bottom:14px;">${satirlar.map(x => '<div>• ' + escapeHtml(x) + '</div>').join('')}</div>
+      <p class="section-desc" style="margin:0 0 8px;"><b>Bu işlem geri alınamaz.</b> Devam etmek için yönetim şifresini gir:</p>
+      <input type="password" id="hioSifre" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Yönetim şifresi" style="width:100%;">
+      <div id="hioHata" style="min-height:18px;font-size:12px;color:#fca5a5;margin:6px 0 10px;"></div>
+      <div class="btn-row"><button type="button" class="btn" id="hioIptal">İPTAL</button><button type="button" class="btn btn-red" id="hioOk">${escapeHtml(dugmeMetni || 'ONAYLA')}</button></div>
+    </div>`;
+    document.body.appendChild(back);
+    const inp = back.querySelector('#hioSifre'), hata = back.querySelector('#hioHata');
+    function kapat(sonuc){
+      if(bitti) return;
+      bitti = true;
+      document.removeEventListener('keydown', tus, true);
+      back.remove();
+      resolve(sonuc);
+    }
+    function dene(){
+      if(inp.value === HAFTA_ISLEM_SIFRESI){ kapat(true); return; }
+      kalan--;
+      inp.value = '';
+      if(kalan <= 0){
+        showToast('Şifre 3 kez yanlış girildi — işlem iptal edildi.', 'error');
+        kapat(false);
+        return;
+      }
+      hata.textContent = `Şifre yanlış. Kalan deneme: ${kalan}`;
+      inp.focus();
+    }
+    function tus(e){
+      if(e.key === 'Escape'){ e.preventDefault(); kapat(false); }
+      else if(e.key === 'Enter' && back.contains(document.activeElement)){ e.preventDefault(); dene(); }
+    }
+    back.addEventListener('click', e => { if(e.target === back) kapat(false); });
+    back.querySelector('#hioIptal').addEventListener('click', () => kapat(false));
+    back.querySelector('#hioOk').addEventListener('click', dene);
+    document.addEventListener('keydown', tus, true);
+    setTimeout(() => { try{ inp.focus(); }catch(e){} }, 30);
+  });
+}
+async function lfClose(){
   const n = Number(state.currentCohortId) || 1, c = lfCfg(), w = lfLigWeek(n), last = n >= c.totalWeeks;
   if(lfPhase(n) !== 'zirve'){ showToast('Önce Zirve temsilcisini belirle.', 'warn'); return; }
-  if(!confirm(last ? `Hafta ${n} kapatılsın ve LİG TAMAMLANSIN mı?` : `Hafta ${n} kapatılsın mı?\n\nYarışmacılar geçmişe alınır, hafta Yarışma Geçmişi / Genel Sıralama'ya yazılır ve Hafta ${n + 1} (${lfRange(n + 1, c)}) için onaylar açılır.`)) return;
+  const kapanan = lfWeekApps(n).length;
+  const ok = await haftaIslemOnayi(
+    last ? `HAFTA ${n} KAPATILIYOR — LİG TAMAMLANIYOR` : `HAFTA ${n} KAPATILIYOR`,
+    [`${kapanan} yarışmacı "geçmiş yarışmacı" statüsüne alınacak`,
+     `Hafta ${n} Yarışma Geçmişi ve Genel Sıralama'ya yazılacak`,
+     last ? 'Lig tamamlanacak — yeni hafta açılmayacak' : `Hafta ${n + 1} (${lfRange(n + 1, c)}) için onaylar açılacak`],
+    last ? 'LİGİ TAMAMLA' : `HAFTA ${n}'İ KAPAT`);
+  if(!ok) return;
   if(w){ w.status = 'finalized'; w.finalizedAt = Date.now(); }
   rotateCohort('Lig akışı — Hafta ' + n + ' tamamlandı');
   // Hafta arşivine doğrulanmış final değerleri yaz (canlı veriden daha güvenilir)
@@ -4557,7 +4628,12 @@ document.getElementById('ligFlowCard')?.addEventListener('click', function(e){
       lfSave(c); state.startDate = lfWeekStart(n); state.endDate = lfWeekEnd(n); saveShared();
       addActivity(`Hafta ${n} tarihleri: ${lfRange(n)}.`); showToast(`Hafta ${n}: ${lfRange(n)}`, 'success'); lfRender(true); break; }
     case 'lfStartBtn': lfStart(); break;
-    case 'lfEndBtn': if(confirm('Yarışma şimdi bitirilsin mi? OPLab işlemleri kapanır ve final sıralama alınır.')){ finishCompetition('admin tarafından bitirildi (lig akışı)'); lfRender(true); } break;
+    case 'lfEndBtn': haftaIslemOnayi('YARIŞMA ŞİMDİ BİTİRİLİYOR',
+      ['Süren yarışma hemen sona erecek — kalan süre iptal',
+       'OPLab işlemleri kapanacak, yarışmacılar işlem yapamayacak',
+       'Final sıralama alınacak ve Yaptırım & Sonuç\'a düşecek',
+       'Hafta numarası DEĞİŞMEZ — hafta kapanmaz'],
+      'YARIŞMAYI BİTİR').then(ok => { if(ok){ finishCompetition('admin tarafından bitirildi (lig akışı)'); lfRender(true); } }); break;
     case 'lfPublishBtn': lfPublish(); break;
     case 'lfZirveBtn': lfZirve(); break;
     case 'lfTransferBtn': lfTransfer(); break;
@@ -6605,11 +6681,16 @@ function rotateCohort(reason){
 // sadece "ilk onaydan N gün sonra" mantığıyla çalışır; takvimde net bir gün
 // hedeflemek isteyen admin için (örn. ilk hafta 5-9 Ekim gibi kısa/özel bir
 // pencere olacaksa) haftayı elle, süresi dolmadan bitirebilme imkânı.
-document.getElementById('endCohortNowBtn')?.addEventListener('click', function(){
+document.getElementById('endCohortNowBtn')?.addEventListener('click', async function(){
   if(!state.cohortStartedAt && !state.competitionActive) return;
   const cohortId = state.currentCohortId || 1;
   const activeCount = state.applications.filter(a => a.status==='onayli' && !a.pastCompetitor && a.cohortId===cohortId).length;
-  const ok = confirm(`Hafta ${cohortId} şimdi bitirilsin mi?\n\n${state.competitionActive ? 'Süren yarışma da HEMEN biter: yayın ekranı "bitti · kontrol" aşamasına geçer, OPLab işlemleri kapanır, final sıralaması Yaptırım & Sonuç\'a düşer.\n' : ''}Bu haftanın ${activeCount} onaylı yarışmacısı "geçmiş yarışmacı" statüsüne alınır, performansları Yarışma Geçmişi'ne kaydedilir ve Hafta ${cohortId+1} için kota anında açılır. Bu işlem geri alınamaz.`);
+  const satirlar = [];
+  if(state.competitionActive) satirlar.push('Süren yarışma HEMEN biter: OPLab kapanır, final sıralaması Yaptırım & Sonuç\'a düşer');
+  satirlar.push(`${activeCount} onaylı yarışmacı "geçmiş yarışmacı" statüsüne alınacak`);
+  satirlar.push('Performansları Yarışma Geçmişi\'ne kaydedilecek');
+  satirlar.push(`Hafta ${cohortId+1} için kota anında açılacak`);
+  const ok = await haftaIslemOnayi(`HAFTA ${cohortId} ELLE BİTİRİLİYOR`, satirlar, `HAFTA ${cohortId}'İ BİTİR`);
   if(!ok) return;
   rotateCohort('admin tarafından elle bitirildi');
 });
