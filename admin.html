@@ -8527,6 +8527,11 @@ function noticeReviewTemplate(basladi, sebep){
    yaptırım "uygulanabilir" — her ihlal zorunlu yaptırım değil). Metin
    kutusunu doldurur, kendiliğinden bir şey uygulamaz. */
 const NOTICE_QUICK = [
+  // Kural 10.7'nin kendisi — yaptırım uygulamadan önce "kural böyle" diye
+  // hatırlatmak için. Sayılar kural metnindeki sabit değerlerdir (2 dk, %10);
+  // ayarlar bundan saparsa panelin üstündeki uyarı bandı haber verir.
+  { k: '10.7 — yaptırım sistemi', t: 'Hatırlatma: kural ihlallerinde uygulanan yaptırımlar', r: '10',
+    b: 'Yarışma kurallarının 10.7 maddesi:\n\n"Kural ihlali yaptığı tespit edilen kişi/kişiler hakkında, kural ihlalleri bölümünde de belirtilen aşağıdaki yaptırım sistemi uygulanır:\n\n• Birinci ihlal: 2 dakika işlem kısıtlaması,\n• İkinci ihlal: Yarışmacının sanal bakiyesinde yarışma yönetimi tarafından özkaynaktan %10 kesinti yapılır.\n• Üçüncü ihlal: Yarışmacı yarışmadan diskalifiye edilir."\n\nAyrıca kural 21.3 uyarınca hesap paylaşımı, çoklu hesap kullanımı, sistem açığından bilinçli şekilde yararlanma, manipülasyon ve haksız avantaj sağlama gibi ağır ihlallerde yarışma yönetimi kademeli yaptırım uygulamaksızın doğrudan diskalifiye kararı verebilir.\n\nBu bir hatırlatmadır; şu an hakkında uygulanmış bir yaptırım yoktur.' },
   { k: '4.9 / 6.11 — başkasının portföyü', t: 'Uyarı: başka yarışmacının ekranına bakma',
     r: '4', b: 'Yarışmacıların birbirlerinin portföylerini, verdikleri emirleri veya işlem geçmişlerini görmeleri, incelemeleri ya da bu bilgilere erişmeye çalışmaları kesinlikle yasaktır (kural 4.9, 6.11).\n\nBu bir uyarıdır; tekrarı halinde kural 10.7 ve 21.2 uyarınca yaptırım uygulanır.' },
   { k: '11.2 / 11.3 — dışarıdan destek', t: 'Uyarı: yatırım kararını kendin vermelisin',
