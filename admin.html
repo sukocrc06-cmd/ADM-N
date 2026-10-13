@@ -10,6 +10,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<!-- (13 Ekim 2026) OPLab yarışma kuralları — OPLab ile AYNI dosya (rekabet-testi/oplabRules.js kopyası).
+     Kaldıraç düzeltmesi + fiyat netleştirme + haftalık asgari işlem şartı. -->
+<script src="oplabRules.js?v=20261013a"></script>
 <!-- (22 Eylül 2026 — Madde 3) EmailJS kaldırıldı, e-posta artık api/send-
      email.js üzerinden sunucu tarafında (Resend ile) gönderiliyor — bu
      CDN kütüphanesine artık gerek yok. -->
@@ -2813,7 +2816,44 @@ function rankingPool(){
 // kendi kaydını değiştirmesini %100 engelleyemez; bu, kolay hileleri ve
 // eski/eksik değerleri yakalar.)
 const OPLAB_BACKEND = 'https://rekabet-testi.onrender.com';
-async function computeVerifiedEquities(pool){
+async function computeVerifiedEquities(pool){ return computeVerifiedEquitiesImpl(pool); }
+// (13 Ekim 2026 — yarışma kuralları) OPLab'ın YENİ sürümünü henüz açmamış
+// (cihazında kural düzeltmesi uygulanmamış, canlı özetinde rf alanı olmayan)
+// yarışmacıların canlı sıralamadaki özkaynağı, kişisel portföy kaydından
+// aynı formülle (oplabRules.js) burada hesaplanıp yerine konur. Yarışmacı
+// OPLab'ı açınca kendi cihazı düzeltmeyi uygular ve bu geçici değer kalkar.
+window.RULEFIX_ADMIN = (function(){
+  const overrides = {};
+  let busy = false, lastRun = 0;
+  const RUN_EVERY_MS = 3 * 60 * 1000;
+  function R(){ return window.OPLabRules || null; }
+  function applyOverrides(list){
+    const r = R(); if(!r || !Array.isArray(list)) return;
+    list.forEach(c => {
+      const k = String(c.id);
+      if(c.rf === r.RULES.version){ delete overrides[k]; return; }
+      const o = overrides[k];
+      if(o && typeof c.equity === 'number'){ c.equityReported = c.equity; c.equity = o.equity; c.ruleFixPending = true; }
+    });
+    if(!busy && Date.now() - lastRun > RUN_EVERY_MS) setTimeout(refresh, 1500);
+  }
+  async function refresh(){
+    const r = R(); if(!r || busy) return;
+    busy = true; lastRun = Date.now();
+    try{
+      const pool = (typeof rankingPool === 'function' ? rankingPool() : []).filter(c => c.rf !== r.RULES.version && c.email && !c.waiting);
+      if(!pool.length) return;
+      const res = await computeVerifiedEquitiesImpl(pool, { skipPenalty: true });
+      let changed = false;
+      pool.forEach((c, i) => { const v = res[i]; if(v && typeof v.equity === 'number'){ const k = String(c.id); if(!overrides[k] || Math.abs(overrides[k].equity - v.equity) > 0.005){ overrides[k] = { equity: v.equity, at: Date.now() }; changed = true; } } });
+      if(changed && typeof subscribeOplabPortfolio === 'function') subscribeOplabPortfolio();
+    }catch(e){ console.warn('[Kurallar] Canlı sıralama düzeltmesi hesaplanamadı:', e); }
+    finally{ busy = false; }
+  }
+  return { applyOverrides, refresh, overrides };
+})();
+async function computeVerifiedEquitiesImpl(pool, opts){
+  opts = opts || {};
   const db = firebase.firestore();
   const docs = await Promise.all(pool.map(c => {
     const email = String(c.email || '').trim().toLowerCase();
@@ -2836,9 +2876,61 @@ async function computeVerifiedEquities(pool){
       quotes = (j && j.quotes) || {};
     }catch(e){ console.warn('[Final sıralama] Güncel fiyatlar alınamadı, yarışmacının bildirdiği fiyatlar kullanılacak.', e); }
   }
+  // (13 Ekim 2026) Yarışma kuralları: her portföyün KOPYASINA kaldıraç
+  // düzeltmesi (VİOP en fazla 5x) + fiyat netleştirme uygulanır, haftalık
+  // asgari işlem/hacim şartı hesaplanır. "Bildirilen ile fark" kontrolü
+  // düzeltme ÖNCESİ değere göre yapılır (kural farkı hile sayılmaz).
+  const R = window.OPLabRules || null;
+  const fixedDocs = docs.map(d => (d && d.portfolio && R) ? JSON.parse(JSON.stringify(d.portfolio)) : null);
+  let rfPrices = {};
+  if(R){
+    const needs = [];
+    fixedDocs.forEach(fp => { if(fp) R.pendingTrueUps(fp).forEach(n => needs.push({ symbol: n.symbol, ts: n.ts })); });
+    for(let i = 0; i < needs.length; i += 150){
+      try{
+        const r = await fetch(OPLAB_BACKEND + '/api/v1/prices-at', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ items: needs.slice(i, i + 150) }), signal: AbortSignal.timeout ? AbortSignal.timeout(45000) : undefined });
+        const j = await r.json(); Object.assign(rfPrices, (j && j.prices) || {});
+      }catch(e){ console.warn('[Kurallar] Gerçek saat fiyatları alınamadı, kalan işlemler bildirilen fiyatla sayılacak.', e); }
+    }
+    fixedDocs.forEach(fp => { if(fp) R.applyRuleFix(fp, rfPrices); });
+  }
+  let weekStartMs = 0;
+  try{ weekStartMs = Date.parse(lfWeekStart(Number(state.currentCohortId) || 1) + 'T00:00:00+03:00') || 0; }catch(e){ weekStartMs = Date.now() - 7 * 86400000; }
+  const equityOf = (p, c) => {
+    let equity = p.balance;
+    let priceFallback = false;
+    const addBook = (positions, isViop) => Object.keys(positions || {}).forEach(sym => {
+      const pos = positions[sym];
+      if(!pos || !pos.qty) return;
+      const lev = pos.leverage || 1;
+      let px = isViop ? null : quotes[sym];
+      if(typeof px !== 'number'){
+        const snap = (c.positions || []).find(x => x.symbol === sym && ((x.market === 'VIOP') === isViop));
+        px = snap && typeof snap.currentPrice === 'number' ? snap.currentPrice : pos.avgPrice;
+        priceFallback = true;
+      }
+      const margin = typeof pos.lockedMargin === 'number' ? pos.lockedMargin : pos.avgPrice * pos.qty / lev;
+      const pnl = pos.side === 'LONG' ? (px - pos.avgPrice) * pos.qty : (pos.avgPrice - px) * pos.qty;
+      equity += margin + pnl;
+    });
+    addBook(p.positions, false);
+    addBook(p.viopPositions, true);
+    (p.pendingOrders || []).concat(p.viopPendingOrders || []).forEach(o => {
+      if(o && typeof o.reservedAmount === 'number' && o.reservedAmount > 0) equity += o.reservedAmount;
+    });
+    return { equity, priceFallback };
+  };
   return pool.map((c, i) => {
     const p = docs[i] && docs[i].portfolio;
     if(!p || typeof p.balance !== 'number') return null;
+    const fp = fixedDocs[i];
+    if(fp){
+      const raw = equityOf(p, c);
+      const fx = equityOf(fp, c);
+      const pen = (window.LIG && !opts.skipPenalty) ? LIG.penaltyFor(c.appId != null ? c.appId : c.id) : 0;
+      const act = R.weekActivity(fp, weekStartMs);
+      return { equity: +(fx.equity - pen).toFixed(2), rawEquity: +(raw.equity - pen).toFixed(2), priceFallback: fx.priceFallback, ruleFixed: true, weekTrades: act.trades, weekTurnover: act.turnover, lowActivity: !act.eligible };
+    }
     let equity = p.balance;
     let priceFallback = false;
     const addBook = (positions, isViop) => Object.keys(positions || {}).forEach(sym => {
@@ -2886,12 +2978,14 @@ async function verifyFinalRanking(recordId){
     row.equity = v.equity;
     row.pct = pctReturn(v.equity);
     row.priceFallback = !!v.priceFallback;
+    if(v.ruleFixed){ row.ruleFixed = true; row.weekTrades = v.weekTrades; row.weekTurnover = v.weekTurnover; row.lowActivity = !!v.lowActivity; }
     const base = Math.max(1, Math.abs(row.equityReported || 0));
-    row.mismatch = Math.abs(v.equity - (row.equityReported || 0)) / base > 0.01;
+    const cmpEq = typeof v.rawEquity === 'number' ? v.rawEquity : v.equity;
+    row.mismatch = Math.abs(cmpEq - (row.equityReported || 0)) / base > 0.01;
     if(row.mismatch) flagged++;
   });
   recNow.ranking.forEach(row => { delete row.positions; }); // geçici — paylaşılan belge şişmesin
-  recNow.ranking.sort((a, b) => (b.equity || 0) - (a.equity || 0));
+  recNow.ranking.sort((a, b) => ((a.lowActivity ? 1 : 0) - (b.lowActivity ? 1 : 0)) || ((b.equity || 0) - (a.equity || 0)));
   recNow.verifiedAt = new Date().toLocaleString('tr-TR');
   recNow.flaggedCount = flagged;
   saveShared();
@@ -3094,6 +3188,7 @@ function subscribeOplabPortfolio(){
       competitors[id] = Object.assign({}, rec || {}, ov.changes);
     });
     oplabPortfolioData = Object.keys(competitors).filter(id => !(state.deletedApplicationIds || {})[String(id)]).map(id => Object.assign({id: id}, competitors[id]));
+    if(window.RULEFIX_ADMIN) RULEFIX_ADMIN.applyOverrides(oplabPortfolioData); // (13 Ekim 2026) kural düzeltmesi
     if(window.LIG) LIG.applyPenalties(oplabPortfolioData); // kural 21.2: ihlal kesintileri sıralamaya yansır
     renderCanliIzleme();
     renderKullaniciPortfoyleri();
@@ -7731,7 +7826,7 @@ function onPublish(wk){
   render();
 }
 function historyFor(w){ return w && w.historyId ? (state.competitionHistory || []).find(h => h.id === w.historyId) || null : null; }
-function eligibleRanking(rec){ return (rec && rec.ranking || []).filter(r => !isRankExcluded(r.appId)); }
+function eligibleRanking(rec){ return (rec && rec.ranking || []).filter(r => !isRankExcluded(r.appId) && !r.lowActivity); } // (13 Ekim 2026) asgari işlem/hacim şartı
 function finalizeWeek(n){
   const w = weekByNo(n); if(!w) return;
   const rec = historyFor(w);
