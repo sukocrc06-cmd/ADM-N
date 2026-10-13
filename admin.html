@@ -10,9 +10,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-<!-- (13 Ekim 2026) OPLab yarışma kuralları — OPLab ile AYNI dosya (rekabet-testi/oplabRules.js kopyası).
-     Kaldıraç düzeltmesi + fiyat netleştirme + haftalık asgari işlem şartı. -->
-<script src="oplabRules.js?v=20261013a"></script>
 <!-- (22 Eylül 2026 — Madde 3) EmailJS kaldırıldı, e-posta artık api/send-
      email.js üzerinden sunucu tarafında (Resend ile) gönderiliyor — bu
      CDN kütüphanesine artık gerek yok. -->
@@ -2014,6 +2011,8 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 
       <div id="ligDuyuruRoot"></div>
 
+      <div id="ligUyariRoot"></div>
+
       <div class="card">
         <h3 class="section-title">Kişiye Özel Alım-Satım Durumu</h3>
         <p class="section-desc">Yukarıdaki "Alım-Satım Durumu" anahtarı HERKESİ birden kapatır. Burada ise tek tek kapatıp açarsınız — haftası gelmemiş yarışmacı siteye girebilir, gezebilir ama AL/SAT yapamaz.</p>
@@ -2816,44 +2815,7 @@ function rankingPool(){
 // kendi kaydını değiştirmesini %100 engelleyemez; bu, kolay hileleri ve
 // eski/eksik değerleri yakalar.)
 const OPLAB_BACKEND = 'https://rekabet-testi.onrender.com';
-async function computeVerifiedEquities(pool){ return computeVerifiedEquitiesImpl(pool); }
-// (13 Ekim 2026 — yarışma kuralları) OPLab'ın YENİ sürümünü henüz açmamış
-// (cihazında kural düzeltmesi uygulanmamış, canlı özetinde rf alanı olmayan)
-// yarışmacıların canlı sıralamadaki özkaynağı, kişisel portföy kaydından
-// aynı formülle (oplabRules.js) burada hesaplanıp yerine konur. Yarışmacı
-// OPLab'ı açınca kendi cihazı düzeltmeyi uygular ve bu geçici değer kalkar.
-window.RULEFIX_ADMIN = (function(){
-  const overrides = {};
-  let busy = false, lastRun = 0;
-  const RUN_EVERY_MS = 3 * 60 * 1000;
-  function R(){ return window.OPLabRules || null; }
-  function applyOverrides(list){
-    const r = R(); if(!r || !Array.isArray(list)) return;
-    list.forEach(c => {
-      const k = String(c.id);
-      if(c.rf === r.RULES.version){ delete overrides[k]; return; }
-      const o = overrides[k];
-      if(o && typeof c.equity === 'number'){ c.equityReported = c.equity; c.equity = o.equity; c.ruleFixPending = true; }
-    });
-    if(!busy && Date.now() - lastRun > RUN_EVERY_MS) setTimeout(refresh, 1500);
-  }
-  async function refresh(){
-    const r = R(); if(!r || busy) return;
-    busy = true; lastRun = Date.now();
-    try{
-      const pool = (typeof rankingPool === 'function' ? rankingPool() : []).filter(c => c.rf !== r.RULES.version && c.email && !c.waiting);
-      if(!pool.length) return;
-      const res = await computeVerifiedEquitiesImpl(pool, { skipPenalty: true });
-      let changed = false;
-      pool.forEach((c, i) => { const v = res[i]; if(v && typeof v.equity === 'number'){ const k = String(c.id); if(!overrides[k] || Math.abs(overrides[k].equity - v.equity) > 0.005){ overrides[k] = { equity: v.equity, at: Date.now() }; changed = true; } } });
-      if(changed && typeof subscribeOplabPortfolio === 'function') subscribeOplabPortfolio();
-    }catch(e){ console.warn('[Kurallar] Canlı sıralama düzeltmesi hesaplanamadı:', e); }
-    finally{ busy = false; }
-  }
-  return { applyOverrides, refresh, overrides };
-})();
-async function computeVerifiedEquitiesImpl(pool, opts){
-  opts = opts || {};
+async function computeVerifiedEquities(pool){
   const db = firebase.firestore();
   const docs = await Promise.all(pool.map(c => {
     const email = String(c.email || '').trim().toLowerCase();
@@ -2876,61 +2838,9 @@ async function computeVerifiedEquitiesImpl(pool, opts){
       quotes = (j && j.quotes) || {};
     }catch(e){ console.warn('[Final sıralama] Güncel fiyatlar alınamadı, yarışmacının bildirdiği fiyatlar kullanılacak.', e); }
   }
-  // (13 Ekim 2026) Yarışma kuralları: her portföyün KOPYASINA kaldıraç
-  // düzeltmesi (VİOP en fazla 5x) + fiyat netleştirme uygulanır, haftalık
-  // asgari işlem/hacim şartı hesaplanır. "Bildirilen ile fark" kontrolü
-  // düzeltme ÖNCESİ değere göre yapılır (kural farkı hile sayılmaz).
-  const R = window.OPLabRules || null;
-  const fixedDocs = docs.map(d => (d && d.portfolio && R) ? JSON.parse(JSON.stringify(d.portfolio)) : null);
-  let rfPrices = {};
-  if(R){
-    const needs = [];
-    fixedDocs.forEach(fp => { if(fp) R.pendingTrueUps(fp).forEach(n => needs.push({ symbol: n.symbol, ts: n.ts })); });
-    for(let i = 0; i < needs.length; i += 150){
-      try{
-        const r = await fetch(OPLAB_BACKEND + '/api/v1/prices-at', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ items: needs.slice(i, i + 150) }), signal: AbortSignal.timeout ? AbortSignal.timeout(45000) : undefined });
-        const j = await r.json(); Object.assign(rfPrices, (j && j.prices) || {});
-      }catch(e){ console.warn('[Kurallar] Gerçek saat fiyatları alınamadı, kalan işlemler bildirilen fiyatla sayılacak.', e); }
-    }
-    fixedDocs.forEach(fp => { if(fp) R.applyRuleFix(fp, rfPrices); });
-  }
-  let weekStartMs = 0;
-  try{ weekStartMs = Date.parse(lfWeekStart(Number(state.currentCohortId) || 1) + 'T00:00:00+03:00') || 0; }catch(e){ weekStartMs = Date.now() - 7 * 86400000; }
-  const equityOf = (p, c) => {
-    let equity = p.balance;
-    let priceFallback = false;
-    const addBook = (positions, isViop) => Object.keys(positions || {}).forEach(sym => {
-      const pos = positions[sym];
-      if(!pos || !pos.qty) return;
-      const lev = pos.leverage || 1;
-      let px = isViop ? null : quotes[sym];
-      if(typeof px !== 'number'){
-        const snap = (c.positions || []).find(x => x.symbol === sym && ((x.market === 'VIOP') === isViop));
-        px = snap && typeof snap.currentPrice === 'number' ? snap.currentPrice : pos.avgPrice;
-        priceFallback = true;
-      }
-      const margin = typeof pos.lockedMargin === 'number' ? pos.lockedMargin : pos.avgPrice * pos.qty / lev;
-      const pnl = pos.side === 'LONG' ? (px - pos.avgPrice) * pos.qty : (pos.avgPrice - px) * pos.qty;
-      equity += margin + pnl;
-    });
-    addBook(p.positions, false);
-    addBook(p.viopPositions, true);
-    (p.pendingOrders || []).concat(p.viopPendingOrders || []).forEach(o => {
-      if(o && typeof o.reservedAmount === 'number' && o.reservedAmount > 0) equity += o.reservedAmount;
-    });
-    return { equity, priceFallback };
-  };
   return pool.map((c, i) => {
     const p = docs[i] && docs[i].portfolio;
     if(!p || typeof p.balance !== 'number') return null;
-    const fp = fixedDocs[i];
-    if(fp){
-      const raw = equityOf(p, c);
-      const fx = equityOf(fp, c);
-      const pen = (window.LIG && !opts.skipPenalty) ? LIG.penaltyFor(c.appId != null ? c.appId : c.id) : 0;
-      const act = R.weekActivity(fp, weekStartMs);
-      return { equity: +(fx.equity - pen).toFixed(2), rawEquity: +(raw.equity - pen).toFixed(2), priceFallback: fx.priceFallback, ruleFixed: true, weekTrades: act.trades, weekTurnover: act.turnover, lowActivity: !act.eligible };
-    }
     let equity = p.balance;
     let priceFallback = false;
     const addBook = (positions, isViop) => Object.keys(positions || {}).forEach(sym => {
@@ -2978,14 +2888,12 @@ async function verifyFinalRanking(recordId){
     row.equity = v.equity;
     row.pct = pctReturn(v.equity);
     row.priceFallback = !!v.priceFallback;
-    if(v.ruleFixed){ row.ruleFixed = true; row.weekTrades = v.weekTrades; row.weekTurnover = v.weekTurnover; row.lowActivity = !!v.lowActivity; }
     const base = Math.max(1, Math.abs(row.equityReported || 0));
-    const cmpEq = typeof v.rawEquity === 'number' ? v.rawEquity : v.equity;
-    row.mismatch = Math.abs(cmpEq - (row.equityReported || 0)) / base > 0.01;
+    row.mismatch = Math.abs(v.equity - (row.equityReported || 0)) / base > 0.01;
     if(row.mismatch) flagged++;
   });
   recNow.ranking.forEach(row => { delete row.positions; }); // geçici — paylaşılan belge şişmesin
-  recNow.ranking.sort((a, b) => ((a.lowActivity ? 1 : 0) - (b.lowActivity ? 1 : 0)) || ((b.equity || 0) - (a.equity || 0)));
+  recNow.ranking.sort((a, b) => (b.equity || 0) - (a.equity || 0));
   recNow.verifiedAt = new Date().toLocaleString('tr-TR');
   recNow.flaggedCount = flagged;
   saveShared();
@@ -3188,7 +3096,6 @@ function subscribeOplabPortfolio(){
       competitors[id] = Object.assign({}, rec || {}, ov.changes);
     });
     oplabPortfolioData = Object.keys(competitors).filter(id => !(state.deletedApplicationIds || {})[String(id)]).map(id => Object.assign({id: id}, competitors[id]));
-    if(window.RULEFIX_ADMIN) RULEFIX_ADMIN.applyOverrides(oplabPortfolioData); // (13 Ekim 2026) kural düzeltmesi
     if(window.LIG) LIG.applyPenalties(oplabPortfolioData); // kural 21.2: ihlal kesintileri sıralamaya yansır
     renderCanliIzleme();
     renderKullaniciPortfoyleri();
@@ -7826,7 +7733,7 @@ function onPublish(wk){
   render();
 }
 function historyFor(w){ return w && w.historyId ? (state.competitionHistory || []).find(h => h.id === w.historyId) || null : null; }
-function eligibleRanking(rec){ return (rec && rec.ranking || []).filter(r => !isRankExcluded(r.appId) && !r.lowActivity); } // (13 Ekim 2026) asgari işlem/hacim şartı
+function eligibleRanking(rec){ return (rec && rec.ranking || []).filter(r => !isRankExcluded(r.appId)); }
 function finalizeWeek(n){
   const w = weekByNo(n); if(!w) return;
   const rec = historyFor(w);
@@ -7958,6 +7865,12 @@ function applyViolation(app, reason, severe){
   } else {
     app.disqualified = true; app.dqReason = v.reason; app.dqAt = Date.now();
   }
+  // (13 Ekim 2026) Yaptırım artık sessiz uygulanmıyor: yarışmacı OPLab'a
+  // girdiğinde ne yaptığını ve ne uygulandığını pop-up olarak görüyor.
+  try{
+    const t = noticeTemplate(app);
+    if(t) pushNotice(app, { title: t.title, body: t.body, level: t.level, ruleNo: t.ruleNo, source: 'violation' });
+  }catch(e){ console.warn('[Lig] ihlal bildirimi oluşturulamadı:', e); }
   saveShared();
   addActivity(`İHLAL — ${app.name}: ${v.reason || '(açıklama yok)'} → ${sanctionText(kind)}${severe ? ' [ağır ihlal, kural 21.3]' : ''}.`);
   showToast(`${app.name}: ${sanctionText(kind)} uygulandı.`, kind === 'dq' ? 'error' : 'warn');
@@ -8497,6 +8410,198 @@ function renderGun(){
   </div>`;
   updateGunClock();
 }
+/* ============ (13 Ekim 2026) KİŞİYE ÖZEL UYARI / BİLDİRİM ============
+   Sorun: ihlal uygulandığında (applyViolation) yarışmacının işlemi
+   kısıtlanıyor ya da bakiyesinden kesiliyor, ama kendisine HİÇBİR ŞEY
+   söylenmiyor — ekranda sebepsiz bir kilit görüyor.
+
+   Çözüm: her başvuru kaydında `notices[]` dizisi. Admin buraya yazıyor,
+   OPLab yarışmacı giriş yaptığında kendi kaydındaki okunmamış bildirimleri
+   pop-up olarak gösteriyor ve `ackAt` damgasını geri yazıyor.
+
+   notices[i] = { id, at, title, body, level:'info'|'warn'|'danger',
+                  weekNo, source:'manual'|'violation', ackAt:null|ms }
+
+   Alıcı listesi AKTİF HAFTANIN yarışmacılarından geliyor
+   (status 'onayli' + cohortId === currentCohortId + geçmişe alınmamış). */
+
+// Bildirimi kaydeder. id benzersiz — OPLab "bunu gösterdim" damgasını (ackAt)
+// bu id ile geri yazar, böylece aynı bildirim her girişte tekrar çıkmaz.
+function pushNotice(app, data){
+  if(!app) return null;
+  const n = {
+    id: 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+    at: Date.now(),
+    title: String(data.title || '').slice(0, 80),
+    body: String(data.body || '').slice(0, 900),
+    level: ['info', 'warn', 'danger'].indexOf(data.level) !== -1 ? data.level : 'warn',
+    weekNo: app.cohortId || null,
+    source: data.source === 'violation' ? 'violation' : 'manual',
+    // Kural maddesi — OPLab pop-up'ında "Kural 10'u oku" düğmesi bu numarayla
+    // FinteLig sitesindeki kurallar sayfasının ilgili maddesine gider.
+    ruleNo: /^\d{1,2}$/.test(String(data.ruleNo || '')) ? String(data.ruleNo) : null,
+    ackAt: null
+  };
+  app.notices = (app.notices || []).concat([n]);
+  // Belge şişmesin: kişi başına en fazla 8 bildirim tutulur (en eskisi düşer).
+  // shared_state tek bir Firestore belgesi, sınırı 1 MB. Sezon sonunda ~60
+  // başvuru × 8 × ~950 bayt ≈ 456 KB — üst sınır 20 olsaydı 1 MB aşılırdı.
+  if(app.notices.length > 8) app.notices = app.notices.slice(-8);
+  persist();
+  addActivity(`Bildirim gönderildi — ${app.name}: ${n.title}`);
+  return n;
+}
+function noticeWeekApps(){
+  const cur = Number(state.currentCohortId) || 1;
+  return (state.applications || [])
+    .filter(a => a.status === 'onayli' && !a.pastCompetitor && Number(a.cohortId) === cur)
+    .sort((x, y) => String(x.name || '').localeCompare(String(y.name || ''), 'tr'));
+}
+function noticesOf(app){ return (app && app.notices) || []; }
+function noticeLevelLabel(l){ return l === 'danger' ? 'CİDDİ' : (l === 'warn' ? 'UYARI' : 'BİLGİ'); }
+function noticeLevelColor(l){ return l === 'danger' ? '#fca5a5' : (l === 'warn' ? 'var(--yellow)' : '#8fb0ff'); }
+
+/* Metinler FinTeLig Kurallar PDF'ine birebir dayanıyor:
+     10.7 / 21.2 — kademeli yaptırım: 1. ihlal 2 dk kısıtlama,
+                   2. ihlal sanal bakiyede özkaynaktan %10 kesinti,
+                   3. ihlal diskalifiye
+     21.3        — ağır ihlallerde (hesap paylaşımı, çoklu hesap, sistem
+                   açığından bilinçli yararlanma, manipülasyon, haksız
+                   avantaj) kademe beklenmeden doğrudan diskalifiye
+     21.4        — yaptırıma ilişkin nihai değerlendirme admin ve yönetimde
+     12.2 / 12.3 — şüphe halinde inceleme, inceleme süresince işlem durdurma
+     12.4        — ihlal çıkmazsa işlemler geçerli
+     17.4        — sonuç itirazı: 2 iş günü, yazılı, kulüp genel sekreteri
+                   veya muhasip üyesi
+   Kuralları değiştirirseniz BU metinleri de güncelleyin. */
+const NOTICE_ITIRAZ = 'Yaptırıma ilişkin nihai değerlendirme yarışma admini ve yarışma yönetimine aittir (kural 21.4).';
+const NOTICE_ITIRAZ_DQ = NOTICE_ITIRAZ + ' Sonuçlara ilişkin itirazlar, sonuçların ilan edilmesinden itibaren 2 iş günü içinde yazılı olarak kulüp genel sekreterine veya muhasip üyesine iletilir (kural 17.4).';
+
+// Ayarlar kurallardan sapmışsa panelde uyar — kural 10.7 sayıları sabit veriyor.
+function noticeSettingsWarning(){
+  const s = S(), out = [];
+  if((Number(s.sanctionLockMin) || 0) !== 2) out.push(`1. ihlal kısıtlaması <b>${Number(s.sanctionLockMin)} dk</b> ayarlı, kural 10.7 <b>2 dk</b> diyor`);
+  if((Number(s.sanctionCutPct) || 0) !== 10) out.push(`2. ihlal kesintisi <b>%${Number(s.sanctionCutPct)}</b> ayarlı, kural 10.7 <b>%10</b> diyor`);
+  return out.length ? `<p class="yy-pub warn" style="margin:0 0 12px;">⚠ Ayarlar kurallardan sapıyor: ${out.join('; ')}. Bildirim metinleri ayardaki değeri yazar — kuralları değiştirmediyseniz Yarışma Günü ayarlarından düzeltin.</p>` : '';
+}
+
+// Kişinin SON ihlalinden, kural metnine uygun hazır bildirim üretir.
+function noticeTemplate(app){
+  const v = activeViolations(app).slice(-1)[0];
+  if(!v) return null;
+  const s = S(), sebep = v.reason || 'yarışma kuralı ihlali';
+  const bas = `Tespit edilen durum: ${sebep}`;
+
+  if(v.action === 'lock'){
+    const dk = Number(s.sanctionLockMin) || 2;
+    return { title: `1. ihlal — işlemlerin ${dk} dakika kısıtlandı`, level: 'warn', ruleNo: '10',
+      body: `${bas}\n\nYarışma kurallarının 10.7 ve 21.2 maddeleri uyarınca birinci ihlalde işlem kısıtlaması uygulanır. İşlemlerin ${dk} dakika süreyle kısıtlandı; süre dolunca alım-satıma devam edebilirsin.\n\nBundan sonrası:\n• 2. ihlalde sanal bakiyende özkaynaktan %${Number(s.sanctionCutPct) || 10} kesinti yapılır.\n• 3. ihlalde yarışmadan diskalifiye edilirsin.\n\n${NOTICE_ITIRAZ}` };
+  }
+
+  if(v.action === 'cut'){
+    const pct = Number(v.cutPct) || Number(s.sanctionCutPct) || 10;
+    return { title: `2. ihlal — sanal bakiyenden %${pct} kesinti`, level: 'warn', ruleNo: '10',
+      body: `${bas}\n\nYarışma kurallarının 10.7 ve 21.2 maddeleri uyarınca ikinci ihlalde yarışmacının sanal bakiyesinde özkaynaktan kesinti yapılır. Uygulanan kesinti: ihlal anındaki portföy değerinin %${pct}'u, ${fmtTRY(Number(v.cutAmount) || 0)}.\n\nKesinti, yarışma sıralamasında kullanılan toplam portföy değerine de yansır (kural 9.1, 9.2).\n\nBir ihlal daha tespit edilirse yarışmadan diskalifiye edilirsin (kural 10.7, 21.2).\n\n${NOTICE_ITIRAZ}` };
+  }
+
+  if(v.severe){
+    return { title: 'Ağır ihlal — yarışmadan diskalifiye edildin', level: 'danger', ruleNo: '21',
+      body: `${bas}\n\nYarışma kurallarının 21.3 maddesi uyarınca hesap paylaşımı, çoklu hesap kullanımı, sistem açığından bilinçli şekilde yararlanma, manipülasyon ve haksız avantaj sağlama gibi ağır ihlallerde yarışma yönetimi kademeli yaptırım uygulamaksızın doğrudan diskalifiye kararı verebilir.\n\nBu nedenle yarışmadan diskalifiye edildin ve yarışma sıralamasında yer almayacaksın.\n\n${NOTICE_ITIRAZ_DQ}` };
+  }
+
+  return { title: '3. ihlal — yarışmadan diskalifiye edildin', level: 'danger', ruleNo: '10',
+    body: `${bas}\n\nYarışma kurallarının 10.7 ve 21.2 maddeleri uyarınca üçüncü ihlalde yarışmacı yarışmadan diskalifiye edilir. Yarışma sıralamasında yer almayacaksın.\n\n${NOTICE_ITIRAZ_DQ}` };
+}
+
+// İnceleme (kural 12.3) başlatılıp bitirilirken kullanılan hazır metinler.
+function noticeReviewTemplate(basladi, sebep){
+  if(basladi){
+    return { title: 'Hesabın incelemeye alındı — işlemlerin geçici olarak durduruldu', level: 'warn', ruleNo: '12',
+      body: `${sebep ? 'Tespit edilen durum: ' + sebep + '\n\n' : ''}Yarışma kurallarının 12.2 ve 12.3 maddeleri uyarınca sistem açığı, olağan dışı işlem, teknik manipülasyon veya kurallara aykırı işlem şüphesi oluşması halinde admin inceleme başlatabilir ve inceleme süresince ilgili hesabın işlem yapması geçici olarak durdurulabilir.\n\nİnceleme sonucunda kural ihlali tespit edilmezse işlemlerin geçerli kabul edilir ve kısıtlama kaldırılır (kural 12.4).` };
+  }
+  return { title: 'İnceleme tamamlandı — işlemlerin geçerli', level: 'info', ruleNo: '12',
+    body: `Hesabınla ilgili inceleme tamamlandı. Kural ihlali tespit edilmedi; işlemlerin geçerli kabul edildi ve işlem kısıtlaman kaldırıldı (kural 12.4).\n\nYarışmaya devam edebilirsin.` };
+}
+
+/* Yaptırım uygulamadan önce gönderilebilecek hazır uyarılar (kural 21.1:
+   yaptırım "uygulanabilir" — her ihlal zorunlu yaptırım değil). Metin
+   kutusunu doldurur, kendiliğinden bir şey uygulamaz. */
+const NOTICE_QUICK = [
+  { k: '4.9 / 6.11 — başkasının portföyü', t: 'Uyarı: başka yarışmacının ekranına bakma',
+    r: '4', b: 'Yarışmacıların birbirlerinin portföylerini, verdikleri emirleri veya işlem geçmişlerini görmeleri, incelemeleri ya da bu bilgilere erişmeye çalışmaları kesinlikle yasaktır (kural 4.9, 6.11).\n\nBu bir uyarıdır; tekrarı halinde kural 10.7 ve 21.2 uyarınca yaptırım uygulanır.' },
+  { k: '11.2 / 11.3 — dışarıdan destek', t: 'Uyarı: yatırım kararını kendin vermelisin',
+    r: '11', b: 'Yarışma sırasında başka bir kişiden doğrudan veya dolaylı destek almak, başka bir kişinin yarışmacı adına işlem gerçekleştirmesi yasaktır (kural 11.2, 11.3). Yatırım kararları bireysel olarak verilmelidir (kural 11.1).\n\nBu bir uyarıdır; tekrarı halinde kural 10.7 ve 21.2 uyarınca yaptırım uygulanır.' },
+  { k: '14.1 — tahsis edilen bilgisayar', t: 'Uyarı: yalnızca sana tahsis edilen bilgisayarda işlem yap',
+    r: '14', b: 'Yarışmacılar kendilerine tahsis edilen bilgisayarlarda işlem gerçekleştirmelidir (kural 14.1). Yarışma sırasında görevlilerin talimatlarına uyulması zorunludur (kural 14.4).\n\nBu bir uyarıdır; tekrarı halinde kural 10.7 ve 21.2 uyarınca yaptırım uygulanır.' },
+  { k: '10.1 — yanıltıcı bilgi', t: 'Uyarı: yanıltıcı bilgi ve tüyo paylaşımı yasak',
+    r: '10', b: 'Yarışmacıların diğer katılımcıları yanıltmaya yönelik bilgi, tüyo veya sahte yönlendirme paylaşması yasaktır (kural 10.1).\n\nBu bir uyarıdır; tekrarı halinde kural 10.7 ve 21.2 uyarınca yaptırım uygulanır.' },
+  { k: '8.4 / 10.3 — ortak işlem', t: 'Uyarı: portföyünü bireysel yönetmelisin',
+    r: '8', b: 'Ortak yatırım kararı, ortak hesap kullanımı veya başka bir yarışmacı adına işlem yapılması kesinlikle yasaktır (kural 8.4). Başka bir katılımcıyla anlaşarak işlem gerçekleştirmek de yasaktır (kural 10.3).\n\nBu bir uyarıdır; tekrarı halinde kural 10.7 ve 21.2 uyarınca yaptırım uygulanır.' },
+  { k: '13.1 — teknik sorun', t: 'Bilgi: teknik sorunu görevliye bildir',
+    r: '13', b: 'Platform, bilgisayar veya internet kaynaklı teknik sorunlar derhal yarışma görevlisine bildirilmelidir (kural 13.1). Görevliye bildirilmeyen teknik sorunlardan yarışma yönetimi sorumlu tutulamaz (kural 13.2).' }
+];
+
+function renderUyari(){
+  const root = document.getElementById('ligUyariRoot'); if(!root) return;
+  const apps = noticeWeekApps();
+  const cur = Number(state.currentCohortId) || 1;
+  const sel = root.dataset.to && apps.some(a => String(a.id) === root.dataset.to) ? root.dataset.to : (apps[0] ? String(apps[0].id) : '');
+  root.dataset.to = sel;
+  const app = sel ? appById(sel) : null;
+
+  if(!apps.length){
+    root.innerHTML = card('Kişiye Özel Uyarı', 'Yarışmacının OPLab\'a girdiğinde göreceği pop-up bildirim.',
+      `<p>Hafta ${cur} için onaylı yarışmacı yok — alıcı listesi bu haftanın yarışmacılarından geliyor.</p>`);
+    return;
+  }
+
+  const list = noticesOf(app).slice().reverse().map((n, i) => {
+    const idx = noticesOf(app).length - 1 - i;
+    return `<div style="border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap;">
+        <b style="color:${noticeLevelColor(n.level)};">${esc(noticeLevelLabel(n.level))} · ${esc(n.title || '')}</b>
+        <span style="font-size:11.5px;color:var(--text-dim);">${esc(fmtDT(n.at))} · ${n.ackAt ? '<span style="color:var(--green);">okundu ' + esc(fmtDT(n.ackAt)) + '</span>' : 'okunmadı'}${n.source === 'violation' ? ' · ihlal' : ''}</span>
+      </div>
+      <div style="font-size:12.5px;color:var(--text-dim);white-space:pre-wrap;margin-top:6px;">${esc(n.body || '')}</div>
+      <div class="btn-row" style="margin-top:8px;"><button class="btn lig-sm" data-lig="notice-del" data-app="${esc(app.id)}" data-idx="${idx}">Sil</button></div>
+    </div>`;
+  }).join('') || '<p style="color:var(--text-dim);font-size:12.5px;">Bu yarışmacıya henüz bildirim gönderilmemiş.</p>';
+
+  const tpl = app ? noticeTemplate(app) : null;
+  const unread = noticesOf(app).filter(n => !n.ackAt).length;
+
+  root.innerHTML = card('Kişiye Özel Uyarı',
+    `Yarışmacı OPLab'a girdiğinde pop-up olarak görür ve "okudum" demeden kapatamaz. Alıcı listesi <b>Hafta ${cur}</b> yarışmacılarından geliyor. Yaptırım metinleri kural <b>10.7 / 21.2 / 21.3</b>'e göre üretilir.`, `
+    ${noticeSettingsWarning()}
+    <div class="field-row">
+      <div class="field" style="flex:2;"><label>Kime</label>
+        <select id="ligNoticeTo">${apps.map(a => {
+          const un = noticesOf(a).filter(n => !n.ackAt).length;
+          const vn = activeViolations(a).length;
+          return `<option value="${esc(a.id)}" ${String(a.id) === sel ? 'selected' : ''}>${esc(a.name || 'İsimsiz')}${vn ? ' · ' + vn + ' ihlal' : ''}${un ? ' · ' + un + ' okunmamış' : ''}</option>`;
+        }).join('')}</select>
+      </div>
+      <div class="field"><label>Düzey</label>
+        <select id="ligNoticeLevel">
+          <option value="info">Bilgi</option>
+          <option value="warn" selected>Uyarı</option>
+          <option value="danger">Ciddi</option>
+        </select>
+      </div>
+      <div class="field"><label>Kural maddesi</label><input type="text" id="ligNoticeRule" maxlength="2" placeholder="10" title="Yarışmacıya kuralın tam metnine giden düğme çıkar. Boş bırakılabilir."></div>
+    </div>
+    <div class="field"><label>Başlık</label><input type="text" id="ligNoticeTitle" maxlength="80" placeholder="Örn: İşlemlerin geçici olarak kısıtlandı"></div>
+    <div class="field"><label>Mesaj</label><textarea id="ligNoticeBody" rows="5" maxlength="900" style="width:100%;background:var(--card-bg-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:10px;color:var(--text);" placeholder="Ne yaptığı, hangi yaptırımın uygulandığı ve bundan sonra ne olacağı."></textarea></div>
+    <div class="btn-row" style="flex-wrap:wrap;">
+      <button class="btn btn-blue" data-lig="notice-send" data-app="${esc(sel)}">📨 GÖNDER</button>
+      ${tpl ? `<button class="btn" data-lig="notice-tpl" data-app="${esc(sel)}">Son ihlalden metin doldur</button>` : ''}
+    </div>
+    <div style="font-size:11px;letter-spacing:.06em;color:var(--text-dim);margin:14px 0 6px;">HAZIR UYARI METİNLERİ (yaptırım uygulamaz)</div>
+    <div class="lig-chips">${NOTICE_QUICK.map((q, i) => `<button class="lig-chip lig-quick" data-lig="notice-quick" data-i="${i}">${esc(q.k)}</button>`).join('')}</div>
+    <p class="section-desc" style="margin-top:10px;">${tpl ? 'Bu yarışmacının son ihlalinden hazır metin üretilebilir.' : 'Bu yarışmacının kayıtlı ihlali yok — mesajı elle yaz.'} İhlal uygulandığında bildirim <b>kendiliğinden</b> da oluşturulur.</p>
+    <h3 class="section-title" style="font-size:14px;margin:18px 0 8px;">Gönderilenler${unread ? ' · <span style="color:var(--yellow);">' + unread + ' okunmamış</span>' : ''}</h3>
+    ${list}`);
+}
 function renderDuyuru(){
   const root = document.getElementById('ligDuyuruRoot'); if(!root) return;
   const ann = state.oplabAnnouncement;
@@ -8683,7 +8788,23 @@ function onClick(e){
       if(app && confirm(`${app.name} için 15 dk kuralına istisna tanınsın mı? (Kural 15.4: yarışma yönetiminin ayrıca duyurması gerekir.) Kaçırılan süre telafi edilmez.`)){ app.lockedOut = false; app.lockOverride = true; saveShared(); addActivity(`${app.name} için 15 dk kuralına yönetim istisnası tanındı.`); }
       break;
     case 'review':
-      if(app){ app.reviewHalt = !app.reviewHalt; saveShared(); addActivity(`${app.name} — ${app.reviewHalt ? 'inceleme başlatıldı, hesabın işlemleri geçici olarak durduruldu (kural 12.3)' : 'inceleme bitti, işlemler yeniden açıldı (kural 12.4)'}.`); }
+      if(app){
+        app.reviewHalt = !app.reviewHalt;
+        // (13 Ekim 2026) İnceleme de sessiz başlamıyor/bitmiyor: yarışmacı
+        // neden durdurulduğunu ve sonucu OPLab'da pop-up olarak görüyor.
+        let sebep = '';
+        if(app.reviewHalt){
+          const yazilan = prompt(`${app.name} incelemeye alınıyor (kural 12.3).\n\nYarışmacıya gösterilecek sebep (boş bırakırsan sebep yazılmaz):`, '');
+          if(yazilan === null){ app.reviewHalt = false; return; }
+          sebep = String(yazilan).trim().slice(0, 300);
+        }
+        try{
+          const t = noticeReviewTemplate(app.reviewHalt, sebep);
+          pushNotice(app, { title: t.title, body: t.body, level: t.level, ruleNo: t.ruleNo, source: 'violation' });
+        }catch(err){ console.warn('[Lig] inceleme bildirimi oluşturulamadı:', err); }
+        saveShared();
+        addActivity(`${app.name} — ${app.reviewHalt ? 'inceleme başlatıldı, hesabın işlemleri geçici olarak durduruldu (kural 12.3)' : 'inceleme bitti, işlemler yeniden açıldı (kural 12.4)'}.`);
+      }
       break;
     case 'violation': if(app) openViolationModal(app); return;
     case 'reset-pf':
@@ -8699,6 +8820,39 @@ function onClick(e){
       if(!confirm(`Yarışma süresi ${m} dakika uzatılsın mı? (kural 13.5)`)) return;
       state.competitionEndsAt += m * 60000; state.competitionTotalMs = (state.competitionTotalMs || 0) + m * 60000;
       persist(); addActivity(`Yarışma süresi ${m} dk uzatıldı (kural 13.5) — yeni bitiş ${fmtDT(state.competitionEndsAt)}.`); break; }
+    case 'notice-send': {
+      const target = appById(b.dataset.app);
+      if(!target){ showToast('Alıcı bulunamadı.', 'error'); return; }
+      const title = (document.getElementById('ligNoticeTitle').value || '').trim().slice(0, 80);
+      const body = (document.getElementById('ligNoticeBody').value || '').trim().slice(0, 900);
+      const level = document.getElementById('ligNoticeLevel').value || 'warn';
+      if(!title || !body){ showToast('Başlık ve mesaj dolu olmalı.', 'warn'); return; }
+      if(!confirm(`${target.name} adlı yarışmacıya bildirim gönderilsin mi?\n\n${title}\n\n${body}\n\nOPLab'a girdiğinde pop-up olarak görecek.`)) return;
+      pushNotice(target, { title, body, level, source: 'manual', ruleNo: document.getElementById('ligNoticeRule').value || null });
+      showToast(`${target.name}: bildirim gönderildi.`, 'success');
+      render(true); return; }
+    case 'notice-del': {
+      const target = appById(b.dataset.app); const idx = Number(b.dataset.idx);
+      if(!target || !(target.notices || [])[idx]) return;
+      if(!confirm('Bu bildirim silinsin mi? Yarışmacı henüz görmediyse hiç görmeyecek.')) return;
+      target.notices.splice(idx, 1);
+      persist(); addActivity(`Bildirim silindi — ${target.name}.`);
+      render(true); return; }
+    case 'notice-quick': {
+      const q = NOTICE_QUICK[Number(b.dataset.i)]; if(!q) return;
+      document.getElementById('ligNoticeTitle').value = q.t;
+      document.getElementById('ligNoticeBody').value = q.b;
+      document.getElementById('ligNoticeLevel').value = 'warn';
+      document.getElementById('ligNoticeRule').value = q.r || '';
+      return; }
+    case 'notice-tpl': {
+      const target = appById(b.dataset.app); if(!target) return;
+      const t = noticeTemplate(target); if(!t){ showToast('Bu yarışmacının kayıtlı ihlali yok.', 'warn'); return; }
+      document.getElementById('ligNoticeTitle').value = t.title;
+      document.getElementById('ligNoticeBody').value = t.body;
+      document.getElementById('ligNoticeLevel').value = t.level;
+      document.getElementById('ligNoticeRule').value = t.ruleNo || '';
+      return; }
     case 'ann-send': case 'ann-quick': {
       const text = (act === 'ann-quick' ? b.dataset.text : document.getElementById('ligAnnText').value).trim().slice(0, 200);
       if(!text){ showToast('Duyuru metni boş.', 'warn'); return; }
@@ -8735,6 +8889,11 @@ function onClick(e){
 }
 function onChange(e){
   const t = e.target, s = S();
+  if(t.id === 'ligNoticeTo'){
+    const root = document.getElementById('ligUyariRoot');
+    if(root){ root.dataset.to = t.value; renderUyari(); }
+    return;
+  }
   if(t.dataset.sf){
     const k = t.dataset.sf;
     let v = t.type === 'checkbox' ? t.checked : t.value;
@@ -8793,7 +8952,7 @@ function fillKota(kotaEl, subEl){
 let renderPending = false;
 function render(force){
   fillYarismaCards();
-  ['ligSezonRoot', 'ligGunRoot', 'ligKararRoot', 'ligDuyuruRoot'].forEach(id => {
+  ['ligSezonRoot', 'ligGunRoot', 'ligKararRoot', 'ligDuyuruRoot', 'ligUyariRoot'].forEach(id => {
     const root = document.getElementById(id);
     if(!root) return;
     const page = root.closest('.page');
@@ -8801,11 +8960,11 @@ function render(force){
     const ae = document.activeElement;
     if(!force && ae && root.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)){ root.dataset.dirty = '1'; renderPending = true; return; }
     root.dataset.dirty = '';
-    if(id === 'ligSezonRoot') renderSezon(); else if(id === 'ligGunRoot') renderGun(); else if(id === 'ligDuyuruRoot') renderDuyuru(); else renderKarar();
+    if(id === 'ligSezonRoot') renderSezon(); else if(id === 'ligGunRoot') renderGun(); else if(id === 'ligDuyuruRoot') renderDuyuru(); else if(id === 'ligUyariRoot') renderUyari(); else renderKarar();
   });
 }
 document.addEventListener('focusout', () => { if(renderPending){ renderPending = false; setTimeout(() => render(), 150); } });
-['ligSezonRoot', 'ligGunRoot', 'ligKararRoot', 'ligDuyuruRoot'].forEach(id => {
+['ligSezonRoot', 'ligGunRoot', 'ligKararRoot', 'ligDuyuruRoot', 'ligUyariRoot'].forEach(id => {
   const root = document.getElementById(id);
   if(!root) return;
   root.addEventListener('click', onClick);
