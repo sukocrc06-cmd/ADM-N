@@ -1019,6 +1019,11 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 .lf-weeks{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:16px 0 18px}
 .lf-week{border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:10px 12px;background:var(--card-bg-2);min-width:0}
 .lf-week.cur{border-color:var(--blue);box-shadow:0 0 0 1px rgba(61,111,238,.35)}
+.lf-week{cursor:pointer;transition:border-color .15s,transform .1s}
+.lf-week:hover{border-color:var(--blue)}
+.lf-week:active{transform:scale(.99)}
+.lf-week.viewing{border-color:var(--yellow);box-shadow:0 0 0 1px rgba(250,204,21,.35)}
+.lf-week .peek{font-size:10.5px;color:var(--text-dimmer);margin-top:6px;letter-spacing:.04em}
 .lf-week .no{font-family:'Oswald',sans-serif;font-size:15px;letter-spacing:.03em}
 .lf-week .dt{font-size:11.5px;color:var(--text-dim);margin:2px 0 6px}
 .lf-week .st{font-size:11px;font-weight:700;letter-spacing:.04em}
@@ -4161,12 +4166,47 @@ function lfMigrateSchedule(){
   addActivity('Lig takvimi afişe göre güncellendi: ' + LF_SCHEDULE.map((w, i) => 'Hafta ' + (i + 1) + ' ' + lfShort(i + 1, c)).join(', ') + ', kapanış ' + lfDay(c.closingDate) + '.');
   saveShared();
 }
+/* ============ (14 Ekim 2026) HAFTA ŞERİDİNDE GEZİNME ============
+   Önceden alt paneldeki adımlar HER ZAMAN aktif haftayı gösteriyordu;
+   "Hafta 2'de kimler var" sorusuna bakılacak bir yer yoktu. Artık şeritteki
+   kutuya basınca o haftanın özeti açılıyor.
+
+   SADECE GÖRÜNTÜLEME: başka bir hafta seçiliyken işlem düğmeleri (başlat,
+   ilan et, kapat...) ÇIKMIYOR — çünkü hepsi state.currentCohortId üzerinde
+   çalışır, yanlış haftaya basmak kazaya davetiye olurdu. */
+let lfViewWeek = null;   // null = aktif hafta
+
+function lfWeekViewHtml(n, c){
+  const cur = Number(state.currentCohortId) || 1;
+  const apps = lfWeekApps(n), r = lfResult(n), ph = lfPhase(n), L = LF_PHASE[ph];
+  const kota = c.quota || 0;
+  const isim = apps.length
+    ? '<ul style="margin:8px 0 0 18px;font-size:13px;line-height:1.9;">' + apps.map(a => `<li>${escapeHtml(a.name || 'İsimsiz')}${a.disqualified ? ' <span style="color:#fca5a5;">· diskalifiye</span>' : ''}${a.pastCompetitor ? ' <span style="color:var(--text-dimmer);">· geçmiş</span>' : ''}</li>`).join('') + '</ul>'
+    : '<p style="color:var(--text-dim);">Bu haftaya henüz onaylı yarışmacı yok. Başvuru Onayları ekranında hedef haftayı seçerek buraya yarışmacı ekleyebilirsin.</p>';
+  const podyum = (r && r.podium) ? lfPodiumHtml(r.podium) : '';
+  return `<div class="lf-step now"><div class="n">👁</div><div>
+    <h4>Hafta ${n} — ${escapeHtml(lfRange(n, c))}</h4>
+    <p>Durum: <b style="color:${L[1]}">${L[0]}</b> · Yarışmacı: <b>${apps.length}/${kota || '∞'}</b>${n > cur ? ' · henüz başlamadı' : (n < cur ? ' · tamamlandı' : '')}</p>
+    ${podyum}
+    ${r && r.zirve ? `<p style="margin-top:8px;">🏔 Zirve temsilcisi: <b>${escapeHtml(r.zirve.name)}</b> (${r.zirve.rank}. sıra, ${lfPct(r.zirve.pct)})</p>` : ''}
+    ${isim}
+    <div class="btn-row" style="margin-top:14px;flex-wrap:wrap;">
+      <button type="button" class="btn btn-blue" id="lfBackToCur">← AKTİF HAFTAYA DÖN (Hafta ${cur})</button>
+      <button type="button" class="btn" data-nav="page-basvuru">BAŞVURU ONAYLARI</button>
+    </div>
+    <p style="margin-top:10px;">Buradan işlem yapılmaz — başlatma, ilan ve kapatma yalnızca aktif haftada (Hafta ${cur}) yapılabilir.</p>
+  </div></div>`;
+}
+
 function lfRender(force){
   const card = document.getElementById('ligFlowCard'); if(!card) return;
   try{ lfMigrateSchedule(); }catch(e){}
   if(!force && card.contains(document.activeElement) && /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
   const c = lfCfg(), cur = Number(state.currentCohortId) || 1;
   const finished = cur > c.totalWeeks;
+  // Geçerli değilse (ör. hafta sayısı küçüldü, ya da aktif haftaya dönüldü) sıfırla
+  const view = (lfViewWeek && lfViewWeek !== cur && lfViewWeek >= 1 && lfViewWeek <= c.totalWeeks) ? lfViewWeek : null;
+  if(lfViewWeek && !view) lfViewWeek = null;
   document.getElementById('lfSummary').innerHTML = c.on
     ? `${c.totalWeeks} hafta · haftada ${c.quota} yarışmacı · her hafta ${c.days} işlem günü · her haftanın 1.'si Zirve'ye · kapanış töreni <b>${escapeHtml(lfDay(c.closingDate, true))}</b>. ${finished ? '<b>Lig tamamlandı.</b>' : 'Şu an: <b>Hafta ' + cur + '</b>.'}`
     : 'Lig henüz kurulmadı. Test verilerini silip 1. haftayı hazırlamak için aşağıdaki düğmeyi kullan.';
@@ -4182,10 +4222,10 @@ function lfRender(force){
   for(let n = 1; n <= c.totalWeeks; n++){
     const ph = lfPhase(n), r = lfResult(n), L = LF_PHASE[ph];
     const win = r && r.zirve ? '🏔 ' + r.zirve.name : (r && r.podium && r.podium[0] ? '🥇 ' + r.podium[0].name : (ph === 'prep' || ph === 'live' ? lfWeekApps(n).length + '/' + c.quota + ' yarışmacı' : ''));
-    weeks += `<div class="lf-week${n === cur ? ' cur' : ''}"><div class="no">HAFTA ${n}</div><div class="dt">${escapeHtml(lfShort(n, c))}</div><div class="st" style="color:${L[1]}">${L[0]}</div>${win ? '<div class="win">' + escapeHtml(win) + '</div>' : ''}</div>`;
+    weeks += `<div class="lf-week${n === cur ? ' cur' : ''}${n === view ? ' viewing' : ''}" data-lfweek="${n}" role="button" tabindex="0" title="Hafta ${n} özetini göster"><div class="no">HAFTA ${n}</div><div class="dt">${escapeHtml(lfShort(n, c))}</div><div class="st" style="color:${L[1]}">${L[0]}</div>${win ? '<div class="win">' + escapeHtml(win) + '</div>' : ''}<div class="peek">${n === view ? 'GÖRÜNTÜLENİYOR' : (n === cur ? 'AKTİF' : 'GÖSTER →')}</div></div>`;
   }
   document.getElementById('lfWeeks').innerHTML = weeks;
-  document.getElementById('lfCurrent').innerHTML = finished ? lfFinishedHtml(c) : lfStepsHtml(cur, c);
+  document.getElementById('lfCurrent').innerHTML = view ? lfWeekViewHtml(view, c) : (finished ? lfFinishedHtml(c) : lfStepsHtml(cur, c));
   lfTickCountdown();
 }
 function lfFinishedHtml(c){
@@ -4645,10 +4685,30 @@ function lfOpenSettings(){
     close(); lfRenderAll(); showToast('Lig ayarları kaydedildi.', 'success');
   });
 }
+document.getElementById('ligFlowCard')?.addEventListener('keydown', function(e){
+  if(e.key !== 'Enter' && e.key !== ' ') return;
+  const kutu = e.target.closest('[data-lfweek]');
+  if(!kutu) return;
+  e.preventDefault();
+  const n = Number(kutu.dataset.lfweek);
+  lfViewWeek = (n === (Number(state.currentCohortId) || 1) || n === lfViewWeek) ? null : n;
+  lfRender(true);
+});
 document.getElementById('ligFlowCard')?.addEventListener('click', function(e){
+  // (14 Ekim 2026) Hafta şeridindeki kutuya basınca o haftanın özeti açılır.
+  // Düğme kontrolünden ÖNCE bakılıyor: kutunun içinde düğme yok, ama ileride
+  // eklenirse düğme kendi işini yapsın diye closest('button') öncelikli kalsın.
+  const kutu = e.target.closest('[data-lfweek]');
+  if(kutu && !e.target.closest('button')){
+    const n = Number(kutu.dataset.lfweek);
+    lfViewWeek = (n === (Number(state.currentCohortId) || 1) || n === lfViewWeek) ? null : n;
+    lfRender(true);
+    return;
+  }
   const b = e.target.closest('button'); if(!b || b.disabled) return;
   const nav = b.getAttribute('data-nav'); if(nav){ navigateTo(nav); return; }
   switch(b.id){
+    case 'lfBackToCur': lfViewWeek = null; lfRender(true); return;
     case 'lfResetBtn': lfReset(); break;
     case 'lfSetupBtn': lfSetup(); break;
     case 'lfSettingsBtn': lfOpenSettings(); break;
