@@ -2015,7 +2015,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 
       <div class="card">
         <h3 class="section-title">Kişiye Özel Alım-Satım Durumu</h3>
-        <p class="section-desc">Yukarıdaki "Alım-Satım Durumu" anahtarı HERKESİ birden kapatır. Burada ise tek tek kapatıp açarsınız — haftası gelmemiş yarışmacı siteye girebilir, gezebilir ama AL/SAT yapamaz.</p>
+        <p class="section-desc">Yukarıdaki anahtarlar HERKESİ birden etkiler. Burada tek tek kapatıp açarsınız — iki ayrı yetki var: <b>Alım-satım</b> kapalıysa yarışmacı siteye girip gezebilir ama AL/SAT yapamaz; <b>Erişim</b> kapalıysa siteye hiç giremez, tam ekran uyarı görür.</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
           <button class="btn" id="oplabKapatHaftaDisi" type="button">BU HAFTANIN DIŞINDAKİLERİ KAPAT</button>
           <button class="btn" id="oplabAcHepsi" type="button">HEPSİNE İZİN VER</button>
@@ -4444,6 +4444,38 @@ async function lfClose(){
   addActivity(last ? 'FinteLig ligi tamamlandı.' : `Hafta ${n} kapatıldı — Hafta ${n + 1} onayları açık.`);
   lfRenderAll();
 }
+/* ============ (14 Ekim 2026) BAŞVURUYU HANGİ HAFTAYA ONAYLAYALIM ============
+   Önceden onay her zaman AKTİF haftaya yazıyordu (app.cohortId =
+   state.currentCohortId) — süren yarışmaya ortadan katılım demek. Artık
+   admin hedef haftayı seçiyor; ileriki haftalara önceden onay verilebiliyor.
+   Seçenekler lig akışının haftalarından (lfCfg) geliyor, sezon planından
+   değil — kullanılan sistem bu. */
+function lfWeekOptionsHtml(selectedNo){
+  const c = lfCfg(), cur = Number(state.currentCohortId) || 1;
+  const sel = Number(selectedNo) || cur;
+  let out = '';
+  for(let n = 1; n <= c.totalWeeks; n++){
+    const dolu = lfWeekApps(n).length, kota = c.quota || 0;
+    const gecmis = n < cur;
+    const etiket = `Hafta ${n} · ${lfShort(n, c)} · ${dolu}/${kota || '∞'}`
+      + (n === cur ? ' · AKTİF' : (gecmis ? ' · geçti' : ''))
+      + (kota > 0 && dolu >= kota && n !== sel ? ' · DOLU' : '');
+    out += `<option value="${n}" ${n === sel ? 'selected' : ''} ${gecmis ? 'disabled' : ''}>${escapeHtml(etiket)}</option>`;
+  }
+  return out;
+}
+// Onay/taşıma öncesi kontrol: hafta geçerli mi, kota dolu mu?
+function lfWeekGuard(app, hedef){
+  const c = lfCfg(), cur = Number(state.currentCohortId) || 1;
+  const n = Number(hedef);
+  if(!(n >= 1 && n <= c.totalWeeks)) return { ok: false, msg: 'Geçerli bir hafta seç.' };
+  if(n < cur) return { ok: false, msg: `Hafta ${n} geçti — geçmiş bir haftaya onay verilemez.` };
+  const kota = c.quota || 0;
+  const dolu = lfWeekApps(n).filter(a => String(a.id) !== String(app.id)).length;
+  if(kota > 0 && dolu >= kota) return { ok: false, msg: `Hafta ${n} kotası dolu (${dolu}/${kota}). Başka bir hafta seç ya da lig ayarlarından kotayı artır.` };
+  return { ok: true, week: n };
+}
+
 /* ============ (13 Ekim 2026) AKTİF HAFTAYI GERİ AL ============
    12 Ekim'de haftalık rotasyon (checkCohortRotation) BAYAT bir
    cohortStartedAt (28 Eylül) yüzünden 20 saniye içinde üç kez tetiklendi:
@@ -5204,6 +5236,12 @@ function renderBasvuruDetail(){
     ${!app.studentDocUrl && !app.studentDocFileName && app.status !== 'onayli' ? `<p style="font-size:11px;color:var(--yellow);margin-bottom:6px;line-height:1.6;">⚠ Bu başvuruda öğrenci belgesi/kimlik fotoğrafı yok (muhtemelen bu özellikten önce başvurmuş) — öğrenci numarasının gerçekliğini teyit edemedin. Yine de onaylayabilirsin, karar sana ait.</p>` : ''}
     ${app.emailVerified === false && app.status !== 'onayli' ? `<p style="font-size:11px;color:var(--yellow);margin-bottom:10px;line-height:1.6;">⚠ Bu başvuru sahibi e-postasını henüz doğrulamadı. Yine de onaylayabilirsin, karar sana ait.</p>` : ''}
     ${window.LIG ? LIG.approveWeekSelectHtml(app) + LIG.assignWeekDetailHtml(app) : ''}
+    ${!ligSeasonOn() && state.ligFlow && app.status !== 'onayli' ? `<div style="margin-bottom:14px;"><div class="field-label">HANGİ HAFTAYA ONAYLANSIN</div>
+      <select id="lfApproveWeek" style="width:100%;background:var(--card-bg-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:10px 12px;color:var(--text);">${lfWeekOptionsHtml(state.currentCohortId)}</select>
+      <p style="font-size:11px;color:var(--text-dimmer);margin-top:6px;line-height:1.6;">Varsayılan aktif hafta. İleriki bir hafta seçersen yarışmacı o haftaya kaydedilir; süren yarışmaya katılmaz, haftası gelince otomatik açılır.</p></div>` : ''}
+    ${!ligSeasonOn() && state.ligFlow && app.status === 'onayli' && !app.pastCompetitor ? `<div style="margin-bottom:14px;"><div class="field-label">HAFTAYI DEĞİŞTİR</div>
+      <div style="display:flex;gap:8px;"><select id="lfMoveWeek" style="flex:1;background:var(--card-bg-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:10px 12px;color:var(--text);">${lfWeekOptionsHtml(app.cohortId)}</select><button class="btn" id="lfMoveWeekBtn">TAŞI</button></div>
+      <p style="font-size:11px;color:var(--text-dimmer);margin-top:6px;line-height:1.6;">Yanlış haftaya onayladıysan buradan taşıyabilirsin.</p></div>` : ''}
     ${app.rulesAcceptedAt || app.kvkkAcceptedAt ? `<div style="margin-bottom:14px;"><div class="field-label">ONAYLAR</div><div style="font-size:12.5px;color:var(--text-dim);line-height:1.7;">${app.rulesAcceptedAt ? '✓ Yarışma kuralları kabul' : '✗ Kural onayı yok'} · ${app.kvkkAcceptedAt ? '✓ KVKK' : '✗ KVKK yok'} · ${app.imageConsent ? '✓ Görüntü kullanım izni' : '— Görüntü izni yok'}</div></div>` : (app.status !== 'onayli' ? `<p style="font-size:11px;color:var(--text-dimmer);margin-bottom:10px;">Bu başvuru kural/KVKK onay kutuları eklenmeden önce yapılmış.</p>` : '')}
     <div class="btn-row">
       <button class="btn btn-green" style="flex:1;" id="approveAppBtn" ${app.status==='onayli'?'disabled':''}>ONAYLA</button>
@@ -5219,6 +5257,23 @@ function renderBasvuruDetail(){
     <p style="font-size:11px;color:var(--text-dimmer);margin-top:6px;">Diskalifiye edilen yarışmacı sıralamada/işlem akışında GÖRÜNMEYE devam eder (şeffaflık için) ama İLK 3 / dereceye giremez.</p>
     ` : ''}
     <button class="btn" style="width:100%;margin-top:10px;background:transparent;border:1px solid #fca5a5;color:#fca5a5;" id="deleteAppBtn">SİSTEMDEN SİL</button>`;
+  document.getElementById('lfMoveWeekBtn')?.addEventListener('click', ()=>{
+    const sel = document.getElementById('lfMoveWeek');
+    const hedef = sel ? Number(sel.value) : null;
+    if(hedef === Number(app.cohortId)){ showToast('Zaten o haftada.', 'warn'); return; }
+    const g = lfWeekGuard(app, hedef);
+    if(!g.ok){ showToast(g.msg, 'error'); return; }
+    const c = lfCfg();
+    if(!confirm(`${app.name} Hafta ${app.cohortId} → Hafta ${g.week} (${lfRange(g.week, c)}) taşınsın mı?\n\nPortföyüne ve kaydına dokunulmaz; yalnızca hangi hafta yarışacağı değişir.`)) return;
+    const eski = app.cohortId;
+    app.cohortId = g.week;
+    saveShared();
+    addActivity(`${app.name} Hafta ${eski} → Hafta ${g.week} taşındı.`);
+    showToast(`${app.name} → Hafta ${g.week}`, 'success');
+    renderBasvuruList(); renderBasvuruDetail(); renderKullaniciVeritabani(); syncYarismaSettingsUI();
+    try{ lfRender(true); }catch(e){}
+    try{ if(window.ftlKisiBlokRender) ftlKisiBlokRender(); }catch(e){}
+  });
   document.getElementById('approveAppBtn')?.addEventListener('click', ()=>{
     // (11 Ağustos 2026 — Madde #130: haftalık kota/kohort) Bu haftanın
     // (state.currentCohortId) AKTİF onaylı yarışmacı sayısı zaten kotayı
@@ -5233,16 +5288,26 @@ function renderBasvuruDetail(){
       if(!g.ok){ showToast(g.msg, 'error'); return; }
       LIG.approveIntoWeek(app, g.week);
     } else {
-    const quota = state.weeklyQuota || 0;
-    const activeInCohort = state.applications.filter(x => x.status==='onayli' && !x.pastCompetitor && x.cohortId===state.currentCohortId).length;
-    if(quota > 0 && activeInCohort >= quota){
-      showToast(`Hafta ${state.currentCohortId} için kota doldu (${activeInCohort}/${quota}). Bu haftanın süresi dolup otomatik arşivlenince yeni onaylar açılır.`, 'error');
-      return;
+    // (14 Ekim 2026) Hedef hafta seçilebiliyor — lig akışı açıkken seçicinin
+    // değeri, kapalıyken eskisi gibi aktif hafta.
+    const secici = document.getElementById('lfApproveWeek');
+    const hedefHafta = (state.ligFlow && secici) ? Number(secici.value) : (Number(state.currentCohortId) || 1);
+    if(state.ligFlow && secici){
+      const g = lfWeekGuard(app, hedefHafta);
+      if(!g.ok){ showToast(g.msg, 'error'); return; }
+    } else {
+      const quota = state.weeklyQuota || 0;
+      const activeInCohort = state.applications.filter(x => x.status==='onayli' && !x.pastCompetitor && x.cohortId===state.currentCohortId).length;
+      if(quota > 0 && activeInCohort >= quota){
+        showToast(`Hafta ${state.currentCohortId} için kota doldu (${activeInCohort}/${quota}). Bu haftanın süresi dolup otomatik arşivlenince yeni onaylar açılır.`, 'error');
+        return;
+      }
     }
     app.status='onayli'; app.approvedDate = new Date().toLocaleDateString('tr-TR');
-    app.cohortId = state.currentCohortId; app.pastCompetitor = false; app.pastCompetitorAt = null;
-    // Haftanın saati, o haftaya onaylanan İLK kişiyle başlar.
-    if(!state.cohortStartedAt) state.cohortStartedAt = new Date().toISOString();
+    app.cohortId = hedefHafta; app.pastCompetitor = false; app.pastCompetitorAt = null;
+    // Haftanın saati, AKTİF haftaya onaylanan İLK kişiyle başlar — ileriki bir
+    // haftaya onay vermek saati başlatmamalı.
+    if(!state.cohortStartedAt && hedefHafta === (Number(state.currentCohortId) || 1)) state.cohortStartedAt = new Date().toISOString();
     }
     showToast(app.name+' başvurusu onaylandı (Hafta '+app.cohortId+').','success');
     addActivity(`${app.name} başvurusu ONAYLANDI (Hafta ${app.cohortId}).`);
@@ -10067,7 +10132,11 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
       .map(a => ({
         app: a,
         haftaDisi: !!(a.cohortId && isFinite(buHafta) && Number(a.cohortId) !== buHafta),
-        blok: !!a.tradingBlocked
+        blok: !!a.tradingBlocked,
+        // (14 Ekim 2026) Erişim bloğu: alım-satımdan AYRI. Alım-satım kapalıyken
+        // yarışmacı siteye girip gezebilir, erişim kapalıyken hiç giremez
+        // (OPLab tam ekran kapıyı gösterir).
+        erisimBlok: !!a.accessBlocked
       }))
       .sort((x,y)=> String(x.app.name||'').localeCompare(String(y.app.name||''), 'tr'));
   }
@@ -10100,10 +10169,11 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
       String(k.app.email||'').toLowerCase().includes(q)) : hepsi;
 
     const kapali = hepsi.filter(k => k.blok).length;
+    const erisimKapali = hepsi.filter(k => k.erisimBlok).length;
     const ozet = document.getElementById('oplabErisimOzet');
     if(ozet){
       ozet.textContent = hepsi.length
-        ? `${hepsi.length} yarışmacıdan ${kapali} tanesinin alım-satımı kapalı`
+        ? `${hepsi.length} yarışmacıdan ${kapali} tanesinin alım-satımı, ${erisimKapali} tanesinin erişimi kapalı`
         : '';
     }
 
@@ -10114,9 +10184,10 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
 
     kutu.innerHTML = list.map(k => {
       const a = k.app;
-      const rozet = k.blok
-        ? '<span class="status-pill red">ALIM-SATIM KAPALI</span>'
-        : '<span class="status-pill green">İŞLEM YAPABİLİR</span>';
+      const rozet = k.erisimBlok
+        ? '<span class="status-pill red">ERİŞİM KAPALI</span>'
+        : (k.blok ? '<span class="status-pill red">ALIM-SATIM KAPALI</span>'
+                  : '<span class="status-pill green">İŞLEM YAPABİLİR</span>');
       const hafta = k.haftaDisi ? '<span class="status-pill yellow">bu hafta değil</span>' : '';
       return `
       <div class="list-item" style="cursor:default;${k.blok ? 'opacity:.72;' : ''}">
@@ -10126,7 +10197,8 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
         </div>
         <div style="display:flex;gap:8px;align-items:center;">
           ${hafta}${rozet}
-          <button class="btn lig-sm" data-ftlblock="${esc(a.id)}" data-kapat="${k.blok ? '0' : '1'}">${k.blok ? 'İzin ver' : 'Kapat'}</button>
+          <button class="btn lig-sm" data-ftlblock="${esc(a.id)}" data-kapat="${k.blok ? '0' : '1'}" title="Siteye girebilir, gezebilir — sadece AL/SAT kapanır">Alım-satım: ${k.blok ? 'aç' : 'kapat'}</button>
+          <button class="btn lig-sm" data-ftlaccess="${esc(a.id)}" data-kapat="${k.erisimBlok ? '0' : '1'}" style="border-color:${k.erisimBlok ? 'var(--green)' : '#fca5a5'};color:${k.erisimBlok ? 'var(--green)' : '#fca5a5'};" title="Siteye hiç giremez — tam ekran uyarı görür">Erişim: ${k.erisimBlok ? 'aç' : 'kapat'}</button>
         </div>
       </div>`;
     }).join('');
@@ -10147,6 +10219,18 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
     const kapat = btn.dataset.kapat === '1';
     uygula(app, kapat);
     kaydet(`${app.name} — alım-satım ${kapat ? 'KAPATILDI' : 'açıldı'} (kişiye özel).`);
+  });
+
+  // (14 Ekim 2026) Kişiye özel ERİŞİM: OPLab'a hiç giremez (tam ekran kapı).
+  document.addEventListener('click', function(e){
+    const btn = e.target.closest('[data-ftlaccess]');
+    if(!btn) return;
+    const app = (state.applications || []).find(x => String(x.id) === String(btn.dataset.ftlaccess));
+    if(!app) return;
+    const kapat = btn.dataset.kapat === '1';
+    if(kapat && !confirm(`${app.name} OPLab'a HİÇ giremesin mi?\n\nSiteyi açtığında tam ekran bir uyarı görür; gezemez, işlem yapamaz. Portföyü ve kaydı korunur.`)) return;
+    app.accessBlocked = !!kapat;
+    kaydet(`${app.name} — OPLab erişimi ${kapat ? 'KAPATILDI' : 'açıldı'} (kişiye özel).`);
   });
 
   const ara = document.getElementById('oplabKisiAra');
