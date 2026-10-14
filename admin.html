@@ -2020,7 +2020,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 
       <div class="card">
         <h3 class="section-title">Kişiye Özel Alım-Satım Durumu</h3>
-        <p class="section-desc">Yukarıdaki anahtarlar HERKESİ birden etkiler. Burada tek tek kapatıp açarsınız — iki ayrı yetki var: <b>Alım-satım</b> kapalıysa yarışmacı siteye girip gezebilir ama AL/SAT yapamaz; <b>Erişim</b> kapalıysa siteye hiç giremez, tam ekran uyarı görür.</p>
+        <p class="section-desc">Yukarıdaki anahtarlar HERKESİ birden etkiler. Burada tek tek kapatıp açarsınız — üç ayrı düğme var: <b>Alım-satım</b> kapalıysa yarışmacı siteye girip gezebilir ama AL/SAT yapamaz; <b>Erişim</b> kapalıysa siteye hiç giremez, tam ekran uyarı görür; <b>Sıralamadan çıkar</b> ise yarış pisti, yayın ve herkese açık sıralamada görünmemesini sağlar (işlem yapmaya devam eder).</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
           <button class="btn" id="oplabKapatHaftaDisi" type="button">BU HAFTANIN DIŞINDAKİLERİ KAPAT</button>
           <button class="btn" id="oplabAcHepsi" type="button">HEPSİNE İZİN VER</button>
@@ -2799,12 +2799,24 @@ function isRankExcluded(appId){
 // (Sonuçlar, Canlı İzleme, yayın, yarışma bitişi) yalnızca BU HAFTANIN aktif
 // (onaylı, geçmişe alınmamış) yarışmacıları arasından yapılmalı. Önceden
 // geçen haftanın birincisi bu haftanın sıralamasında da görünüyordu.
-function rankingPool(){
+/* (14 Ekim 2026) applications[i].hiddenFromBoard — "sıralamadan çıkar".
+   Diskalifiyeden FARKLI: diskalifiye edilen listede GÖRÜNMEYE devam eder
+   (şeffaflık için) ama dereceye giremez; burada kişi hiç görünmez.
+   Nerede gizlenir: yarış pisti/sahne modu, yayın, herkese açık sıralama ve
+   yarışma bitince arşivlenen final sıralaması. Nerede görünür: adminin
+   Canlı İzleme ekranı (GİZLİ rozetiyle) ve Kullanıcı Portföyleri — yoksa
+   admin kendi gizlediği kişiyi takip edemezdi. */
+function isBoardHidden(id){
+  const a = (state.applications || []).find(x => String(x.id) === String(id));
+  return !!(a && a.hiddenFromBoard);
+}
+function rankingPool(includeHidden){
   // (26 Eylül 2026) Sezon planı açıkken yalnızca AKTİF haftanın (currentCohortId)
   // yarışmacıları — ileri haftalara önceden onaylananlar bu haftanın sıralamasına girmez.
   const season = ligSeasonOn();
   const activeIds = new Set(state.applications
-    .filter(a => a.status === 'onayli' && !a.pastCompetitor && (!season || Number(a.cohortId) === Number(state.currentCohortId)) && !(a.lockedOut && !a.lockOverride))
+    .filter(a => a.status === 'onayli' && !a.pastCompetitor && (!season || Number(a.cohortId) === Number(state.currentCohortId)) && !(a.lockedOut && !a.lockOverride)
+      && (includeHidden || !a.hiddenFromBoard))
     .map(a => String(a.id)));
   return oplabPortfolioData.filter(c => activeIds.has(String(c.id)));
 }
@@ -2948,14 +2960,17 @@ if(AUTH_ENABLED) firebase.auth().onAuthStateChanged(() => { try{ yyPubStatus(); 
 // Aktif haftanın onaylı yarışmacıları: OPLab'a henüz giriş yapmamış olanlar da
 // başlangıç bakiyesiyle listeye eklenir (waiting). Final/doğrulama akışı
 // rankingPool()'u kullanmaya devam eder; bu yalnızca görüntüleme içindir.
-function weekRoster(){
-  const pool = rankingPool();
-  if(!state.competitionActive) return pool;
-  const have = new Set(pool.map(c => String(c.id)));
-  const base = getBaslangicBakiyesi();
-  state.applications
-    .filter(a => a.status === 'onayli' && !a.pastCompetitor && (!ligSeasonOn() || Number(a.cohortId) === Number(state.currentCohortId)) && !(a.lockedOut && !a.lockOverride) && !have.has(String(a.id)))
-    .forEach(a => pool.push({ id: String(a.id), name: a.name, email: a.email, equity: base, balance: base, positionsCount: 0, updatedAt: null, waiting: true }));
+function weekRoster(includeHidden){
+  const pool = rankingPool(includeHidden);
+  if(state.competitionActive){
+    const have = new Set(pool.map(c => String(c.id)));
+    const base = getBaslangicBakiyesi();
+    state.applications
+      .filter(a => a.status === 'onayli' && !a.pastCompetitor && (!ligSeasonOn() || Number(a.cohortId) === Number(state.currentCohortId)) && !(a.lockedOut && !a.lockOverride) && !have.has(String(a.id))
+        && (includeHidden || !a.hiddenFromBoard))
+      .forEach(a => pool.push({ id: String(a.id), name: a.name, email: a.email, equity: base, balance: base, positionsCount: 0, updatedAt: null, waiting: true }));
+  }
+  if(includeHidden) pool.forEach(c => { c.hidden = isBoardHidden(c.id); });
   return pool;
 }
 function buildPublicLeaderboard(){
@@ -6048,7 +6063,9 @@ function renderCanliIzleme(){
   const liderAdEl = document.getElementById('canliLiderAd');
   const tabloEl = document.getElementById('canliLiderlikTablosu');
   const sonGuncellenenlerEl = document.getElementById('canliSonGuncellenenler');
-  const data = weekRoster(); // bu haftanın yarışmacıları (OPLab'a henüz girmemiş olanlar dahil)
+  // (14 Ekim 2026) true: "sıralamadan çıkarılanlar" admine GÖRÜNÜR (GİZLİ
+  // rozetiyle) — yayına/pistine çıkmazlar ama admin takibi kaybetmesin.
+  const data = weekRoster(true); // bu haftanın yarışmacıları (OPLab'a henüz girmemiş olanlar dahil)
 
   katilimciEl.textContent = data.length;
   acikPosEl.textContent = data.reduce((sum,c)=> sum + (c.positionsCount||0), 0);
@@ -6076,7 +6093,7 @@ function renderCanliIzleme(){
     const pct = pctReturn(c.equity||0);
     return `<div class="list-item" style="cursor:pointer;${selectedCanliAppId===c.id?'border-color:var(--blue);':''}" data-canli-id="${c.id}">
       <div>
-        <div style="font-weight:600;font-size:14px;">${i+1}. ${escapeHtml(c.name) || 'İsimsiz'}</div>
+        <div style="font-weight:600;font-size:14px;">${i+1}. ${escapeHtml(c.name) || 'İsimsiz'}${c.hidden ? ' <span class="status-pill" style="font-size:9.5px;padding:2px 6px;border-color:var(--yellow);color:var(--yellow);">GİZLİ</span>' : ''}</div>
         <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${c.waiting ? '<span style="color:var(--yellow);">OPLab\'a henüz giriş yapmadı</span> • başlangıç bakiyesi ' + fmtTRY(c.equity||0) : `Özkaynak: ${fmtTRY(c.equity||0)} • ${c.positionsCount||0} açık pozisyon`}</div>
       </div>
       <span class="status-pill ${pct>=0?'green':'red'}">${pct>=0?'+':''}${pct.toFixed(2)}%</span>
@@ -10196,7 +10213,9 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
         // (14 Ekim 2026) Erişim bloğu: alım-satımdan AYRI. Alım-satım kapalıyken
         // yarışmacı siteye girip gezebilir, erişim kapalıyken hiç giremez
         // (OPLab tam ekran kapıyı gösterir).
-        erisimBlok: !!a.accessBlocked
+        erisimBlok: !!a.accessBlocked,
+        // (14 Ekim 2026) Yarış pistinde/yayında görünmesin — bkz. rankingPool
+        gizli: !!a.hiddenFromBoard
       }))
       .sort((x,y)=> String(x.app.name||'').localeCompare(String(y.app.name||''), 'tr'));
   }
@@ -10230,10 +10249,11 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
 
     const kapali = hepsi.filter(k => k.blok).length;
     const erisimKapali = hepsi.filter(k => k.erisimBlok).length;
+    const gizliSayi = hepsi.filter(k => k.gizli).length;
     const ozet = document.getElementById('oplabErisimOzet');
     if(ozet){
       ozet.textContent = hepsi.length
-        ? `${hepsi.length} yarışmacıdan ${kapali} tanesinin alım-satımı, ${erisimKapali} tanesinin erişimi kapalı`
+        ? `${hepsi.length} yarışmacıdan ${kapali} tanesinin alım-satımı, ${erisimKapali} tanesinin erişimi kapalı` + (gizliSayi ? `, ${gizliSayi} tanesi sıralamada görünmüyor` : '')
         : '';
     }
 
@@ -10244,10 +10264,11 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
 
     kutu.innerHTML = list.map(k => {
       const a = k.app;
-      const rozet = k.erisimBlok
+      const rozet = (k.erisimBlok
         ? '<span class="status-pill red">ERİŞİM KAPALI</span>'
         : (k.blok ? '<span class="status-pill red">ALIM-SATIM KAPALI</span>'
-                  : '<span class="status-pill green">İŞLEM YAPABİLİR</span>');
+                  : '<span class="status-pill green">İŞLEM YAPABİLİR</span>'))
+        + (k.gizli ? '<span class="status-pill yellow">SIRALAMADA YOK</span>' : '');
       const hafta = k.haftaDisi ? '<span class="status-pill yellow">bu hafta değil</span>' : '';
       return `
       <div class="list-item" style="cursor:default;${k.blok ? 'opacity:.72;' : ''}">
@@ -10259,6 +10280,7 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
           ${hafta}${rozet}
           <button class="btn lig-sm" data-ftlblock="${esc(a.id)}" data-kapat="${k.blok ? '0' : '1'}" title="Siteye girebilir, gezebilir — sadece AL/SAT kapanır">Alım-satım: ${k.blok ? 'aç' : 'kapat'}</button>
           <button class="btn lig-sm" data-ftlaccess="${esc(a.id)}" data-kapat="${k.erisimBlok ? '0' : '1'}" style="border-color:${k.erisimBlok ? 'var(--green)' : '#fca5a5'};color:${k.erisimBlok ? 'var(--green)' : '#fca5a5'};" title="Siteye hiç giremez — tam ekran uyarı görür">Erişim: ${k.erisimBlok ? 'aç' : 'kapat'}</button>
+          <button class="btn lig-sm" data-ftlhide="${esc(a.id)}" data-kapat="${k.gizli ? '0' : '1'}" style="border-color:var(--yellow);color:var(--yellow);" title="Yarış pisti, yayın, herkese açık sıralama ve final sonucunda görünmez. İşlem yapmaya devam eder.">${k.gizli ? 'Sıralamaya al' : 'Sıralamadan çıkar'}</button>
         </div>
       </div>`;
     }).join('');
@@ -10279,6 +10301,21 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
     const kapat = btn.dataset.kapat === '1';
     uygula(app, kapat);
     kaydet(`${app.name} — alım-satım ${kapat ? 'KAPATILDI' : 'açıldı'} (kişiye özel).`);
+  });
+
+  // (14 Ekim 2026) SIRALAMADAN ÇIKAR: yarış pisti/yayın/herkese açık sıralama
+  // ve final arşivinde görünmez. İşlem yapmaya devam eder, portföyü durur.
+  document.addEventListener('click', function(e){
+    const btn = e.target.closest('[data-ftlhide]');
+    if(!btn) return;
+    const app = (state.applications || []).find(x => String(x.id) === String(btn.dataset.ftlhide));
+    if(!app) return;
+    const kapat = btn.dataset.kapat === '1';
+    if(kapat && !confirm(`${app.name} sıralamadan çıkarılsın mı?\n\n• Yarış pistinde, sahne modunda ve yayında GÖRÜNMEZ\n• Siteye açık sıralamada görünmez\n• İşlem yapmaya devam eder, portföyü korunur\n• Sen Canlı İzleme'de "GİZLİ" rozetiyle görmeye devam edersin\n\nDİKKAT: bu hafta gizliyken kapatılırsa o haftanın arşiv sonucunda da yer almaz.`)) return;
+    app.hiddenFromBoard = !!kapat;
+    try{ schedulePublicLeaderboard(true); }catch(err){}
+    try{ renderCanliIzleme(); renderSonuclar(); renderYayinPreview(); renderStageMode(); }catch(err){}
+    kaydet(`${app.name} — ${kapat ? 'sıralamadan ÇIKARILDI' : 'sıralamaya geri alındı'} (yarış pisti/yayın).`);
   });
 
   // (14 Ekim 2026) Kişiye özel ERİŞİM: OPLab'a hiç giremez (tam ekran kapı).
