@@ -2020,10 +2020,11 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
 
       <div class="card">
         <h3 class="section-title">Kişiye Özel Alım-Satım Durumu</h3>
-        <p class="section-desc">Yukarıdaki anahtarlar HERKESİ birden etkiler. Burada tek tek kapatıp açarsınız — üç ayrı düğme var: <b>Alım-satım</b> kapalıysa yarışmacı siteye girip gezebilir ama AL/SAT yapamaz; <b>Erişim</b> kapalıysa siteye hiç giremez, tam ekran uyarı görür; <b>Sıralamadan çıkar</b> ise yarış pisti, yayın ve herkese açık sıralamada görünmemesini sağlar (işlem yapmaya devam eder).</p>
+        <p class="section-desc">Yukarıdaki anahtarlar HERKESİ birden etkiler. Burada tek tek kapatıp açarsınız — üç ayrı düğme var: <b>Alım-satım</b> kapalıysa yarışmacı siteye girip gezebilir ama AL/SAT yapamaz; <b>Erişim</b> kapalıysa siteye hiç giremez, tam ekran uyarı görür; <b>Sıralamadan çıkar</b> ise yarış pisti, yayın ve herkese açık sıralamada görünmemesini sağlar (işlem yapmaya devam eder). Başka haftanın yarışmacıları için buna gerek yok — hafta filtresi otomatik.</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
           <button class="btn" id="oplabKapatHaftaDisi" type="button">BU HAFTANIN DIŞINDAKİLERİ KAPAT</button>
           <button class="btn" id="oplabAcHepsi" type="button">HEPSİNE İZİN VER</button>
+          <button class="btn" id="oplabSiralamayaAlHepsi" type="button">SIRALAMAYA GERİ AL (HEPSİ)</button>
           <span class="section-desc" style="margin:0;align-self:center;" id="oplabErisimOzet"></span>
         </div>
         <div class="search-row" style="margin-bottom:12px;">
@@ -2799,6 +2800,26 @@ function isRankExcluded(appId){
 // (Sonuçlar, Canlı İzleme, yayın, yarışma bitişi) yalnızca BU HAFTANIN aktif
 // (onaylı, geçmişe alınmamış) yarışmacıları arasından yapılmalı. Önceden
 // geçen haftanın birincisi bu haftanın sıralamasında da görünüyordu.
+/* (15 Ekim 2026) HAFTA FİLTRESİ — "bu haftanın yarışmacısı kim?"
+   Filtre önceden YALNIZCA sezon planı açıkken uygulanıyordu (ligSeasonOn),
+   o da 27 Eylül'de kalıcı olarak kapatıldı. Lig akışı (ligFlow) devreye
+   girince filtre fiilen devre dışı kaldı: Hafta 2'ye önceden onaylanan
+   yarışmacılar, süren Hafta 1'in sıralamasında, yayınında ve sahne
+   modunda göründü. Admin bunu tek tek "sıralamadan çıkar" ile kapatmak
+   zorunda kalıyordu. Artık lig akışı açıkken de hafta filtresi uygulanıyor.
+
+   cohortId'si olmayan ESKİ kayıtlar aktif haftaya ait sayılır — haftalı
+   sistem öncesinden kalan yarışmacılar aniden kaybolmasın. */
+function haftaFiltresiAktif(){
+  return ligSeasonOn() || !!state.ligFlow;
+}
+function buHaftaninYarismacisiMi(a){
+  if(!haftaFiltresiAktif()) return true;
+  const c = Number(a && a.cohortId);
+  if(!isFinite(c) || c <= 0) return true;
+  return c === (Number(state.currentCohortId) || 1);
+}
+
 /* (14 Ekim 2026) applications[i].hiddenFromBoard — "sıralamadan çıkar".
    Diskalifiyeden FARKLI: diskalifiye edilen listede GÖRÜNMEYE devam eder
    (şeffaflık için) ama dereceye giremez; burada kişi hiç görünmez.
@@ -2813,9 +2834,8 @@ function isBoardHidden(id){
 function rankingPool(includeHidden){
   // (26 Eylül 2026) Sezon planı açıkken yalnızca AKTİF haftanın (currentCohortId)
   // yarışmacıları — ileri haftalara önceden onaylananlar bu haftanın sıralamasına girmez.
-  const season = ligSeasonOn();
   const activeIds = new Set(state.applications
-    .filter(a => a.status === 'onayli' && !a.pastCompetitor && (!season || Number(a.cohortId) === Number(state.currentCohortId)) && !(a.lockedOut && !a.lockOverride)
+    .filter(a => a.status === 'onayli' && !a.pastCompetitor && buHaftaninYarismacisiMi(a) && !(a.lockedOut && !a.lockOverride)
       && (includeHidden || !a.hiddenFromBoard))
     .map(a => String(a.id)));
   return oplabPortfolioData.filter(c => activeIds.has(String(c.id)));
@@ -2966,7 +2986,7 @@ function weekRoster(includeHidden){
     const have = new Set(pool.map(c => String(c.id)));
     const base = getBaslangicBakiyesi();
     state.applications
-      .filter(a => a.status === 'onayli' && !a.pastCompetitor && (!ligSeasonOn() || Number(a.cohortId) === Number(state.currentCohortId)) && !(a.lockedOut && !a.lockOverride) && !have.has(String(a.id))
+      .filter(a => a.status === 'onayli' && !a.pastCompetitor && buHaftaninYarismacisiMi(a) && !(a.lockedOut && !a.lockOverride) && !have.has(String(a.id))
         && (includeHidden || !a.hiddenFromBoard))
       .forEach(a => pool.push({ id: String(a.id), name: a.name, email: a.email, equity: base, balance: base, positionsCount: 0, updatedAt: null, waiting: true }));
   }
@@ -4471,6 +4491,85 @@ function haftaIslemOnayi(baslik, satirlar, dugmeMetni){
     setTimeout(() => { try{ inp.focus(); }catch(e){} }, 30);
   });
 }
+/* ============ (15 Ekim 2026) HAFTAYI KAPATMA AKIŞI ============
+   "HAFTAYI ŞİMDİ BİTİR" eskiden tek onayla doğrudan rotateCohort'a
+   gidiyordu: Zirve temsilcisi sorulmuyor, boş kalmış final sıralaması
+   onarılmıyordu. 15 Ekim'de Hafta 1 tam olarak böyle kapanmak üzereydi —
+   yarışma bitirildiğinde canlı portföy verisi henüz gelmediği için
+   Yarışma Geçmişi kaydı 0 katılımcı / 0 sıralama yazılmıştı.
+
+   Akış artık dört adım: şifre → (gerekiyorsa) sıralamayı onar →
+   Zirve temsilcisini seç → kapat. Her adımda iptal edilebilir. */
+
+// Sıralamadan Zirve temsilcisini seçtirir.
+// Dönüş: seçilen satır | null (kimse alınmasın) | undefined (iptal)
+function haftaZirveSecModal(haftaNo, sira){
+  return new Promise(function(resolve){
+    let bitti = false;
+    const back = document.createElement('div');
+    back.className = 'lig-modal-back';
+    const satirlar = sira.map((r, i) => {
+      const pct = Number(r.pct) || 0;
+      return `<label style="display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);margin-bottom:6px;cursor:pointer;">
+        <input type="radio" name="hzSec" value="${i}" ${i === 0 ? 'checked' : ''} style="margin:0;">
+        <span style="font-weight:700;min-width:22px;">${i + 1}.</span>
+        <span style="flex:1;min-width:0;">${escapeHtml(r.name || 'İsimsiz')}${r.mismatch ? ' <span class="status-pill yellow" style="font-size:9px;padding:1px 5px;">KONTROL ET</span>' : ''}</span>
+        <span style="color:${pct >= 0 ? 'var(--green)' : '#fca5a5'};font-weight:700;">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</span>
+      </label>`;
+    }).join('');
+    back.innerHTML = `<div class="lig-modal" role="dialog" aria-modal="true" style="max-width:560px;">
+      <h3 class="section-title" style="font-size:17px;margin:0 0 4px;">Hafta ${haftaNo} — Zirve 27 temsilcisi</h3>
+      <p class="section-desc" style="margin-bottom:12px;">Kural 9.5/9.10: en yüksek getiri haftanın birincisidir. Kural 9.12: birinci katılamazsa hak 2.'ye, o da katılamazsa 3.'ye geçer.</p>
+      ${sira.length ? satirlar : '<p style="color:#fca5a5;">Sıralama boş — temsilci seçilemiyor.</p>'}
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12.5px;color:var(--text-dim);">
+        <input type="checkbox" id="hzYok" style="margin:0;"> Bu hafta Zirve temsilcisi belirlenmesin
+      </label>
+      <div class="btn-row" style="margin-top:18px;"><button type="button" class="btn" id="hzIptal">İPTAL</button><button type="button" class="btn btn-green" id="hzTamam">DEVAM</button></div>
+    </div>`;
+    document.body.appendChild(back);
+    function kapat(v){ if(bitti) return; bitti = true; document.removeEventListener('keydown', tus, true); back.remove(); resolve(v); }
+    function tus(e){ if(e.key === 'Escape'){ e.preventDefault(); kapat(undefined); } }
+    document.addEventListener('keydown', tus, true);
+    back.addEventListener('click', e => { if(e.target === back) kapat(undefined); });
+    back.querySelector('#hzIptal').addEventListener('click', () => kapat(undefined));
+    back.querySelector('#hzTamam').addEventListener('click', () => {
+      if(back.querySelector('#hzYok').checked){ kapat(null); return; }
+      const sec = back.querySelector('input[name="hzSec"]:checked');
+      if(!sec){ showToast('Bir yarışmacı seç ya da "temsilci belirlenmesin" kutusunu işaretle.', 'warn'); return; }
+      const i = Number(sec.value), r = sira[i];
+      if(i !== 0 && !confirm(`${sira[0].name} birinci sırada.\n\n${r.name} (${i + 1}. sıra) Zirve'ye alınacak.\nBu ancak üstündekiler katılamayacaksa kural 9.12'ye uygundur.\n\nDevam edilsin mi?`)) return;
+      kapat(Object.assign({}, r, { rank: i + 1 }));
+    });
+    setTimeout(() => { try{ back.querySelector('#hzTamam').focus(); }catch(e){} }, 30);
+  });
+}
+
+// Boş kalmış final sıralamasını canlı portföy verisinden yeniden kurar.
+// Dönüş: true = sıralama artık dolu, false = kurulamadı.
+async function haftaFinalSiralamasiniOnar(rec){
+  if(!rec) return false;
+  if(Array.isArray(rec.ranking) && rec.ranking.length) return true;
+  const pool = rankingPool();
+  if(!pool.length){
+    alert('Final sıralaması boş ve canlı portföy verisi de gelmemiş.\n\nCanlı İzleme sayfasını açıp yarışmacıların özkaynak değerlerinin geldiğini gör, sonra tekrar dene. Boş veriyle kapatırsan haftanın sonuçları kalıcı olarak sıfır yazılır.');
+    return false;
+  }
+  const sorted = pool.slice().sort((a, b) => (b.equity || 0) - (a.equity || 0));
+  if(!confirm(`Bu haftanın final sıralaması BOŞ kaydedilmiş (0 katılımcı).\n\nCanlı portföy verisinden ${sorted.length} yarışmacıyla yeniden kurulsun mu?\n\n` +
+      sorted.slice(0, 10).map((c, i) => `${i + 1}. ${c.name} — ${fmtTRY(c.equity || 0)} (${pctReturn(c.equity || 0).toFixed(2)}%)`).join('\n') +
+      `\n\nArdından kişisel portföy kayıtlarından doğrulanacak (kural 9.2/9.4/9.7).`)) return false;
+  rec.ranking = sorted.map(c => ({
+    name: c.name || 'İsimsiz', email: c.email || '', appId: c.id,
+    positions: (c.positions || []).map(x => ({ symbol: x.symbol, market: x.market, currentPrice: x.currentPrice })),
+    equity: c.equity || 0, pct: pctReturn(c.equity || 0)
+  }));
+  rec.participantCount = rec.ranking.length;
+  saveShared();
+  addActivity(`Hafta ${rec.weekNo || ''} final sıralaması canlı portföy verisinden yeniden kuruldu (${rec.ranking.length} yarışmacı).`);
+  try{ await verifyFinalRanking(rec.id); }catch(e){ console.warn('[Hafta kapat] doğrulama atlandı:', e); }
+  return true;
+}
+
 async function lfClose(){
   const n = Number(state.currentCohortId) || 1, c = lfCfg(), w = lfLigWeek(n), last = n >= c.totalWeeks;
   if(lfPhase(n) !== 'zirve'){ showToast('Önce Zirve temsilcisini belirle.', 'warn'); return; }
@@ -6241,10 +6340,9 @@ function renderCanliDetay(){
    olmayanlar "veri yok" etiketiyle görünüyor ve seçilebiliyor.
    Havuz ölçütü rankingPool() ile aynı (sezon/hafta, pastCompetitor, lockout). */
 function portfoyAdaylari(){
-  const season = (typeof ligSeasonOn === 'function') ? ligSeasonOn() : false;
   const apps = (state.applications || []).filter(a =>
     a.status === 'onayli' && !a.pastCompetitor &&
-    (!season || Number(a.cohortId) === Number(state.currentCohortId)) &&
+    buHaftaninYarismacisiMi(a) &&
     !(a.lockedOut && !a.lockOverride));
   const liveById = {}, actById = {};
   (oplabPortfolioData || []).forEach(c => { liveById[String(c.id)] = c; });
@@ -6848,9 +6946,46 @@ document.getElementById('endCohortNowBtn')?.addEventListener('click', async func
   satirlar.push(`${activeCount} onaylı yarışmacı "geçmiş yarışmacı" statüsüne alınacak`);
   satirlar.push('Performansları Yarışma Geçmişi\'ne kaydedilecek');
   satirlar.push(`Hafta ${cohortId+1} için kota anında açılacak`);
-  const ok = await haftaIslemOnayi(`HAFTA ${cohortId} ELLE BİTİRİLİYOR`, satirlar, `HAFTA ${cohortId}'İ BİTİR`);
+  satirlar.push('Sonraki adımda Zirve 27 temsilcisini seçeceksin');
+  const ok = await haftaIslemOnayi(`HAFTA ${cohortId} KAPATILIYOR`, satirlar, 'DEVAM');
   if(!ok) return;
+
+  // 1) Yarışma hâlâ sürüyorsa ÖNCE bitir — final sıralama bu haftanın
+  //    yarışmacılarıyla alınsın, kapatma sonrası değil.
+  if(state.competitionActive) finishCompetition(`Hafta ${cohortId} kapatılıyor`);
+
+  // 2) Final sıralaması boş kaldıysa canlı veriden onar + doğrula.
+  const w0 = window.LIG ? LIG.weekByNo(cohortId) : null;
+  let rec = (w0 && window.LIG) ? LIG.historyFor(w0) : null;
+  if(!rec) rec = (state.competitionHistory || []).find(h => Number(h.weekNo) === Number(cohortId)) || (state.competitionHistory || [])[0];
+  const siralamaVar = await haftaFinalSiralamasiniOnar(rec);
+
+  // 3) Zirve temsilcisini seçtir.
+  const sira = (siralamaVar && rec) ? (window.LIG ? LIG.eligibleRanking(rec) : (rec.ranking || [])) : [];
+  let secilen = null;
+  if(sira.length){
+    secilen = await haftaZirveSecModal(cohortId, sira);
+    if(secilen === undefined) return;          // iptal — hiçbir şey yapılmadı
+  } else if(!confirm(`Bu hafta için sıralama yok, Zirve temsilcisi seçilemiyor.\n\nHafta yine de kapatılsın mı?`)) return;
+
+  // 4) Uygula.
+  if(secilen){
+    try{
+      if(w0){
+        w0.finalist = { appId: secilen.appId, name: secilen.name, rank: secilen.rank, pct: Number(secilen.pct) || 0, status: 'katilacak', at: Date.now() };
+        w0.finalistHistory = w0.finalistHistory || [];
+      }
+      if(!(state.zirvePromotedAppIds && state.zirvePromotedAppIds[Number(secilen.appId)])) promoteToZirve(Number(secilen.appId), true);
+      addActivity(`Hafta ${cohortId} Zirve 27 temsilcisi: ${secilen.name} (${secilen.rank}. sıra).`);
+    }catch(err){
+      console.warn('[Hafta kapat] Zirve kaydı oluşturulamadı:', err);
+      if(!confirm('Zirve kaydı oluşturulamadı. Hafta yine de kapatılsın mı?')) return;
+    }
+  }
   rotateCohort('admin tarafından elle bitirildi');
+  try{ schedulePublicLeaderboard(true); }catch(err){}
+  try{ lfRenderAll(); }catch(err){}
+  showToast(`Hafta ${cohortId} kapandı — aktif hafta ${state.currentCohortId}.` + (secilen ? ` Zirve: ${secilen.name}.` : ''), 'success');
 });
 
 // (11 Ağustos 2026 — Madde #131: Genel Sıralama + Zirve'ye Yükseltme)
@@ -10357,6 +10492,20 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
     if(!confirm(`${hedef.length} yarışmacının alım-satımı kapatılsın mı? (Bu haftanın yarışmacısı olmayanlar)`)) return;
     hedef.forEach(k => uygula(k.app, true));
     kaydet(`${hedef.length} yarışmacının alım-satımı kapatıldı (bu haftanın dışındakiler).`);
+  });
+
+  // (15 Ekim 2026) Hafta filtresi artık otomatik (bkz. buHaftaninYarismacisiMi),
+  // bu yüzden elle "sıralamadan çıkarılmış" kayıtlar gereksiz kaldı — hatta
+  // zararlı: kişi KENDİ haftası geldiğinde de görünmez olur. Tek tıkla temizle.
+  const btnGoster = document.getElementById('oplabSiralamayaAlHepsi');
+  if(btnGoster) btnGoster.addEventListener('click', function(){
+    const hedef = (state.applications || []).filter(a => a.hiddenFromBoard);
+    if(!hedef.length){ if(typeof showToast === 'function') showToast('Sıralamadan çıkarılmış yarışmacı yok.', 'warn'); return; }
+    if(!confirm(`${hedef.length} yarışmacı sıralamaya geri alınsın mı?\n\n${hedef.map(a => a.name).join(', ')}\n\nHafta filtresi zaten otomatik: başka haftanın yarışmacısı bu haftanın sıralamasında görünmez.`)) return;
+    hedef.forEach(a => { a.hiddenFromBoard = false; });
+    try{ schedulePublicLeaderboard(true); }catch(e){}
+    try{ renderCanliIzleme(); renderSonuclar(); renderYayinPreview(); renderStageMode(); }catch(e){}
+    kaydet(`${hedef.length} yarışmacı sıralamaya geri alındı.`);
   });
 
   const btnAc = document.getElementById('oplabAcHepsi');
