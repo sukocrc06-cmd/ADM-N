@@ -46,6 +46,7 @@ const ALLOWED_ORIGINS = [
   'https://finteclub.com.tr',
   'https://www.finteclub.com.tr',
   'https://fintelig-finteclub.vercel.app',
+  'https://rekabet-testi.vercel.app', // OPLab (finteclub.com.tr/demo/ dışında doğrudan açılırsa)
 ];
 // Vercel'in bu projeye (adm-n) verdiği otomatik adresler (önizleme dahil).
 const ALLOWED_ORIGIN_PATTERN = /^https:\/\/adm-n[a-z0-9-]*\.vercel\.app$/i;
@@ -341,6 +342,95 @@ async function handleAdmin(req, res, idToken) {
   res.status(200).json({ ok: true, id: out.data && out.data.id });
 }
 
+// (16 Ekim 2026) OPLab giriş penceresindeki "Şifremi unuttum". Ziyaretçi yalnızca
+// e-postasını gönderir; sunucu bu e-postanın bir FinteLig başvurusuna ait olup
+// olmadığına bakar, bağlantıyı Firebase Admin SDK ile üretir ve Resend ile gönderir.
+// Yanıt, hesabın var olup olmadığını SIZDIRMAZ (kayıt yoksa da {ok:true}). Kötüye
+// kullanıma karşı: e-posta başına günde en fazla PWRESET_SELF_DAILY_MAX gönderim,
+// ziyaretçi günlük üst sınırı ve IP başına saatlik sınır (diğer şablonlarla ortak).
+const PWRESET_SELF_DAILY_MAX = 3;
+async function handlePublicPasswordReset(req, res, body) {
+  const email = String(body.email || '').trim().toLowerCase();
+  if (!isValidEmail(email)) {
+    res.status(400).json({ error: 'invalid_email' });
+    return;
+  }
+  const db = admin.firestore();
+  const snap = await db.collection('finteclub').doc('shared_state').get();
+  const shared = snap.exists ? (snap.data() || {}) : {};
+  const app = (shared.applications || []).find((a) => a && String(a.email || '').trim().toLowerCase() === email) || null;
+  if (!app) {
+    res.status(200).json({ ok: true });
+    return;
+  }
+
+  const now = new Date();
+  const dailyCap = envInt('EMAIL_PUBLIC_DAILY_CAP', 80);
+  const ipHourlyCap = envInt('EMAIL_IP_HOURLY_CAP', 120);
+  const ipHash = crypto.createHash('sha256').update(clientIp(req)).digest('hex').slice(0, 16);
+  const claimRef = db.collection('email_send_log').doc(safeDocId(`pwreset_self_${email}_${dayKey(now)}`));
+  const quotaRef = db.collection('email_quota').doc(dayKey(now));
+  const ipRef = db.collection('email_quota').doc(`ip_${hourKey(now)}_${ipHash}`);
+  let verdict;
+  try {
+    verdict = await db.runTransaction(async (tx) => {
+      const [claimSnap, quotaSnap, ipSnap] = await Promise.all([tx.get(claimRef), tx.get(quotaRef), tx.get(ipRef)]);
+      const used = claimSnap.exists ? (Number((claimSnap.data() || {}).count) || 0) : 0;
+      if (used >= PWRESET_SELF_DAILY_MAX) return { limit: 'resend_limit_reached' };
+      const publicUsed = quotaSnap.exists ? (Number((quotaSnap.data() || {}).public) || 0) : 0;
+      if (publicUsed >= dailyCap) return { limit: 'daily_limit_reached' };
+      const ipUsed = ipSnap.exists ? (Number((ipSnap.data() || {}).count) || 0) : 0;
+      if (ipUsed >= ipHourlyCap) return { limit: 'ip_limit_reached' };
+      tx.set(claimRef, { count: used + 1, template: 'password_reset_self', to: email, lastAt: now.toISOString() }, { merge: true });
+      tx.set(quotaRef, { public: publicUsed + 1, updatedAt: now.toISOString() }, { merge: true });
+      tx.set(ipRef, { count: ipUsed + 1, day: dayKey(now) }, { merge: true });
+      return { ok: true, prevCount: used };
+    });
+  } catch (e) {
+    console.error('[send-email] şifre sıfırlama kota hatası:', e && e.message);
+    res.status(500).json({ error: 'quota_check_failed' });
+    return;
+  }
+  if (verdict.limit) {
+    res.status(429).json({ error: verdict.limit });
+    return;
+  }
+  const release = () => claimRef.set({ count: verdict.prevCount }, { merge: true }).catch(() => {});
+
+  let link;
+  try {
+    link = await generateResetLink(email);
+  } catch (e) {
+    const code = (e && (e.code || (e.errorInfo && e.errorInfo.code))) || '';
+    await release();
+    if (/user-not-found/i.test(code)) {
+      // Başvurusu var ama hesabı yok (ör. hesap silinmiş) — yine de sızdırmadan başarılı yanıt.
+      res.status(200).json({ ok: true });
+      return;
+    }
+    console.error('[send-email] şifre sıfırlama bağlantısı üretilemedi (ziyaretçi):', code, e && e.message);
+    res.status(500).json({ error: 'reset_link_failed' });
+    return;
+  }
+  const name = String(app.name || '').trim().slice(0, 80);
+  const html = `Merhaba${name ? ' ' + escapeHtml(name) : ''},<br><br>`
+    + `<b>${escapeHtml(email)}</b> hesabın için OPLab'dan bir şifre sıfırlama isteği geldi. `
+    + `Yeni şifreni belirlemek için aşağıdaki butona tıkla:<br><br>`
+    + `<a href="${escapeHtml(link)}" target="_blank" rel="noopener" style="display:inline-block;background:#2563eb;color:#ffffff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:700;">Şifremi Sıfırla →</a><br><br>`
+    + `Buton çalışmazsa şu adresi tarayıcına kopyala:<br><span style="word-break:break-all;">${escapeHtml(link)}</span><br><br>`
+    + `Yeni şifreni belirledikten sonra OPLab'a bu e-posta ve yeni şifrenle giriş yapabilirsin. `
+    + `Bağlantı tek kullanımlıktır ve bir süre sonra geçerliliğini yitirir. Bu isteği sen yapmadıysan bu e-postayı dikkate alma; mevcut şifren değişmez.<br><br>FinTeClub`;
+  const out = await sendViaResend({ to: email, toName: name, subject: 'FinteLig — Şifre Sıfırlama Bağlantın', html })
+    .catch((e) => ({ ok: false, status: 0, data: { message: e && e.message } }));
+  if (!out.ok) {
+    await release();
+    console.error('[send-email] Resend hatası (ziyaretçi şifre sıfırlama):', out.status, out.data);
+    res.status(502).json({ error: 'resend_failed' });
+    return;
+  }
+  res.status(200).json({ ok: true });
+}
+
 async function handlePublic(req, res) {
   const origin = requestOrigin(req);
   if (!isAllowedOrigin(origin)) {
@@ -348,6 +438,10 @@ async function handlePublic(req, res) {
     return;
   }
   const body = req.body || {};
+  if (String(body.template || '') === 'password_reset_self') {
+    await handlePublicPasswordReset(req, res, body);
+    return;
+  }
   const tpl = PUBLIC_TEMPLATES[String(body.template || '')];
   if (!tpl) {
     res.status(400).json({ error: 'unknown_template' });
