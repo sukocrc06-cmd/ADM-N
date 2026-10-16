@@ -2626,11 +2626,22 @@ function saveShared(){
       // (9 Ağustos 2026 — Madde #124) applications'la BİREBİR aynı mezar
       // taşı birleştirmesi, artık zirveRegistrations için de.
       const deletedZirveIdsMerged = Object.assign({}, remote.deletedZirveIds, state.deletedZirveIds);
+      // (16 Ekim 2026 — "başvuru kayboluyor" kök neden düzeltmesi) Başvuru
+      // ve Zirve id sayaçları buradan DÜZ ÜZERİNE yazılıyordu: admin paneli
+      // uzun süre açık kaldığında yerel sayaç bayatlıyor, her kayıtta sayaç
+      // GERİ gidiyordu. Ardından gelen ziyaretçi reserveNextId()'den ZATEN
+      // KULLANILMIŞ bir id alıyor, index.html'deki birleştirme aynı id'li
+      // yeni kaydı eliyor ve başvuru hiç gelmemiş gibi kayboluyordu
+      // (ziyaretçi ekranında yalnızca "doğrulama e-postası gönderilemedi"
+      // uyarısı çıkıyordu). Sayaçlar artık ASLA küçülmüyor.
+      const sayacIleri = (uzak, yerel) => Math.max(Number(uzak) || 1, Number(yerel) || 1);
       const finalPayload = Object.assign({}, payload, {
         applications: mergeAppsWithDirty(remote.applications, payload.applications, deletedIds),
         zirveRegistrations: reconcileArrayFieldById(payload.zirveRegistrations, remote.zirveRegistrations, deletedZirveIdsMerged),
         deletedApplicationIds: deletedIds,
-        deletedZirveIds: deletedZirveIdsMerged
+        deletedZirveIds: deletedZirveIdsMerged,
+        appIdCounter: sayacIleri(remote.appIdCounter, payload.appIdCounter),
+        zirveIdCounter: sayacIleri(remote.zirveIdCounter, payload.zirveIdCounter)
       });
       transaction.set(fsSharedDoc, finalPayload, {merge:true});
       return finalPayload;
@@ -2728,8 +2739,17 @@ function hydrateFromShared(){
   if('broadcastWeekNo' in shared) state.broadcastWeekNo = shared.broadcastWeekNo;
   state.oplabAnnouncement = ('oplabAnnouncement' in shared) ? shared.oplabAnnouncement : state.oplabAnnouncement;
   state.tieBreak = ('tieBreak' in shared) ? shared.tieBreak : state.tieBreak;
-  if(shared.appIdCounter) appIdCounter = shared.appIdCounter;
-  if(shared.zirveIdCounter) zirveIdCounter = shared.zirveIdCounter;
+  // (16 Ekim 2026) Sayaçlar yalnızca İLERİ alınır; ayrıca listedeki/mezar
+  // taşındaki en büyük id'nin gerisinde kalamaz — aksi halde bir sonraki
+  // ziyaretçiye zaten kullanılmış bir id çıkar ve başvurusu kaybolur.
+  const sayacTabani = (liste, mezar) => {
+    let m = 0;
+    (Array.isArray(liste) ? liste : []).forEach(x => { const n = Number(x && x.id); if(isFinite(n) && n > m && n < 100000000) m = n; });
+    Object.keys(mezar || {}).forEach(k => { const n = Number(k); if(isFinite(n) && n > m && n < 100000000) m = n; });
+    return m + 1;
+  };
+  appIdCounter = Math.max(Number(shared.appIdCounter) || 1, appIdCounter || 1, sayacTabani(state.applications, state.deletedApplicationIds));
+  zirveIdCounter = Math.max(Number(shared.zirveIdCounter) || 1, zirveIdCounter || 1, sayacTabani(state.zirveRegistrations, state.deletedZirveIds));
 }
 function onSharedDataUpdated(){
   hydrateFromShared();
@@ -4855,7 +4875,7 @@ document.getElementById('ligFlowCard')?.addEventListener('click', function(e){
 // değişen kayıtlar (içerik özeti 'h' farklıysa) toplu yazma (batch) ile depoya aynalanır.
 // Başvurulardan silinen kayıt depodan SİLİNMEZ, removed:true ile arşivlenir (Kalıcı sil yalnızca elle).
 // Doğrulama anahtarı (emailVerifyToken) gibi gizli alanlar depoya BİLEREK yazılmaz.
-const DEPO_FIELDS = ['name','email','org','level','studentNumber','motivation','status','cohortId','pastCompetitor','disqualified','emailVerified','date','approvedDate','rulesAcceptedAt','kvkkAcceptedAt','imageConsent','rulesVersion'];
+const DEPO_FIELDS = ['name','email','org','level','studentNumber','motivation','status','cohortId','pastCompetitor','disqualified','emailVerified','emailSendFailed','date','approvedDate','rulesAcceptedAt','kvkkAcceptedAt','imageConsent','rulesVersion'];
 const depo = { remote: new Map(), loaded: false, err: '', unsub: null, timer: null, busy: false, again: false, lastSyncAt: 0, lastWrites: 0, sharedSeen: false, pending: 0 };
 function depoCol(){ try{ return FIREBASE_ENABLED ? firebase.firestore().collection('competitors') : null; }catch(e){ return null; } }
 function depoIsAdmin(){ try{ return AUTH_ENABLED && isAdminUser(firebase.auth().currentUser); }catch(e){ return false; } }
@@ -5162,7 +5182,7 @@ function renderBasvuruList(){
         <input type="checkbox" class="bs-row-check" data-app-id="${a.id}" ${bulkDeleteSelection.has(a.id) ? 'checked' : ''} onclick="event.stopPropagation();">
         <div>
           <div style="font-weight:600;font-size:14px;">${escapeHtml(a.name)}${a.disqualified ? ' <span class="status-pill red" style="font-size:9.5px;padding:2px 6px;">DİSKALİFİYE</span>' : ''}</div>
-          <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${escapeHtml(a.email)} • ${escapeHtml(a.level)}${a.studentNumber ? ' • Öğr.No: '+escapeHtml(a.studentNumber) : ''}${a.emailVerified === false ? ' • <span style="color:var(--yellow);">e-posta doğrulanmadı</span>' : ''}</div>
+          <div style="color:var(--text-dim);font-size:12px;margin-top:3px;">${escapeHtml(a.email)} • ${escapeHtml(a.level)}${a.studentNumber ? ' • Öğr.No: '+escapeHtml(a.studentNumber) : ''}${a.emailVerified === false ? ' • <span style="color:var(--yellow);">e-posta doğrulanmadı</span>' : ''}${a.emailSendFailed ? ' • <span style="color:var(--red);">doğrulama e-postası gönderilemedi</span>' : ''}</div>
         </div>
       </div>
       <span class="status-pill ${a.status==='onayli'?(a.pastCompetitor?'':'green'):a.status==='reddedildi'?'red':'yellow'}" ${a.status==='onayli'&&a.pastCompetitor?'style="background:rgba(255,255,255,0.08);color:var(--text-dim);"':''}>${a.status==='onayli'?(a.pastCompetitor?'GEÇMİŞ YARIŞMACI':'ONAYLI'):a.status==='reddedildi'?'REDDEDİLDİ':'BEKLİYOR'}</span>
@@ -5409,6 +5429,7 @@ function renderBasvuruDetail(){
     ${app.status==='onayli' && app.cohortId ? `<div style="margin-bottom:14px;"><div class="field-label">HAFTA</div><div style="font-size:13.5px;">Hafta ${app.cohortId}${app.pastCompetitor ? ' — sona erdi' : ' — aktif'}</div></div>` : ''}
     ${!app.studentDocUrl && !app.studentDocFileName && app.status !== 'onayli' ? `<p style="font-size:11px;color:var(--yellow);margin-bottom:6px;line-height:1.6;">⚠ Bu başvuruda öğrenci belgesi/kimlik fotoğrafı yok (muhtemelen bu özellikten önce başvurmuş) — öğrenci numarasının gerçekliğini teyit edemedin. Yine de onaylayabilirsin, karar sana ait.</p>` : ''}
     ${app.emailVerified === false && app.status !== 'onayli' ? `<p style="font-size:11px;color:var(--yellow);margin-bottom:10px;line-height:1.6;">⚠ Bu başvuru sahibi e-postasını henüz doğrulamadı. Yine de onaylayabilirsin, karar sana ait.</p>` : ''}
+    ${app.emailSendFailed ? `<p style="font-size:11px;color:var(--red);margin-bottom:10px;line-height:1.6;">⚠ Bu başvuruda doğrulama e-postası gönderilemedi (başvuru kaydı sorunsuz ulaştı). Kişi kendi ekranından "DOĞRULAMA BAĞLANTISINI TEKRAR GÖNDER" diyebilir; gitmiyorsa e-posta servisinin günlük kotası dolmuş olabilir. Başvuruyu elle onaylaman yeterli.</p>` : ''}
     ${window.LIG ? LIG.approveWeekSelectHtml(app) + LIG.assignWeekDetailHtml(app) : ''}
     ${!ligSeasonOn() && state.ligFlow && app.status !== 'onayli' ? `<div style="margin-bottom:14px;"><div class="field-label">HANGİ HAFTAYA ONAYLANSIN</div>
       <select id="lfApproveWeek" style="width:100%;background:var(--card-bg-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:10px 12px;color:var(--text);">${lfWeekOptionsHtml(state.currentCohortId)}</select>
