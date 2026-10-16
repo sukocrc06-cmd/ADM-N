@@ -1487,7 +1487,7 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
             <button class="btn btn-red" id="bsDeleteSelectedBtn" style="padding:8px 16px;font-size:12px;display:none;">SEÇİLENLERİ SİL</button>
             <button class="btn" id="bsArsivleAktifHaftaBtn" style="padding:8px 16px;font-size:12px;display:none;background:transparent;border:1px solid var(--blue);color:var(--blue);">AKTİF HAFTAYI GEÇMİŞE TAŞI</button>
           </div>
-          <p id="bsArsivleAktifHaftaHint" style="display:none;font-size:11px;color:var(--text-dimmer);margin:0 0 10px;line-height:1.6;">Bu haftanın aktif yarışmacılarını toplu olarak geçmiş yarışmacıya taşır. Hafta numarası değişmez, yarışma bitmez, portföylere dokunulmaz — yanlışlıkla taşınan birini detay panelinden "AKTİFE DÖNDÜR" ile geri alabilirsin.</p>
+          <p id="bsArsivleAktifHaftaHint" style="display:none;font-size:11px;color:var(--text-dimmer);margin:0 0 10px;line-height:1.6;">Aktif haftadan <b>kimleri</b> geçmiş yarışmacıya taşıyacağını tek tek seçersin. Hafta numarası değişmez, yarışma bitmez, portföylere dokunulmaz — yanlışlıkla taşınan birini detay panelinden "AKTİFE DÖNDÜR" ile geri alabilirsin.</p>
           <div id="basvuruList">
             <div class="empty-state"><div class="icon">—</div><strong>Bekleyen başvuru yok</strong><span>FinteLig başvuruları açıldığında yeni kayıtlar burada görünecek.</span></div>
           </div>
@@ -5152,29 +5152,99 @@ function bsSyncArsivBtn(){
   if(hint) hint.style.display = (goster && adaylar.length > 0) ? 'block' : 'none';
   if(goster && adaylar.length > 0){
     btn.textContent = haftaFiltresiAktif()
-      ? `HAFTA ${Number(state.currentCohortId) || 1} YARIŞMACILARINI GEÇMİŞE TAŞI (${adaylar.length})`
-      : `AKTİF YARIŞMACILARI GEÇMİŞE TAŞI (${adaylar.length})`;
+      ? `GEÇMİŞE TAŞI — HAFTA ${Number(state.currentCohortId) || 1} (${adaylar.length} aktif)`
+      : `GEÇMİŞE TAŞI (${adaylar.length} aktif)`;
   }
+}
+// Kimlerin taşınacağını TEK TEK seçtiren pencere. Hiçbiri varsayılan olarak
+// işaretli DEĞİL — "hepsini taşı" kazası olmasın diye. Seçim + yönetim
+// şifresi aynı pencerede; Escape / dışarı tıklama iptal eder.
+function gecmiseTasiSecModal(adaylar){
+  return new Promise(function(resolve){
+    let kalan = HAFTA_ISLEM_DENEME_HAKKI, bitti = false;
+    const haftaNo = Number(state.currentCohortId) || 1;
+    const back = document.createElement('div');
+    back.className = 'lig-modal-back';
+    back.innerHTML = `<div class="lig-modal" role="dialog" aria-modal="true" aria-labelledby="gtsBaslik" style="max-width:560px;">
+      <h3 class="section-title" id="gtsBaslik" style="font-size:17px;margin:0 0 6px;color:var(--yellow);">Geçmişe taşınacakları seç${haftaFiltresiAktif() ? ' — Hafta ' + haftaNo : ''}</h3>
+      <p class="section-desc" style="margin:0 0 12px;">Yalnızca işaretlediklerin GEÇMİŞ YARIŞMACI olur. Hafta numarası değişmez, yarışma bitmez, portföylere dokunulmaz.</p>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-dim);cursor:pointer;margin-bottom:8px;">
+        <input type="checkbox" id="gtsHepsi"> Tümünü seç (${adaylar.length} kişi)
+      </label>
+      <div id="gtsListe" style="max-height:300px;overflow-y:auto;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:6px;margin-bottom:12px;">
+        ${adaylar.map(a => `<label style="display:flex;align-items:center;gap:10px;padding:8px 9px;border-radius:8px;cursor:pointer;">
+          <input type="checkbox" class="gts-kisi" value="${a.id}">
+          <span style="min-width:0;">
+            <span style="display:block;font-size:13.5px;font-weight:600;">${escapeHtml(a.name || ('#' + a.id))}${a.disqualified ? ' <span class="status-pill red" style="font-size:9px;padding:1px 5px;">DİSKALİFİYE</span>' : ''}</span>
+            <span style="display:block;font-size:11.5px;color:var(--text-dimmer);">${escapeHtml(a.email || '')}${a.cohortId ? ' • Hafta ' + a.cohortId : ''}</span>
+          </span>
+        </label>`).join('')}
+      </div>
+      <p class="section-desc" style="margin:0 0 8px;"><b id="gtsSayi">0 kişi seçildi.</b> Devam etmek için yönetim şifresini gir:</p>
+      <input type="password" id="gtsSifre" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Yönetim şifresi" style="width:100%;">
+      <div id="gtsHata" style="min-height:18px;font-size:12px;color:#fca5a5;margin:6px 0 10px;"></div>
+      <div class="btn-row"><button type="button" class="btn" id="gtsIptal">İPTAL</button><button type="button" class="btn btn-red" id="gtsOk">GEÇMİŞE TAŞI</button></div>
+    </div>`;
+    document.body.appendChild(back);
+    const inp = back.querySelector('#gtsSifre'), hata = back.querySelector('#gtsHata');
+    const sayiEl = back.querySelector('#gtsSayi'), hepsiBox = back.querySelector('#gtsHepsi');
+    const kutular = Array.from(back.querySelectorAll('.gts-kisi'));
+    function secilenler(){
+      const idler = new Set(kutular.filter(c => c.checked).map(c => Number(c.value)));
+      return adaylar.filter(a => idler.has(Number(a.id)));
+    }
+    function sayiYaz(){
+      const n = secilenler().length;
+      sayiEl.textContent = n === 0 ? 'Henüz kimse seçilmedi.' : (n + ' kişi seçildi.');
+      hepsiBox.checked = kutular.length > 0 && kutular.every(c => c.checked);
+    }
+    kutular.forEach(c => c.addEventListener('change', sayiYaz));
+    hepsiBox.addEventListener('change', () => { kutular.forEach(c => { c.checked = hepsiBox.checked; }); sayiYaz(); });
+    function kapat(sonuc){
+      if(bitti) return;
+      bitti = true;
+      document.removeEventListener('keydown', tus, true);
+      back.remove();
+      resolve(sonuc);
+    }
+    function dene(){
+      const sec = secilenler();
+      if(!sec.length){ hata.textContent = 'En az bir kişi seçmelisin.'; return; }
+      if(inp.value === HAFTA_ISLEM_SIFRESI){ kapat(sec); return; }
+      kalan--;
+      inp.value = '';
+      if(kalan <= 0){
+        showToast('Şifre 3 kez yanlış girildi — işlem iptal edildi.', 'error');
+        kapat(null);
+        return;
+      }
+      hata.textContent = `Şifre yanlış. Kalan deneme: ${kalan}`;
+      inp.focus();
+    }
+    function tus(e){
+      if(e.key === 'Escape'){ e.preventDefault(); kapat(null); }
+      else if(e.key === 'Enter' && back.contains(document.activeElement) && document.activeElement === inp){ e.preventDefault(); dene(); }
+    }
+    back.addEventListener('click', e => { if(e.target === back) kapat(null); });
+    back.querySelector('#gtsIptal').addEventListener('click', () => kapat(null));
+    back.querySelector('#gtsOk').addEventListener('click', dene);
+    document.addEventListener('keydown', tus, true);
+    sayiYaz();
+  });
 }
 document.getElementById('bsArsivleAktifHaftaBtn')?.addEventListener('click', async function(){
   const adaylar = bsArsivAdaylari();
   if(!adaylar.length){ showToast('Taşınacak aktif yarışmacı yok.', 'warn'); return; }
+  const secilen = await gecmiseTasiSecModal(adaylar);
+  if(!secilen || !secilen.length) return;
   const haftaNo = Number(state.currentCohortId) || 1;
-  const baslik = haftaFiltresiAktif() ? `Hafta ${haftaNo} yarışmacılarını geçmişe taşı` : 'Aktif yarışmacıları geçmişe taşı';
-  const satirlar = [
-    `${adaylar.length} kişi GEÇMİŞ YARIŞMACI'ya taşınacak: ` + adaylar.map(a => a.name || ('#' + a.id)).join(', '),
-    'Hafta numarası DEĞİŞMEZ, yarışma bitmez, Zirve temsilcisi sorulmaz.',
-    'Portföylere, işlem geçmişine ve sıralama kayıtlarına dokunulmaz.',
-    'Taşınan kişiler bu haftanın pistinde/sıralamasında görünmez ve OPLab kotasından düşer.'
-  ];
-  if(state.competitionActive) satirlar.push('DİKKAT: Yarışma şu anda AKTİF — bu kişiler yarışma sürerken listeden çıkacak.');
-  if(!(await haftaIslemOnayi(baslik, satirlar, 'GEÇMİŞE TAŞI'))) return;
+  const isimler = secilen.map(a => a.name || ('#' + a.id)).join(', ');
   const nowIso = new Date().toISOString();
-  adaylar.forEach(a => { a.pastCompetitor = true; a.pastCompetitorAt = nowIso; });
+  secilen.forEach(a => { a.pastCompetitor = true; a.pastCompetitorAt = nowIso; });
   saveShared();
-  addActivity(`${adaylar.length} yarışmacı (${haftaFiltresiAktif() ? 'Hafta ' + haftaNo : 'aktif kadro'}) toplu olarak GEÇMİŞ YARIŞMACI'ya taşındı: ` + adaylar.map(a => a.name || ('#' + a.id)).join(', '));
-  showToast(`${adaylar.length} kişi geçmiş yarışmacıya taşındı.`, 'success');
-  if(adaylar.some(a => a.id === selectedAppId)) renderBasvuruDetail();
+  addActivity(`${secilen.length} yarışmacı${haftaFiltresiAktif() ? ' (Hafta ' + haftaNo + ')' : ''} GEÇMİŞ YARIŞMACI'ya taşındı: ${isimler}`);
+  showToast(`${secilen.length} kişi geçmiş yarışmacıya taşındı.`, 'success');
+  if(secilen.some(a => a.id === selectedAppId)) renderBasvuruDetail();
   renderBasvuruList(); renderKullaniciVeritabani(); syncYarismaSettingsUI();
   try{ lfRender(true); }catch(e){}
   try{ if(window.ftlKisiBlokRender) ftlKisiBlokRender(); }catch(e){}
