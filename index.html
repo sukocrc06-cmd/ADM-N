@@ -44,6 +44,45 @@
   --radius-sm:11px;
   --shadow-card:0 10px 30px rgba(0,0,0,0.35);
 }
+
+/* ============ (16 Ekim 2026) HERKESE AÇIK YARIŞ PİSTİ ============
+   Admin panelindeki Sahne Modu'nun "yarış pisti" satırlarının (yp-row)
+   ziyaretçi sürümü. Veriyi finteclub/public_leaderboard belgesinden alır —
+   admin paneli yayın açıkken bu belgeyi zaten sürekli güncelliyor, kural
+   4.9 gereği yalnızca isim/değer/getiri/sıra taşıyor (işlem bilgisi yok). */
+.ftp-head{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px;}
+.ftp-canli{display:inline-flex;align-items:center;gap:8px;font-family:'Oswald',sans-serif;font-weight:700;letter-spacing:2px;font-size:13px;color:#fca5a5;}
+.ftp-canli i{width:9px;height:9px;border-radius:50%;background:var(--red);box-shadow:0 0 0 4px var(--red-glow);animation:ftpNabiz 1.8s ease-in-out infinite;}
+@keyframes ftpNabiz{0%,100%{opacity:1;}50%{opacity:.35;}}
+.ftp-week{font-family:'Oswald',sans-serif;font-size:22px;font-weight:700;}
+.ftp-kalan{margin-left:auto;text-align:right;}
+.ftp-kalan b{display:block;font-size:16px;color:#67e8f9;font-weight:700;}
+.ftp-kalan span{font-size:10px;letter-spacing:2px;color:var(--text-dimmer);}
+.ftp-row{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:var(--radius-sm);transition:background .25s;}
+.ftp-row:nth-child(odd){background:rgba(255,255,255,0.025);}
+.ftp-row.lider{background:rgba(61,111,238,0.10);border:1px solid rgba(61,111,238,0.28);}
+.ftp-rank{width:34px;flex:none;text-align:center;font-family:'Oswald',sans-serif;font-size:17px;font-weight:700;color:var(--text-dim);}
+.ftp-avatar{width:34px;height:34px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:var(--card-bg-2);border:1px solid var(--border-strong);color:var(--text-dim);}
+.ftp-main{flex:1;min-width:0;}
+.ftp-name{display:block;font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ftp-bar{height:4px;margin-top:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;}
+.ftp-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),#67e8f9);border-radius:3px;transition:width .8s cubic-bezier(.4,0,.2,1);}
+.ftp-eq{flex:none;font-size:13px;color:var(--text-dim);min-width:112px;text-align:right;}
+.ftp-pill{flex:none;min-width:104px;text-align:center;border-radius:9px;padding:7px 12px;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;}
+.ftp-pill.up{background:var(--green-glow);color:var(--green);}
+.ftp-pill.down{background:var(--red-glow);color:#fca5a5;}
+.ftp-pill.flat{background:rgba(255,255,255,0.06);color:var(--text-dim);}
+.ftp-wait{font-size:10.5px;color:var(--text-dimmer);border:1px solid var(--border);border-radius:5px;padding:1px 6px;margin-left:6px;}
+.ftp-stats{display:flex;gap:24px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:12.5px;color:var(--text-dim);}
+.ftp-stats b{color:var(--text);}
+.ftp-duyuru{margin-top:14px;padding:10px 14px;border-radius:var(--radius-sm);background:var(--yellow-glow);border:1px solid rgba(234,179,8,0.3);font-size:13px;color:#fde68a;}
+@media(max-width:720px){
+  .ftp-eq{display:none;}
+  .ftp-pill{min-width:84px;font-size:13.5px;padding:6px 9px;}
+  .ftp-row{gap:10px;padding:10px 8px;}
+  .ftp-kalan{margin-left:0;text-align:left;width:100%;}
+}
+
 html,body{height:100%;}
 body{
   background:radial-gradient(circle at 15% 0%, #0b1226 0%, var(--bg) 45%) fixed;
@@ -900,6 +939,20 @@ body.theme-light .test-notice{color:#b91c1c;background:rgba(239,68,68,.08);}
         </div>
       </div>
 
+      <div id="pubPist" style="margin-top:40px;display:none;">
+        <div class="pub-section-label" data-i18n="pist_label">CANLI YARIŞ PİSTİ</div>
+        <div class="card" style="margin-top:14px;">
+          <div class="ftp-head">
+            <span class="ftp-canli"><i></i>CANLI</span>
+            <span class="ftp-week" id="pubPistWeek"></span>
+            <span class="ftp-kalan"><b id="pubPistKalan">—</b><span data-i18n="pist_kalan">KALAN SÜRE</span></span>
+          </div>
+          <div id="pubPistRows"></div>
+          <div class="ftp-stats" id="pubPistStats"></div>
+          <div class="ftp-duyuru" id="pubPistDuyuru" style="display:none;"></div>
+        </div>
+      </div>
+
       <div style="margin-top:44px;">
         <div class="pub-section-label" data-i18n="sonuc_board_label">LİDERLİK TABLOSU</div>
         <h2 style="font-size:32px;margin-bottom:26px;" data-i18n="sonuc_top3_h">İLK ÜÇ YARIŞMACI</h2>
@@ -1542,6 +1595,21 @@ const T = {
   sonuc_active_status: {tr:'AKTİF', en:'ACTIVE'},
   sonuc_pending: {tr:'BEKLEMEDE', en:'PENDING'},
   sonuc_not_published: {tr:'Sonuçlar henüz yayınlanmadı.', en:'Results have not been published yet.'},
+  pist_label: {tr:'CANLI YARIŞ PİSTİ', en:'LIVE RACE TRACK'},
+  pist_kalan: {tr:'KALAN SÜRE', en:'TIME LEFT'},
+  pist_canli_not: {tr:'Yarışma sürüyor — sıralama canlı, dakikada bir tazeleniyor.', en:'Competition in progress — live standings, refreshed every minute.'},
+  pist_islem_yok: {tr:'işlem yok', en:'no trades'},
+  pist_bekleniyor: {tr:'Yarışmacılar henüz işleme başlamadı.', en:'Competitors have not started trading yet.'},
+  pist_durdu: {tr:'Alım-satım şu an geçici olarak durduruldu.', en:'Trading is temporarily halted.'},
+  pist_kalan_bicim: {tr:(g,sa)=>`${g} gün ${sa} sa kaldı`, en:(g,sa)=>`${g}d ${sa}h left`},
+  pist_kalan_saat: {tr:(sa,dk)=>`${sa} sa ${dk} dk kaldı`, en:(sa,dk)=>`${sa}h ${dk}m left`},
+  pist_bitti: {tr:'Süre doldu', en:'Time is up'},
+  pist_stat_toplam: {tr:'Toplam portföy', en:'Total portfolio'},
+  pist_stat_ort: {tr:'Ortalama getiri', en:'Average return'},
+  pist_stat_kar: {tr:'Kârda', en:'Profitable'},
+  pist_stat_zarar: {tr:'Zararda', en:'Losing'},
+  pist_stat_kisi: {tr:'Yarışmacı', en:'Competitors'},
+  sonuc_live_status: {tr:'CANLI', en:'LIVE'},
   sonuc_no_results: {tr:'Henüz sonuç oluşmadı.', en:'No results yet.'},
   sonuc_undetermined: {tr:'Henüz belirlenmedi', en:'Not yet determined'},
   sonuc_unnamed: {tr:'İsimsiz', en:'Unnamed'},
@@ -2754,18 +2822,121 @@ function isRankExcluded(appId){
 // tüketebiliyordu. Oysa bu veri SADECE admin sonuçları yayınladığında
 // (state.resultsPublished) gösteriliyor. Artık: sonuçlar yayınlanmadıysa hiç
 // okunmuyor; yayınlandıysa dakikada bir kez okunuyor.
+// (16 Ekim 2026) Artık SADECE sonuçlar yayınlandığında değil, YARIŞMA
+// SÜRERKEN de okunuyor — ziyaretçi canlı yarış pistini görebilsin diye
+// (admin paneli yayın açıkken bu belgeyi zaten sürekli yazıyor; kural 4.9
+// gereği belge yalnızca isim/değer/getiri/sıra taşıyor, işlem bilgisi yok).
+// Kota koruması aynen duruyor: yarışma da yokken sonuç da yayınlanmamışken
+// HİÇ okuma yapılmaz, sekme arka plandayken (document.hidden) beklenir ve
+// okuma aralığı yine dakikada bir.
 const PUBLIC_RESULTS_POLL_MS = 60000;
 let publicResultsLastFetch = 0;
+let publicBoard = null;   // public_leaderboard belgesinin son hâli
+function publicBoardCanli(){
+  return !!(publicBoard && publicBoard.competitionActive && !state.resultsPublished);
+}
 function fetchPublicResultsIfNeeded(force){
   if(!fsPortfolioDoc) return;
-  if(!state.resultsPublished){ renderPublicSonuclar(); return; }
+  if(!state.resultsPublished && !state.competitionActive){
+    publicBoard = null; oplabPortfolioData = [];
+    renderPublicSonuclar();
+    return;
+  }
+  if(!force && typeof document !== 'undefined' && document.hidden) return;
   if(!force && Date.now() - publicResultsLastFetch < PUBLIC_RESULTS_POLL_MS - 1000) return;
   publicResultsLastFetch = Date.now();
   fsPortfolioDoc.get().then((doc)=>{
     const data = doc.exists ? (doc.data() || {}) : {};
-    oplabPortfolioData = (Array.isArray(data.rows) ? data.rows : []).map(r => ({ id: 'pub' + r.rank, name: r.name, equity: r.equity, _dq: !!r.dq }));
+    publicBoard = data;
+    oplabPortfolioData = (Array.isArray(data.rows) ? data.rows : []).map(r => ({
+      id: 'pub' + r.rank, name: r.name, equity: r.equity, _dq: !!r.dq,
+      _pct: (typeof r.pct === 'number') ? r.pct : null, _waiting: !!r.waiting
+    }));
     renderPublicSonuclar();
   }).catch((err)=>console.warn('Sonuç verisi okunamadı:', err));
+}
+// Sekme öne gelince beklemeden tazele (arka planda atlanan turlar yüzünden
+// kullanıcı bayat bir sıralamaya bakmasın).
+if(typeof document !== 'undefined'){
+  document.addEventListener('visibilitychange', function(){
+    if(!document.hidden) fetchPublicResultsIfNeeded(true);
+  });
+}
+// Yarışmacının getirisi: belge pct'yi zaten taşıyorsa onu kullan (admin'in
+// hesapladığı değerle birebir aynı olsun), yoksa başlangıç bakiyesinden hesapla.
+function boardPct(c){
+  if(c && typeof c._pct === 'number') return c._pct;
+  const base = (publicBoard && Number(publicBoard.startBalance)) || getBaslangicBakiyesi();
+  if(!base) return 0;
+  return (((c && c.equity) || 0) - base) / base * 100;
+}
+function pistKalanMetni(){
+  const bitis = publicBoard && Number(publicBoard.competitionEndsAt);
+  if(!bitis || !isFinite(bitis)) return '—';
+  const ms = bitis - Date.now();
+  if(ms <= 0) return t('pist_bitti');
+  const gun = Math.floor(ms / 86400000), saat = Math.floor((ms % 86400000) / 3600000);
+  if(gun > 0) return t('pist_kalan_bicim', gun, saat);
+  return t('pist_kalan_saat', saat, Math.floor((ms % 3600000) / 60000));
+}
+// Yarış pisti: admin Sahne Modu'ndaki satırların ziyaretçi sürümü.
+function renderPublicPist(){
+  const box = document.getElementById('pubPist');
+  if(!box) return;
+  if(!publicBoardCanli()){ box.style.display = 'none'; return; }
+  const satirlar = oplabPortfolioData.slice().sort((a,b)=> (b.equity||0) - (a.equity||0));
+  if(!satirlar.length){ box.style.display = 'none'; return; }
+  box.style.display = '';
+  const hafta = document.getElementById('pubPistWeek');
+  if(hafta) hafta.textContent = String(publicBoard.weekLabel || publicBoard.compName || '');
+  const kalan = document.getElementById('pubPistKalan');
+  if(kalan) kalan.textContent = pistKalanMetni();
+
+  const yuzdeler = satirlar.map(boardPct);
+  const enIyi = Math.max.apply(null, yuzdeler.concat([0]));
+  const enKotu = Math.min.apply(null, yuzdeler.concat([0]));
+  const aralik = enIyi - enKotu;
+  document.getElementById('pubPistRows').innerHTML = satirlar.map(function(c, i){
+    const pct = boardPct(c);
+    const dq = !!(c._dq || isRankExcluded(c.id));
+    // Sonuncunun çubuğu tamamen kaybolmasın diye %6 taban veriyoruz.
+    const mesafe = aralik > 0 ? Math.max(6, ((pct - enKotu) / aralik) * 100) : 100;
+    const yon = pct > 0 ? 'up' : (pct < 0 ? 'down' : 'flat');
+    const ok = pct > 0 ? '▲' : (pct < 0 ? '▼' : '—');
+    return `<div class="ftp-row${(i === 0 && !dq) ? ' lider' : ''}"${dq ? ' style="opacity:.6;"' : ''}>
+      <span class="ftp-rank">${(i === 0 && !dq) ? '👑' : (i + 1)}</span>
+      <span class="ftp-avatar">${escapeHtml(pistBasHarf(c.name))}</span>
+      <div class="ftp-main">
+        <span class="ftp-name">${escapeHtml(c.name || t('sonuc_unnamed'))}${dq ? ' <span class="status-pill red" style="font-size:9px;padding:1px 5px;">' + t('sonuc_disqualified') + '</span>' : ''}${c._waiting ? '<span class="ftp-wait">' + t('pist_islem_yok') + '</span>' : ''}</span>
+        <div class="ftp-bar"><i style="width:${mesafe.toFixed(0)}%;"></i></div>
+      </div>
+      <span class="ftp-eq">${fmtTRY(c.equity || 0)}</span>
+      <span class="ftp-pill ${yon}">${ok} ${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</span>
+    </div>`;
+  }).join('');
+
+  const st = publicBoard.stats || {};
+  const ort = typeof st.avgPct === 'number' ? st.avgPct : (yuzdeler.reduce((a,b)=>a+b, 0) / (yuzdeler.length || 1));
+  const toplam = typeof st.total === 'number' ? st.total : satirlar.reduce((a,c)=>a + (c.equity||0), 0);
+  const kar = typeof st.profitable === 'number' ? st.profitable : yuzdeler.filter(x=>x>0).length;
+  const zarar = typeof st.losing === 'number' ? st.losing : yuzdeler.filter(x=>x<0).length;
+  document.getElementById('pubPistStats').innerHTML =
+    `<div>${t('pist_stat_kisi')}: <b>${satirlar.length}</b></div>` +
+    `<div>${t('pist_stat_toplam')}: <b>${fmtTRY(toplam)}</b></div>` +
+    `<div>${t('pist_stat_ort')}: <b style="color:${ort >= 0 ? 'var(--green)' : '#fca5a5'};">${ort >= 0 ? '+' : ''}${ort.toFixed(2)}%</b></div>` +
+    `<div>${t('pist_stat_kar')}: <b>${kar}</b> · ${t('pist_stat_zarar')}: <b>${zarar}</b></div>`;
+
+  const duyuruEl = document.getElementById('pubPistDuyuru');
+  const duyuru = publicBoard.tradingHalted ? t('pist_durdu') : String(publicBoard.announcement || '').trim();
+  if(duyuruEl){
+    duyuruEl.textContent = duyuru;
+    duyuruEl.style.display = duyuru ? '' : 'none';
+  }
+}
+function pistBasHarf(ad){
+  const p = String(ad || '').trim().split(/\s+/).filter(Boolean);
+  if(!p.length) return 'İ';
+  return ((p[0][0] || '') + (p.length > 1 ? (p[p.length-1][0] || '') : '')).toLocaleUpperCase('tr-TR');
 }
 if(fsPortfolioDoc){
   setTimeout(()=>fetchPublicResultsIfNeeded(true), 3000);
@@ -2794,11 +2965,16 @@ function renderWeeklyWinners(){
 }
 function renderPublicSonuclar(){
   try{ renderWeeklyWinners(); }catch(e){}
+  try{ renderPublicPist(); }catch(e){ console.warn('Yarış pisti çizilemedi:', e); }
   const rankCards = document.querySelectorAll('#pub-sonuclar .rank-card');
   const tbody = document.querySelector('#pub-sonuclar table tbody');
   if(!rankCards.length || !tbody) return;
 
-  if(!state.resultsPublished){
+  // (16 Ekim 2026) Yarışma sürerken de gerçek sıralama gösteriliyor; eskiden
+  // yalnızca resultsPublished açıkken veri basılıyor, hafta boyunca sayfa
+  // "Henüz belirlenmedi / Sonuçlar henüz yayınlanmadı" olarak kalıyordu.
+  const canli = publicBoardCanli();
+  if(!state.resultsPublished && !canli){
     rankCards.forEach(card=>{
       card.querySelector('.rank-name').textContent = t('sonuc_undetermined');
       card.querySelector('.rank-pct').textContent = '--%';
@@ -2819,6 +2995,7 @@ function renderPublicSonuclar(){
 
   const sorted = data.slice().sort((a,b)=> (b.equity||0) - (a.equity||0));
   const rankable = sorted.filter(c => !(c._dq || isRankExcluded(c.id)));
+  const canliEtiket = canli ? ' <span class="status-pill red" style="font-size:9px;padding:1px 6px;">' + t('sonuc_live_status') + '</span>' : '';
   // rank-card sırası HTML'de 02/01/03 (ortadaki lider) olarak dizili —
   // buildViewModeHtml (admin.html) ile aynı üç kişiyi kullanıyoruz, sadece
   // DOM sırası farklı (kart 0 → 2., kart 1 → 1., kart 2 → 3.).
@@ -2828,7 +3005,7 @@ function renderPublicSonuclar(){
     const nameEl = card.querySelector('.rank-name');
     const pctEl = card.querySelector('.rank-pct');
     if(c){
-      const pct = pctReturn(c.equity||0);
+      const pct = boardPct(c);
       nameEl.textContent = c.name || t('sonuc_unnamed');
       pctEl.textContent = (pct>=0?'+':'') + pct.toFixed(2) + '%';
     } else {
@@ -2838,12 +3015,12 @@ function renderPublicSonuclar(){
   });
 
   tbody.innerHTML = sorted.map((c,i)=>{
-    const pct = pctReturn(c.equity||0);
+    const pct = boardPct(c);
     const dq = !!(c._dq || isRankExcluded(c.id));
     const tradeCount = '—'; // (kural 4.9) işlem bilgileri herkese açık değil
     return `<tr${dq?' style="opacity:.55;"':''}>
       <td>${i+1}</td>
-      <td>${escapeHtml(c.name) || t('sonuc_unnamed')}${dq?' <span class="status-pill red" style="font-size:9.5px;padding:2px 6px;">'+t('sonuc_disqualified')+'</span>':''}</td>
+      <td>${escapeHtml(c.name) || t('sonuc_unnamed')}${dq?' <span class="status-pill red" style="font-size:9.5px;padding:2px 6px;">'+t('sonuc_disqualified')+'</span>':(i===0?canliEtiket:'')}</td>
       <td>${fmtTRY(c.equity||0)}</td>
       <td style="color:${pct>=0?'var(--green)':'#fca5a5'};">${pct>=0?'+':''}${pct.toFixed(2)}%</td>
       <td>${tradeCount}</td>
@@ -2866,7 +3043,7 @@ function syncGlobalStatus(){
   document.getElementById('pubSonucDurum').className = 'stat-value ' + (active ? 'green' : 'gray');
   document.getElementById('pubSonucDurum').style.fontSize = '22px';
   document.getElementById('pubSonucTarih').textContent = dateRange;
-  document.getElementById('pubSonucBadge').textContent = state.resultsPublished ? t('sonuc_published') : (active ? t('sonuc_active_status') : t('sonuc_pending'));
+  document.getElementById('pubSonucBadge').textContent = state.resultsPublished ? t('sonuc_published') : (active ? t('sonuc_live_status') : t('sonuc_pending'));
   document.getElementById('pubSonucBadge').className = 'status-pill ' + (state.resultsPublished || active ? 'green' : '');
 
   updatePublicBasvuruAvailability();
