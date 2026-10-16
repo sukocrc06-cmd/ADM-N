@@ -1728,26 +1728,35 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
          deseni gösteren hesapları işaretliyor. bkz. renderAnomaliTespiti(). -->
     <section id="page-anomali" class="page">
       <div class="card" style="margin-bottom:24px;">
-        <p class="section-desc" style="margin:0 0 14px;">Bu tarama, her yarışmacının VİOP işlem geçmişini (aç-kapa süresi ve kazanma oranı) inceleyip, rastgele bir piyasada istatistiksel olarak beklenmeyecek kadar kısa tutma süresi + yüksek kazanma oranı gösteren hesapları işaretler. İşaretlenen bir hesap otomatik olarak diskalifiye EDİLMEZ — sadece manuel incelemeniz için öne çıkarılır.</p>
+        <p class="section-desc" style="margin:0 0 14px;">Tarama, her yarışmacının VİOP işlem geçmişini okuyup <b>hızlı aç-kapa işlemlerindeki kazanma oranını</b> inceler. Ölçüt sabit bir eşik değil, <b>olasılık</b>: "bu kadar hızlı işlemin bu kadarını rastgele kazanma şansı neydi?" (yazı-tura, tek taraflı binom). Şans %1'in altındaysa YÜKSEK, %5'in altındaysa ORTA işaretlenir. İşaretlenen hesap otomatik diskalifiye EDİLMEZ — yalnızca manuel incelemen için öne çıkarılır.</p>
         <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
           <button class="btn btn-blue" id="anomaliScanBtn">ŞİMDİ TARA</button>
+          <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text-dim);">HAFTA
+            <select id="anomaliWeekSel" style="background:var(--card-bg-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:8px 10px;color:var(--text);"></select>
+          </label>
+          <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text-dim);">HIZLI İŞLEM EŞİĞİ
+            <input type="number" id="anomaliHizliSn" value="120" min="5" max="3600" step="5" style="width:86px;background:var(--card-bg-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:8px 10px;color:var(--text);"> sn
+          </label>
+          <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text-dim);">ASGARİ ÖRNEKLEM
+            <input type="number" id="anomaliMinIslem" value="5" min="2" max="50" step="1" style="width:70px;background:var(--card-bg-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:8px 10px;color:var(--text);"> işlem
+          </label>
           <span class="stat-sub" id="anomaliLastScan">Henüz taranmadı.</span>
         </div>
       </div>
 
       <div class="grid-4">
-        <div class="stat-card"><div class="stat-label">TARANAN HESAP</div><div class="stat-value gray" id="anomaliTaranan">--</div><div class="stat-sub">Yeterli VİOP verisi olan</div></div>
-        <div class="stat-card"><div class="stat-label">İŞARETLENEN</div><div class="stat-value gray" id="anomaliIsaretlenen">--</div><div class="stat-sub">İncelemeniz önerilir</div></div>
-        <div class="stat-card"><div class="stat-label">EŞİK</div><div class="stat-value gray" style="font-size:20px;">≤20sn · ≥%90</div><div class="stat-sub">Ort. tutma / kazanma oranı</div></div>
-        <div class="stat-card"><div class="stat-label">ASGARİ ÖRNEKLEM</div><div class="stat-value gray">5 işlem</div><div class="stat-sub">Daha azı değerlendirilmez</div></div>
+        <div class="stat-card"><div class="stat-label">TARANAN HESAP</div><div class="stat-value gray" id="anomaliTaranan">--</div><div class="stat-sub" id="anomaliTarananSub">Yeterli VİOP verisi olan</div></div>
+        <div class="stat-card"><div class="stat-label">İŞARETLENEN</div><div class="stat-value gray" id="anomaliIsaretlenen">--</div><div class="stat-sub" id="anomaliIsaretlenenSub">İncelemen önerilir</div></div>
+        <div class="stat-card"><div class="stat-label">ÖLÇÜT</div><div class="stat-value gray" style="font-size:19px;">Şans &lt; %5</div><div class="stat-sub" id="anomaliEsikSub">Hızlı işlemlerde binom olasılığı</div></div>
+        <div class="stat-card"><div class="stat-label">KAPSAM</div><div class="stat-value gray" style="font-size:19px;" id="anomaliKapsam">--</div><div class="stat-sub" id="anomaliKapsamSub">Taranan hafta</div></div>
       </div>
 
       <div class="card">
         <h3 class="section-title">Sonuçlar</h3>
-        <p class="section-desc">İşaretlenen hesaplar en üstte listelenir.</p>
+        <p class="section-desc">En şüpheliden normale doğru sıralanır. "Hızlı işlem" = açılış ile kapanış arasında eşikten kısa süre geçen VİOP işlemi; gecikmeli veriden yararlanan bir hesabın izi burada çıkar.</p>
         <table>
-          <thead><tr><th>YARIŞMACI</th><th>SEMBOL(LER)</th><th>VİOP İŞLEM</th><th>ORT. TUTMA SÜRESİ</th><th>KAZANMA ORANI</th><th>DURUM</th></tr></thead>
-          <tbody id="anomaliTableBody"><tr><td colspan="6"><div class="empty-state" style="padding:22px 0;">Taramak için "ŞİMDİ TARA"ya basın.</div></td></tr></tbody>
+          <thead><tr><th>YARIŞMACI</th><th>HAFTA</th><th>VİOP İŞLEM</th><th>HIZLI İŞLEM</th><th>ORTANCA TUTMA</th><th>KAZANMA ORANI</th><th>ŞANS OLASILIĞI</th><th>DURUM</th></tr></thead>
+          <tbody id="anomaliTableBody"><tr><td colspan="8"><div class="empty-state" style="padding:22px 0;">Taramak için "ŞİMDİ TARA"ya basın.</div></td></tr></tbody>
         </table>
       </div>
     </section>
@@ -6662,59 +6671,182 @@ function renderKullaniciPortfoyleri(){
   renderPortfoyRecentTrades(c);
 }
 
-/* ============ ŞÜPHELİ İŞLEM TESPİTİ (10 Ağustos 2026) ============ */
+/* ============ ŞÜPHELİ İŞLEM TESPİTİ (10 Ağustos 2026 · 16 Ekim 2026'da yenilendi) ============ */
 // (VİOP kaldıraç suistimali sonrası eklendi) SADECE OKUMA yapar — hiçbir
-// bakiye/pozisyon/emir verisine dokunmaz, para hareketi yaratmaz. Firestore'un
-// oplab_user_portfolios belgesindeki (her kullanıcı için TAM VİOP işlem
-// geçmişi, son 50 kayıt — bkz. finteclubBridge.js pushFullPortfolioToCloud)
-// veriyi okuyup "çok kısa tutma süresi + çok yüksek kazanma oranı" deseni
-// (bkz. Edanur/Mehmet Ali vakası, 10 Ağustos 2026) gösteren hesapları
-// işaretler. Otomatik diskalifiye ETMEZ, sadece admin'in manuel incelemesi
-// için öne çıkarır.
-const ANOMALI_MIN_TRADES = 5;       // bundan az kapanmış VİOP işlemi olan hesaplar değerlendirmeye alınmaz (örneklem çok küçük)
-const ANOMALI_MAX_AVG_HOLD_SEC = 20; // ortalama tutma süresi bu değerin ALTINDAYSA şüpheli
-const ANOMALI_MIN_WIN_RATE_PCT = 90; // kazanma oranı bu değerin ÜSTÜNDEYSE (ve tutma süresi de kısaysa) şüpheli
+// bakiye/pozisyon/emir verisine dokunmaz, para hareketi yaratmaz.
+//
+// (16 Ekim 2026 — doğruluk düzeltmesi) Eski sürümün üç kusuru vardı:
+//   1) TUTMA SÜRESİ YANLIŞ HESAPLANIYORDU. Kayıtlar zaman sırasına dizilip
+//      "i. kayıt OPEN ve i+1. kayıt CLOSE ise" diye eşleştiriliyordu; aynı
+//      anda iki pozisyon açan biri için (OPEN A, OPEN B, CLOSE A, CLOSE B)
+//      hiçbir çift eşleşmiyor, çok sembollü işlem yapanlarda süreler
+//      tamamen saçmalıyordu (tabloda 31.585 sn gibi). Artık eşleştirme
+//      SEMBOL BAZINDA ve FIFO: her CLOSE, aynı sembolün en eski açık
+//      OPEN'ıyla eşleşiyor.
+//   2) EŞİKLER GERÇEKÇİ DEĞİLDİ. "ortalama tutma ≤20 sn VE kazanma ≥%90"
+//      birlikte neredeyse hiç gerçekleşmez; 20 hızlı işlemin 20'sini kazanan
+//      biri bile, arada birkaç uzun pozisyon tuttuysa ORTALAMA yüzünden
+//      temize çıkıyordu. Ortalama yerine ORTANCA kullanılıyor ve asıl ölçüt
+//      ortalamalar değil, HIZLI İŞLEMLERDEKİ kazanma oranının olasılığı.
+//   3) HAFTALAR KARIŞIYORDU. Tarama tüm yarışmacıları tek listede
+//      topluyordu; artık hafta seçilebiliyor ve işlemler o haftanın tarih
+//      aralığına göre de süzülüyor.
+//
+// Ölçüt: gecikmeli veriden yararlanan bir hesabın imzası "çok kısa sürede
+// aç-kapa + bunların neredeyse hepsini kazanma"dır. Dürüst bir yarışmacı
+// için hızlı bir işlemin kazanma şansı kabaca yazı-tura (%50). O yüzden
+// n hızlı işlemin k'sını kazanmanın RASTGELE olasılığını tek taraflı binom
+// kuyruğuyla hesaplıyoruz. %1'in altı YÜKSEK, %5'in altı ORTA. Bu, keyfî
+// bir eşik değil, savunulabilir bir istatistik — ve tabloda gösteriliyor ki
+// karar verirken sayıyı görebilesin. Hiçbir durumda otomatik diskalifiye
+// YOKTUR; kural 21.2/21.3 gereği karar insanda.
+let ANOMALI_MIN_TRADES = 5;   // bu kadar kapanmış VİOP işlemi olmayan hesap değerlendirilmez
+let ANOMALI_HIZLI_SN = 120;   // açılış-kapanış arası bu süreden kısaysa "hızlı işlem"
+const ANOMALI_HIZLI_MIN = 3;  // en az bu kadar hızlı işlem yoksa olasılık hesaplanmaz
+const ANOMALI_P_YUKSEK = 0.01;
+const ANOMALI_P_ORTA = 0.05;
 
-function computeAnomaliStatsForUser(portfolioDoc){
+// n denemede en az k başarı olasılığı (p=0.5) — tek taraflı binom kuyruğu.
+// n küçük (≤50 işlem) olduğundan doğrudan toplam yeterli; log-gamma ile
+// hesaplanıyor ki büyük binom katsayılarında taşma olmasın.
+function anomaliLogFact(n){
+  let s = 0;
+  for(let i = 2; i <= n; i++) s += Math.log(i);
+  return s;
+}
+function anomaliBinomKuyruk(k, n){
+  if(n <= 0) return 1;
+  if(k <= 0) return 1;
+  if(k > n) return 0;
+  const lf = anomaliLogFact;
+  let toplam = 0;
+  for(let i = k; i <= n; i++){
+    toplam += Math.exp(lf(n) - lf(i) - lf(n - i) + n * Math.log(0.5));
+  }
+  return Math.min(1, Math.max(0, toplam));
+}
+
+// Sembol bazında FIFO eşleştirme: her CLOSE, aynı sembolün en eski açık
+// OPEN'ıyla kapanır. Eşleşmeyen kayıtlar (ör. defterin 50 kayıt sınırı
+// yüzünden açılışı kesilmiş bir kapanış) sessizce atlanır — uydurma süre
+// üretilmez.
+function anomaliEslestir(viopHist){
+  const acik = {}, ciftler = [];
+  viopHist.forEach(h => {
+    const sym = String(h.symbol || '');
+    if(h.type === 'OPEN'){ (acik[sym] = acik[sym] || []).push(h); return; }
+    if(h.type !== 'CLOSE') return;
+    const kuyruk = acik[sym];
+    if(!kuyruk || !kuyruk.length) return;
+    const ac = kuyruk.shift();
+    const sn = (Number(h.ts) - Number(ac.ts)) / 1000;
+    if(!isFinite(sn) || sn < 0) return;
+    ciftler.push({ symbol: sym, acilis: Number(ac.ts), kapanis: Number(h.ts), sn: sn, pnl: Number(h.pnl) || 0 });
+  });
+  return ciftler;
+}
+function anomaliOrtanca(dizi){
+  if(!dizi.length) return null;
+  const s = dizi.slice().sort((a, b) => a - b), m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+// pencere: {bas, bit} ms — verilmezse tüm geçmiş değerlendirilir.
+function computeAnomaliStatsForUser(portfolioDoc, pencere){
   const pf = (portfolioDoc && portfolioDoc.portfolio) || {};
-  const viopHist = (pf.viopHistory || []).slice().sort((a,b)=> (a.ts||0) - (b.ts||0));
-  const closes = viopHist.filter(h => h.type === 'CLOSE');
-  if(closes.length < ANOMALI_MIN_TRADES) return null;
+  let viopHist = (pf.viopHistory || []).filter(h => h && h.ts).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+  let ciftler = anomaliEslestir(viopHist);
+  if(pencere){
+    // Haftaya göre süzerken KAPANIŞ anı esas alınır (işlem o hafta sonuçlanmıştır).
+    ciftler = ciftler.filter(c => c.kapanis >= pencere.bas && c.kapanis <= pencere.bit);
+  }
+  if(ciftler.length < ANOMALI_MIN_TRADES) return null;
 
-  const wins = closes.filter(h => (h.pnl||0) > 0).length;
-  const winRatePct = closes.length ? (wins / closes.length * 100) : 0;
+  const kazanc = ciftler.filter(c => c.pnl > 0).length;
+  const winRatePct = ciftler.length ? (kazanc / ciftler.length * 100) : 0;
+  const sureler = ciftler.map(c => c.sn);
+  const ortancaSn = anomaliOrtanca(sureler);
+  const ortSn = sureler.reduce((a, b) => a + b, 0) / sureler.length;
 
-  const holdDurations = [];
-  for(let i = 0; i < viopHist.length - 1; i++){
-    if(viopHist[i].type === 'OPEN' && viopHist[i+1].type === 'CLOSE'){
-      holdDurations.push((viopHist[i+1].ts - viopHist[i].ts) / 1000);
+  const hizli = ciftler.filter(c => c.sn <= ANOMALI_HIZLI_SN);
+  const hizliKazanc = hizli.filter(c => c.pnl > 0).length;
+  const hizliWinPct = hizli.length ? (hizliKazanc / hizli.length * 100) : null;
+  // Olasılık: hem hızlı işlemler için, hem de (hızlı örneklem yetersizse)
+  // tüm işlemler için hesaplanır; küçük olan (daha çarpıcı olan) raporlanır.
+  const pHizli = hizli.length >= ANOMALI_HIZLI_MIN ? anomaliBinomKuyruk(hizliKazanc, hizli.length) : null;
+  const pGenel = anomaliBinomKuyruk(kazanc, ciftler.length);
+  const p = (pHizli !== null) ? Math.min(pHizli, pGenel) : pGenel;
+  // Tek başına "tümünü kazandı" bile olsa, olasılığı hızlı işlemlerden
+  // geliyorsa daha ağır basar; seviye doğrudan olasılıktan türetiliyor.
+  const seviye = p < ANOMALI_P_YUKSEK ? 'yuksek' : (p < ANOMALI_P_ORTA ? 'orta' : 'normal');
+
+  return {
+    tradeCount: ciftler.length, winRatePct, avgHoldSec: ortSn, medianHoldSec: ortancaSn,
+    hizliCount: hizli.length, hizliWinPct, p, pHizli, pGenel, seviye,
+    flagged: seviye !== 'normal',
+    symbols: [...new Set(ciftler.map(c => c.symbol))],
+    ilk: Math.min.apply(null, ciftler.map(c => c.kapanis)),
+    son: Math.max.apply(null, ciftler.map(c => c.kapanis))
+  };
+}
+
+// Hafta seçicisi: "Tümü" + takvimdeki her hafta. Aktif hafta varsayılan.
+function anomaliWeekSelDoldur(){
+  const sel = document.getElementById('anomaliWeekSel');
+  if(!sel || sel.dataset.dolu === '1') return;
+  const c = lfCfg(), cur = Number(state.currentCohortId) || 1;
+  let out = '<option value="0">Tüm haftalar</option>';
+  if(c.on){
+    for(let n = 1; n <= c.totalWeeks; n++){
+      out += `<option value="${n}" ${n === cur ? 'selected' : ''}>Hafta ${n} · ${escapeHtml(lfShort(n, c))}${n === cur ? ' · AKTİF' : ''}</option>`;
     }
   }
-  const avgHoldSec = holdDurations.length ? (holdDurations.reduce((a,b)=>a+b,0) / holdDurations.length) : null;
-  const symbols = [...new Set(viopHist.map(h => h.symbol))];
-
-  const flagged = (avgHoldSec !== null) && (avgHoldSec <= ANOMALI_MAX_AVG_HOLD_SEC) && (winRatePct >= ANOMALI_MIN_WIN_RATE_PCT);
-
-  return { tradeCount: closes.length, winRatePct, avgHoldSec, symbols, flagged };
+  sel.innerHTML = out;
+  sel.dataset.dolu = '1';
+}
+// Seçilen haftanın işlem penceresi (yerel saat; hafta başı 00:00, hafta sonu 23:59:59).
+function anomaliHaftaPenceresi(n){
+  if(!n) return null;
+  const c = lfCfg();
+  if(!c.on) return null;
+  const bas = new Date(lfWeekStart(n, c) + 'T00:00:00').getTime();
+  const bit = new Date(lfWeekEnd(n, c) + 'T23:59:59.999').getTime();
+  if(!isFinite(bas) || !isFinite(bit)) return null;
+  return { bas, bit, no: n };
+}
+function anomaliYuzde(p){
+  if(p === null || p === undefined) return '--';
+  if(p < 0.0001) return '< %0,01';
+  return '%' + (p * 100).toFixed(p < 0.01 ? 2 : 1).replace('.', ',');
+}
+function anomaliSure(sn){
+  if(sn === null || sn === undefined) return '--';
+  if(sn < 90) return sn.toFixed(1) + ' sn';
+  if(sn < 5400) return (sn / 60).toFixed(1) + ' dk';
+  return (sn / 3600).toFixed(1) + ' sa';
 }
 
 async function renderAnomaliTespiti(){
   const body = document.getElementById('anomaliTableBody');
   if(!body) return;
+  anomaliWeekSelDoldur();
+  // Eşikleri panelden oku (admin kendi kalibrasyonunu yapabilsin).
+  const hizliInp = document.getElementById('anomaliHizliSn');
+  const minInp = document.getElementById('anomaliMinIslem');
+  const hizliVal = Number(hizliInp && hizliInp.value);
+  const minVal = Number(minInp && minInp.value);
+  if(isFinite(hizliVal) && hizliVal >= 5 && hizliVal <= 3600) ANOMALI_HIZLI_SN = Math.round(hizliVal);
+  if(isFinite(minVal) && minVal >= 2 && minVal <= 50) ANOMALI_MIN_TRADES = Math.round(minVal);
+  const haftaNo = Number((document.getElementById('anomaliWeekSel') || {}).value) || 0;
+  const pencere = anomaliHaftaPenceresi(haftaNo);
+
   if(!fsUserPortfoliosDoc){
-    body.innerHTML = `<tr><td colspan="6"><div class="empty-state" style="padding:22px 0;">Firebase bağlantısı yok — tarama yapılamıyor.</div></td></tr>`;
+    body.innerHTML = `<tr><td colspan="8"><div class="empty-state" style="padding:22px 0;">Firebase bağlantısı yok — tarama yapılamıyor.</div></td></tr>`;
     return;
   }
-  body.innerHTML = `<tr><td colspan="6"><div class="empty-state" style="padding:22px 0;">Taranıyor…</div></td></tr>`;
-  // (24 Eylül 2026 — çok cihazlı senkron yeniden yapılanması) Portföyler artık
-  // her yarışmacı için AYRI belgede (oplab_portfolios/{e-posta}) duruyor —
-  // finteclubBridge.js, eski ortak belgedeki (oplab_user_portfolios) kaydı
-  // yarışmacının ilk girişinde oraya taşıyor. Tarama ikisini birlikte okur:
-  // kişisel belge varsa o esas alınır, henüz taşınmamış biri için eski kayıt
-  // kullanılır.
-  // Kişisel belgeleri listelemek güvenlik kurallarında SADECE admin girişine
-  // (Firebase Authentication) açık — giriş yapılmamışsa tarama eski belgeyle
-  // sınırlı kalır ve bu açıkça belirtilir.
+  body.innerHTML = `<tr><td colspan="8"><div class="empty-state" style="padding:22px 0;">Taranıyor…</div></td></tr>`;
+  // (24 Eylül 2026 — çok cihazlı senkron) Portföyler her yarışmacı için AYRI
+  // belgede (oplab_portfolios/{e-posta}); eski ortak belge (oplab_user_portfolios)
+  // henüz taşınmamış kayıtlar için yedek olarak okunuyor.
   const users = {};
   const byEmail = {};
   let perUserOk = true;
@@ -6736,45 +6868,73 @@ async function renderAnomaliTespiti(){
     console.warn('Kişisel portföy belgeleri listelenemedi (admin girişi gerekli):', e);
   }
   if(!perUserOk && !Object.keys(users).length){
-    body.innerHTML = `<tr><td colspan="6"><div class="empty-state" style="padding:22px 0;">Tarama başarısız — admin hesabıyla (Firebase) giriş yapıp tekrar deneyin.</div></td></tr>`;
+    body.innerHTML = `<tr><td colspan="8"><div class="empty-state" style="padding:22px 0;">Tarama başarısız — admin hesabıyla (Firebase) giriş yapıp tekrar deneyin.</div></td></tr>`;
     return;
   }
 
+  // Hafta seçiliyse SADECE o haftanın onaylı yarışmacıları taranır.
+  const adaylar = haftaNo
+    ? state.applications.filter(a => a.status === 'onayli' && Number(a.cohortId) === haftaNo)
+    : state.applications.slice();
   const results = [];
-  state.applications.forEach(app => {
+  let veriliHesap = 0;
+  adaylar.forEach(app => {
     const rec = byEmail[String(app.email || '').trim().toLowerCase()] || users[String(app.id)];
     if(!rec) return;
-    const stats = computeAnomaliStatsForUser(rec);
+    veriliHesap++;
+    const stats = computeAnomaliStatsForUser(rec, pencere);
     if(!stats) return;
-    results.push(Object.assign({ id: app.id, name: app.name || ('#' + app.id) }, stats));
+    results.push(Object.assign({ id: app.id, name: app.name || ('#' + app.id), hafta: app.cohortId || null }, stats));
   });
-  results.sort((a,b) => (b.flagged - a.flagged) || (a.avgHoldSec - b.avgHoldSec));
+  // En şüpheliden normale: olasılığı küçük olan üstte.
+  results.sort((a, b) => (a.p - b.p) || (b.hizliCount - a.hizliCount));
 
+  const isaretli = results.filter(r => r.flagged).length;
   document.getElementById('anomaliTaranan').textContent = String(results.length);
-  document.getElementById('anomaliIsaretlenen').textContent = String(results.filter(r=>r.flagged).length);
+  document.getElementById('anomaliIsaretlenen').textContent = String(isaretli);
+  const isarEl = document.getElementById('anomaliIsaretlenen');
+  if(isarEl) isarEl.className = 'stat-value ' + (isaretli ? '' : 'gray');
+  const tarSub = document.getElementById('anomaliTarananSub');
+  if(tarSub) tarSub.textContent = `${veriliHesap} hesapta kayıt var · en az ${ANOMALI_MIN_TRADES} kapanmış işlem`;
+  const isarSub = document.getElementById('anomaliIsaretlenenSub');
+  if(isarSub) isarSub.textContent = results.filter(r => r.seviye === 'yuksek').length + ' yüksek · ' + results.filter(r => r.seviye === 'orta').length + ' orta';
+  const esikSub = document.getElementById('anomaliEsikSub');
+  if(esikSub) esikSub.textContent = `Hızlı işlem = ≤${ANOMALI_HIZLI_SN} sn`;
+  const kapsamEl = document.getElementById('anomaliKapsam');
+  if(kapsamEl) kapsamEl.textContent = haftaNo ? ('Hafta ' + haftaNo) : 'Tümü';
+  const kapsamSub = document.getElementById('anomaliKapsamSub');
+  if(kapsamSub) kapsamSub.textContent = pencere ? lfRange(haftaNo, lfCfg()) : (haftaNo ? 'Tarih aralığı yok' : 'Bütün haftalar birlikte');
   const lastScanEl = document.getElementById('anomaliLastScan');
   if(lastScanEl) lastScanEl.textContent = 'Son tarama: ' + new Date().toLocaleTimeString('tr-TR') + (perUserOk ? '' : ' (UYARI: güncel kişisel kayıtlar okunamadı — admin girişi yapın)');
 
   if(!results.length){
-    body.innerHTML = `<tr><td colspan="6"><div class="empty-state" style="padding:22px 0;">Değerlendirilecek kadar (en az ${ANOMALI_MIN_TRADES} kapanmış işlem) VİOP verisi olan hesap yok.</div></td></tr>`;
+    body.innerHTML = `<tr><td colspan="8"><div class="empty-state" style="padding:22px 0;">${haftaNo ? 'Hafta ' + haftaNo + ' için' : ''} değerlendirilecek kadar (en az ${ANOMALI_MIN_TRADES} eşleşmiş VİOP işlemi) veri olan hesap yok.</div></td></tr>`;
     return;
   }
 
+  const rozet = {
+    yuksek: `<span class="status-pill" style="background:rgba(239,68,68,0.16);color:#fca5a5;border:1px solid rgba(239,68,68,0.45);">🚩 YÜKSEK</span>`,
+    orta: `<span class="status-pill" style="background:rgba(234,179,8,0.14);color:#fde68a;border:1px solid rgba(234,179,8,0.4);">⚠ ORTA</span>`,
+    normal: `<span class="status-pill" style="background:rgba(34,197,94,0.12);color:var(--green);border:1px solid rgba(34,197,94,0.3);">✓ NORMAL</span>`
+  };
   body.innerHTML = results.map(r => {
-    const statusHtml = r.flagged
-      ? `<span class="status-pill" style="background:rgba(239,68,68,0.15);color:#fca5a5;border:1px solid rgba(239,68,68,0.4);">🚩 İNCELENMELİ</span>`
-      : `<span class="status-pill" style="background:rgba(34,197,94,0.12);color:var(--green);border:1px solid rgba(34,197,94,0.3);">✓ NORMAL</span>`;
-    return `<tr>
-      <td>${escapeHtml(r.name)}</td>
-      <td>${r.symbols.map(escapeHtml).join(', ')}</td>
+    const hizliMetin = r.hizliCount
+      ? `${r.hizliCount}${r.hizliWinPct !== null ? ` · %${r.hizliWinPct.toFixed(0)} kazanç` : ''}`
+      : '<span style="color:var(--text-dimmer);">yok</span>';
+    return `<tr${r.seviye === 'yuksek' ? ' style="background:rgba(239,68,68,0.05);"' : ''}>
+      <td><div style="font-weight:600;">${escapeHtml(r.name)}</div><div style="color:var(--text-dimmer);font-size:11px;margin-top:2px;">${r.symbols.slice(0, 8).map(escapeHtml).join(', ')}${r.symbols.length > 8 ? ' +' + (r.symbols.length - 8) : ''}</div></td>
+      <td>${r.hafta ? 'Hafta ' + r.hafta : '--'}</td>
       <td>${r.tradeCount}</td>
-      <td>${r.avgHoldSec !== null ? r.avgHoldSec.toFixed(1) + ' sn' : '--'}</td>
+      <td>${hizliMetin}</td>
+      <td>${anomaliSure(r.medianHoldSec)}</td>
       <td>%${r.winRatePct.toFixed(1)}</td>
-      <td>${statusHtml}</td>
+      <td${r.seviye !== 'normal' ? ' style="color:#fca5a5;font-weight:600;"' : ''}>${anomaliYuzde(r.p)}</td>
+      <td>${rozet[r.seviye]}</td>
     </tr>`;
   }).join('');
 }
 document.getElementById('anomaliScanBtn')?.addEventListener('click', renderAnomaliTespiti);
+document.getElementById('anomaliWeekSel')?.addEventListener('change', renderAnomaliTespiti);
 
 document.getElementById('portfoySelect').addEventListener('change', function(){
   selectedPortfoyAppId = this.value;
