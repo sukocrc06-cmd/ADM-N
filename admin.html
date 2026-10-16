@@ -3809,16 +3809,31 @@ function pwResetErrorText(err){
   return (err && err.message) ? err.message : 'bilinmeyen hata';
 }
 function sendCompetitorPasswordReset(app){
+  // (16 Ekim 2026) Bağlantı sunucuda (api/send-email.js, Firebase Admin SDK) üretilip
+  // Resend ile bizim alan adımızdan gönderilir. Sunucu bu işlemi henüz bilmiyorsa
+  // (eski sürüm) Firebase'in kendi şifre sıfırlama e-postasına düşülür.
   if(!app || !app.email) return Promise.reject({ code: 'auth/invalid-email' });
-  if(!AUTH_ENABLED) return Promise.reject({ message: 'Firebase Authentication kullanılamıyor.' });
-  const auth = firebase.auth();
-  try{ auth.languageCode = 'tr'; }catch(e){}
+  if(!AUTH_ENABLED || !firebase.auth().currentUser) return Promise.reject({ message: 'Admin olarak Firebase oturumu açık değil — çıkış yapıp tekrar giriş yap.' });
   const email = String(app.email).trim();
-  return auth.sendPasswordResetEmail(email, { url: OPTIPULSE_URL }).catch(function(err){
-    // Yönlendirme adresi Firebase'de yetkili alan değilse bağlantıyı yönlendirmesiz gönder.
-    const c = (err && err.code) || '';
-    if(c === 'auth/unauthorized-continue-uri' || c === 'auth/invalid-continue-uri' || c === 'auth/missing-continue-uri') return auth.sendPasswordResetEmail(email);
-    throw err;
+  function firebaseFallback(){
+    const auth = firebase.auth();
+    try{ auth.languageCode = 'tr'; }catch(e){}
+    return auth.sendPasswordResetEmail(email);
+  }
+  return firebase.auth().currentUser.getIdToken().then(function(idToken){
+    return fetch((location.protocol === 'https:' || location.protocol === 'http:' ? '' : BACKEND_API_BASE + '/') + 'api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+      body: JSON.stringify({ action: 'password_reset', to_email: email, to_name: app.name || '' })
+    });
+  }).then(function(r){
+    return r.json().catch(function(){ return {}; }).then(function(data){
+      if(r.ok) return data;
+      if(r.status === 404 && data.error === 'user_not_found') throw { code: 'auth/user-not-found' };
+      if(r.status === 400 && data.error === 'missing_fields') return firebaseFallback(); // sunucu eski sürüm
+      if(r.status === 403) throw { message: 'sunucu bu admin hesabını tanımıyor (ADMIN_ALLOWED_EMAILS)' };
+      throw { message: 'sunucu hatası (' + r.status + (data.error ? ' ' + data.error : '') + (data.message ? ': ' + data.message : '') + ')' };
+    });
   });
 }
 function sendNotificationEmail(templateId, params){
@@ -5580,12 +5595,12 @@ function renderBasvuruDetail(){
     } else if(!confirm(`${app.name} (${app.email}) adresine şifre sıfırlama bağlantısı gönderilsin mi?\n\nYarışmacının mevcut şifresi, bağlantıdan yeni şifre belirleyene kadar çalışmaya devam eder.`)) return;
     btn.disabled = true; btn.textContent = '⏳ GÖNDERİLİYOR…';
     sendCompetitorPasswordReset(app).then(function(){
-      const cur = appById(app.id) || app;
+      const cur = state.applications.find(a => String(a.id) === String(app.id)) || app;
       cur.pwResetSentAt = Date.now();
       cur.pwResetCount = (Number(cur.pwResetCount) || 0) + 1;
       addActivity(`${cur.name} kişisine şifre sıfırlama bağlantısı gönderildi.`);
       saveShared();
-      showToast('Şifre sıfırlama bağlantısı ' + cur.email + ' adresine gönderildi. Gelen kutusunda yoksa spam klasörüne baksın.', 'success');
+      showToast('Şifre sıfırlama bağlantısı ' + cur.email + ' adresine gönderildi (FinteLig e-postası). Gelen kutusunda yoksa spam klasörüne baksın.', 'success');
       if(selectedAppId === cur.id) renderBasvuruDetail();
     }).catch(function(err){
       console.warn('[Şifre sıfırlama] gönderilemedi:', err);
