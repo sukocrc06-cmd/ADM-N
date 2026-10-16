@@ -243,6 +243,63 @@ async function sendViaResend(msg) {
   return { ok: r.ok, status: r.status, data };
 }
 
+// (16 Ekim 2026) Admin → yarışmacıya şifre sıfırlama bağlantısı. Bağlantı
+// Firebase Admin SDK ile SUNUCUDA üretilir (generatePasswordResetLink) ve
+// e-posta Resend üzerinden, bizim alan adımızdan gönderilir — Firebase'in kendi
+// noreply@...firebaseapp.com e-postası çoğu zaman spama düşüyordu. Yalnızca
+// doğrulanmış admin oturumu kullanabilir (handleAdmin'in kontrolünden sonra çağrılır).
+const PASSWORD_RESET_CONTINUE_URL = 'https://finteclub.com.tr/demo/';
+async function generateResetLink(email) {
+  try {
+    return await admin.auth().generatePasswordResetLink(email, { url: PASSWORD_RESET_CONTINUE_URL });
+  } catch (e) {
+    const code = (e && (e.code || (e.errorInfo && e.errorInfo.code))) || '';
+    // Yönlendirme adresi Firebase'de yetkili alan değilse bağlantıyı yönlendirmesiz üret.
+    if (/continue-uri|unauthorized-domain|invalid-continue/i.test(code)) return admin.auth().generatePasswordResetLink(email);
+    throw e;
+  }
+}
+async function handleAdminPasswordReset(res, body) {
+  const email = String(body.to_email || '').trim().toLowerCase();
+  if (!isValidEmail(email)) {
+    res.status(400).json({ error: 'invalid_recipient' });
+    return;
+  }
+  let link;
+  try {
+    link = await generateResetLink(email);
+  } catch (e) {
+    const code = (e && (e.code || (e.errorInfo && e.errorInfo.code))) || '';
+    if (/user-not-found/i.test(code)) {
+      res.status(404).json({ error: 'user_not_found' });
+      return;
+    }
+    console.error('[send-email] şifre sıfırlama bağlantısı üretilemedi:', code, e && e.message);
+    res.status(500).json({ error: 'reset_link_failed', code: code, message: (e && e.message) || '' });
+    return;
+  }
+  const name = String(body.to_name || '').trim().slice(0, 80);
+  const html = `Merhaba${name ? ' ' + escapeHtml(name) : ''},<br><br>`
+    + `FinteLig yarışma yönetimi, <b>${escapeHtml(email)}</b> hesabın için bir şifre sıfırlama bağlantısı oluşturdu. `
+    + `Yeni şifreni belirlemek için aşağıdaki butona tıkla:<br><br>`
+    + `<a href="${escapeHtml(link)}" target="_blank" rel="noopener" style="display:inline-block;background:#2563eb;color:#ffffff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:700;">Şifremi Sıfırla →</a><br><br>`
+    + `Buton çalışmazsa şu adresi tarayıcına kopyala:<br><span style="word-break:break-all;">${escapeHtml(link)}</span><br><br>`
+    + `Yeni şifreni belirledikten sonra OPLab'a (<a href="${PASSWORD_RESET_CONTINUE_URL}">${PASSWORD_RESET_CONTINUE_URL.replace(/^https:\/\//, '').replace(/\/$/, '')}</a>) bu e-posta ve yeni şifrenle giriş yapabilirsin. `
+    + `Bağlantı tek kullanımlıktır ve bir süre sonra geçerliliğini yitirir. Bu talebi sen istemediysen e-postayı dikkate alma; mevcut şifren değişmez.<br><br>FinTeClub`;
+  const db = admin.firestore();
+  const now = new Date();
+  db.collection('email_quota').doc(dayKey(now))
+    .set({ admin: admin.firestore.FieldValue.increment(1), updatedAt: now.toISOString() }, { merge: true })
+    .catch(() => {});
+  const out = await sendViaResend({ to: email, toName: name, subject: 'FinteLig — Şifre Sıfırlama Bağlantın', html });
+  if (!out.ok) {
+    console.error('[send-email] Resend hatası (şifre sıfırlama):', out.status, out.data);
+    res.status(502).json({ error: 'resend_failed', status: out.status, detail: out.data });
+    return;
+  }
+  res.status(200).json({ ok: true, id: out.data && out.data.id });
+}
+
 async function handleAdmin(req, res, idToken) {
   let callerEmail;
   try {
@@ -259,6 +316,10 @@ async function handleAdmin(req, res, idToken) {
     return;
   }
   const body = req.body || {};
+  if (body.action === 'password_reset') {
+    await handleAdminPasswordReset(res, body);
+    return;
+  }
   const to = String(body.to_email || '').trim();
   const subject = String(body.subject_line || '').trim().slice(0, 200);
   const html = String(body.message_body || '').trim();
