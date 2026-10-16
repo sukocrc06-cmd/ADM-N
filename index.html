@@ -969,7 +969,7 @@ body.theme-light .test-notice{color:#b91c1c;background:rgba(239,68,68,.08);}
         <div class="ww-grid" id="pubWeeklyWinnersGrid"></div>
       </div>
 
-      <div class="card" style="margin-top:32px;">
+      <div class="card" style="margin-top:32px;" id="pubGenelSiralamaCard">
         <h3 class="section-title" data-i18n="sonuc_general_h">GENEL SIRALAMA</h3>
         <table>
           <thead><tr><th data-i18n="sonuc_th_rank">SIRA</th><th data-i18n="sonuc_th_name">YARIŞMACI</th><th data-i18n="sonuc_th_value">PORTFÖY DEĞERİ</th><th data-i18n="sonuc_th_return">GETİRİ</th><th data-i18n="sonuc_th_trades">İŞLEM SAYISI</th><th data-i18n="sonuc_th_status">DURUM</th></tr></thead>
@@ -2880,13 +2880,16 @@ function pistKalanMetni(){
   return t('pist_kalan_saat', saat, Math.floor((ms % 3600000) / 60000));
 }
 // Yarış pisti: admin Sahne Modu'ndaki satırların ziyaretçi sürümü.
+let pistGorunur = false;
 function renderPublicPist(){
   const box = document.getElementById('pubPist');
+  pistGorunur = false;
   if(!box) return;
   if(!publicBoardCanli()){ box.style.display = 'none'; return; }
   const satirlar = oplabPortfolioData.slice().sort((a,b)=> (b.equity||0) - (a.equity||0));
   if(!satirlar.length){ box.style.display = 'none'; return; }
   box.style.display = '';
+  pistGorunur = true;
   const hafta = document.getElementById('pubPistWeek');
   if(hafta) hafta.textContent = String(publicBoard.weekLabel || publicBoard.compName || '');
   const kalan = document.getElementById('pubPistKalan');
@@ -2966,6 +2969,11 @@ function renderWeeklyWinners(){
 function renderPublicSonuclar(){
   try{ renderWeeklyWinners(); }catch(e){}
   try{ renderPublicPist(); }catch(e){ console.warn('Yarış pisti çizilemedi:', e); }
+  // (16 Ekim 2026) Yarış pisti açıkken GENEL SIRALAMA tablosu aynı listeyi
+  // ikinci kez gösteriyordu — boşuna yer kaplamasın diye gizleniyor. Sonuçlar
+  // yayınlandığında (pist kapanır) tablo yine görünür hâle gelir.
+  const genelKart = document.getElementById('pubGenelSiralamaCard');
+  if(genelKart) genelKart.style.display = pistGorunur ? 'none' : '';
   const rankCards = document.querySelectorAll('#pub-sonuclar .rank-card');
   const tbody = document.querySelector('#pub-sonuclar table tbody');
   if(!rankCards.length || !tbody) return;
