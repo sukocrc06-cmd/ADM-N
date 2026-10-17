@@ -45,6 +45,12 @@
   --shadow-card:0 10px 30px rgba(0,0,0,0.35);
 }
 
+/* (17 Ekim 2026) Başvuru formundaki şifre kuralı ipucu */
+.pw-hint{display:block;margin-top:6px;font-size:11px;line-height:1.5;color:var(--text-dimmer);}
+.pw-hint.bad{color:#fca5a5;}
+input.pw-bad{border-color:rgba(239,68,68,0.55)!important;}
+
+
 /* ============ (16 Ekim 2026) HERKESE AÇIK YARIŞ PİSTİ ============
    Admin panelindeki Sahne Modu'nun "yarış pisti" satırlarının (yp-row)
    ziyaretçi sürümü. Veriyi finteclub/public_leaderboard belgesinden alır —
@@ -1077,7 +1083,7 @@ body.theme-light .test-notice{color:#b91c1c;background:rgba(239,68,68,.08);}
               <div class="field"><label data-i18n="basvuru_field_email">E-posta</label><input type="email" id="pbEmail" data-i18n-placeholder="common_ph_email" placeholder="mail@ornek.com" autocomplete="username"></div>
             </div>
             <div class="field-row">
-              <div class="field"><label data-i18n="basvuru_field_password">Şifre Belirle</label><input type="password" id="pbPassword" data-i18n-placeholder="basvuru_ph_password" placeholder="En az 6 karakter" autocomplete="new-password"></div>
+              <div class="field"><label data-i18n="basvuru_field_password">Şifre Belirle</label><input type="password" id="pbPassword" data-i18n-placeholder="basvuru_ph_password" placeholder="6–8 karakter · harf ve rakam" autocomplete="new-password" maxlength="8" minlength="6" inputmode="latin" pattern="[A-Za-z0-9]{6,8}" data-i18n-title="basvuru_pw_title" title="6–8 karakter, yalnızca İngilizce harf (a-z, A-Z) ve rakam (0-9)"><span class="pw-hint" id="pbPasswordHint" data-i18n="basvuru_pw_hint">6–8 karakter · yalnızca harf (a-z, A-Z) ve rakam (0-9) · Türkçe karakter, boşluk ve sembol kullanılamaz</span></div>
               <div class="field"><label data-i18n="basvuru_field_org">Üniversite / Bölüm</label><input type="text" id="pbOrg" data-i18n-placeholder="basvuru_ph_org" placeholder="Üniversite ve bölüm bilgisi"></div>
             </div>
             <div class="field-row">
@@ -1433,7 +1439,9 @@ const I18N_EN = {
   basvuru_ph_name: 'Enter your first and last name',
   basvuru_field_email: 'Email',
   basvuru_field_password: 'Set a Password',
-  basvuru_ph_password: 'At least 6 characters',
+  basvuru_ph_password: '6–8 characters · letters and digits',
+  basvuru_pw_hint: '6–8 characters · letters (a-z, A-Z) and digits (0-9) only · no accented characters, spaces or symbols',
+  basvuru_pw_title: '6–8 characters, English letters (a-z, A-Z) and digits (0-9) only',
   basvuru_field_org: 'University / Department',
   basvuru_ph_org: 'University and department info',
   basvuru_field_level: 'Experience Level',
@@ -1634,7 +1642,9 @@ const T = {
   basvuru_sayac_full: {tr:'Kontenjan doldu — yeni başvuru alınmıyor.', en:'Quota full — no new applications.'},
   basvuru_sayac_left: {tr:(n)=>n + ' kişilik yer kaldı.', en:(n)=>n + ' place' + (n === 1 ? '' : 's') + ' left.'},
   basvuru_toast_required: {tr:'Lütfen zorunlu alanları (ad soyad, e-posta, kurum, öğrenci numarası) doldurun.', en:'Please fill in the required fields (full name, email, institution, student number).'},
-  basvuru_toast_pwlen: {tr:'Lütfen en az 6 karakterli bir şifre belirle. Bu şifreyle OPLab\'a giriş yapacaksın.', en:'Please set a password of at least 6 characters. You\'ll use this password to log in to OPLab.'},
+  basvuru_toast_pwlen: {tr:'Şifre 6 ile 8 karakter arasında olmalı. Bu şifreyle OPLab\'a giriş yapacaksın.', en:'The password must be between 6 and 8 characters. You\'ll use this password to log in to OPLab.'},
+  basvuru_toast_pwchars: {tr:'Şifrede yalnızca İngilizce harf (a-z, A-Z) ve rakam (0-9) kullanabilirsin — Türkçe karakter, boşluk ve sembol olmaz.', en:'The password may contain only English letters (a-z, A-Z) and digits (0-9) — no accented characters, spaces or symbols.'},
+  basvuru_pw_hint: {tr:'6–8 karakter · yalnızca harf (a-z, A-Z) ve rakam (0-9) · Türkçe karakter, boşluk ve sembol kullanılamaz', en:'6–8 characters · letters (a-z, A-Z) and digits (0-9) only · no accented characters, spaces or symbols'},
   basvuru_toast_dupemail: {tr:'Bu e-posta adresiyle daha önce başvuru yapılmış. Bir e-posta ile yalnızca bir kez başvurulabilir.', en:'An application has already been made with this email address. Only one application is allowed per email.'},
   basvuru_toast_dupstudent: {tr:'Bu öğrenci numarasıyla daha önce başvuru yapılmış. Aynı dönem içinde yarışmaya yalnızca bir kez katılabilirsin (kural 2.15).', en:'An application has already been made with this student number. Only one application is allowed per student number.'},
   basvuru_toast_success: {tr:(name)=>`Başvurunuz alındı, ${name}! E-postana gönderdiğimiz doğrulama bağlantısına tıkla, sonra admin onayını bekle.`, en:(name)=>`Your application has been received, ${name}! Click the verification link we sent to your email, then wait for admin approval.`},
@@ -1946,6 +1956,46 @@ function findAppByEmail(email){
   if(!email) return null;
   return state.applications.find(a => (a.email||'').toLowerCase() === email.toLowerCase());
 }
+// (17 Ekim 2026) Başvuru şifresi kuralı — tek yerden yönetiliyor ki form
+// alanı (maxlength/pattern/yer tutucu), canlı filtre ve gönderim kontrolü
+// birbirinden ayrışmasın.
+const PW_MIN = 6, PW_MAX = 8, PW_RE = /^[A-Za-z0-9]{6,8}$/;
+// Yazarken kuralı bozan karakterleri sessizce değil, GÖRÜNÜR biçimde ele
+// alıyoruz: izinsiz karakter yazıldığında alan kırmızıya dönüp ipucu
+// satırı uyarıyor; karakterin kendisi alana hiç girmiyor (yapıştırılan
+// metin de süzülüyor). Böylece kullanıcı "şifremi yazdım ama kabul
+// etmiyor" durumuna düşmüyor.
+function pwAlaniBagla(){
+  const inp = document.getElementById('pbPassword');
+  const hint = document.getElementById('pbPasswordHint');
+  if(!inp) return;
+  function guncelle(temizlendiMi){
+    const v = inp.value;
+    const eksik = v.length > 0 && v.length < PW_MIN;
+    const hataliMi = temizlendiMi || eksik;
+    inp.classList.toggle('pw-bad', hataliMi);
+    if(hint){
+      hint.classList.toggle('bad', hataliMi);
+      hint.textContent = temizlendiMi ? t('basvuru_toast_pwchars')
+        : (eksik ? t('basvuru_toast_pwlen') : t('basvuru_pw_hint'));
+    }
+  }
+  inp.addEventListener('input', function(){
+    const onceki = inp.value;
+    const temiz = onceki.replace(/[^A-Za-z0-9]/g, '').slice(0, PW_MAX);
+    if(temiz !== onceki){
+      const son = inp.selectionStart;
+      inp.value = temiz;
+      try{ inp.setSelectionRange(Math.max(0, son - (onceki.length - temiz.length)), Math.max(0, son - (onceki.length - temiz.length))); }catch(e){}
+      guncelle(true);
+      return;
+    }
+    guncelle(false);
+  });
+  inp.addEventListener('blur', function(){ guncelle(false); });
+}
+if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', pwAlaniBagla);
+else pwAlaniBagla();
 function generateVerifyToken(){
   return Math.random().toString(36).slice(2, 8).toUpperCase() + Date.now().toString(36).slice(-4).toUpperCase();
 }
@@ -3244,7 +3294,11 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
   const studentNumber = document.getElementById('pbStudentNumber').value.trim();
   const motivation = document.getElementById('pbMotivation').value.trim();
   if(!name || !email || !org || !studentNumber){ showToast(t('basvuru_toast_required'), 'error'); return; }
-  if(!password || password.length < 6){ showToast(t('basvuru_toast_pwlen'), 'error'); return; }
+  // (17 Ekim 2026) Şifre kuralı: 6–8 karakter, yalnızca a-z, A-Z ve 0-9.
+  // Laboratuvarda yarışmacılar şifrelerini klavyeden elle giriyor; Türkçe
+  // karakter/sembol içeren uzun şifreler giriş anında sorun çıkarıyordu.
+  if(!password || password.length < PW_MIN || password.length > PW_MAX){ showToast(t('basvuru_toast_pwlen'), 'error'); return; }
+  if(!PW_RE.test(password)){ showToast(t('basvuru_toast_pwchars'), 'error'); return; }
   // (26 Eylül 2026 — kural 22.2 ve 19.4) Kurallar + KVKK onayı zorunlu, görüntü izni isteğe bağlı.
   const rulesOk = document.getElementById('pbRulesConsent').checked;
   const kvkkOk = document.getElementById('pbKvkkConsent').checked;
