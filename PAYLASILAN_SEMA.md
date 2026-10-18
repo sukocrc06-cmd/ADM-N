@@ -262,3 +262,45 @@ yaş 5 dakikayı (`PIST_BAYAT_MS`) geçtiyse "CANLI" rozeti griye düşüp
 söyleyen bir uyarı bandı çıkar. Damga yoksa (eski sürümün yazdığı belge) yaş
 iddia edilmez. Bu alan admin.html'de `fresh.updatedAt` olarak her yazımda
 set edilir — KALDIRILMAMALI.
+
+**`public_leaderboard`'u kim yazar (18 Ekim 2026 — `api/refresh-leaderboard.js`)**:
+Artık İKİ yazar var ve ikisi de aynı alan kümesini üretir:
+
+| Yazan | Ne zaman | Sıklık |
+|---|---|---|
+| `admin.html` → `schedulePublicLeaderboard()` | admin paneli AÇIKKEN | en fazla 20 sn'de bir |
+| `api/refresh-leaderboard.js` (Vercel + Firebase Admin SDK) | index.html belgeyi bayat görüp tetikleyince | en fazla 30 sn'de bir |
+
+Uç, panelle yarışa girmez: belge 30 sn'den (`MIN_WRITE_GAP_MS`) tazeyse
+hiçbir şey okumadan/yazmadan çıkar, yani panel açıkken fiilen hiç çalışmaz.
+Yazdığı sürümlere `writtenBy: 'api'` damgası koyar (panel bu alanı
+yazmadığı için damga yalnızca panelsiz yazımlarda kalır). Yazım
+`{merge:true}` ile yapılır: uç yalnızca sunucuda üretilebilen alanları
+(`rows`, `stats`, `weekLabel`, `competition*`, `startBalance`,
+`participantCount`, `scene`, `announcement`, `tradingHalted`,
+`broadcastLive`, `resultsPublished`, `compName`, `updatedAt`) tazeler;
+panelin yazdığı `weeklyWinners`, `session`, `ceremonyAt`,
+`objectionDeadline`, `finalized` olduğu gibi korunur.
+
+`shared_state.competitionActive` false ise uç belgeye HİÇ DOKUNMAZ — kural
+17.1 gereği bitiş sonrası sıralama adminin doğruladığı final kaydından
+(`competitionHistory`) yayımlanır, uç onu ezmemeli.
+
+⚠ **İKİ KOPYA MANTIK UYARISI**: `api/refresh-leaderboard.js` içindeki
+`buildRows()`, admin.html'deki `buildPublicLeaderboard()` → `weekRoster()`
+→ `rankingPool()` → `buHaftaninYarismacisiMi()` / `isBoardHidden()` /
+`isRankExcluded()` / `penaltyFor()` / `pctReturn()` zincirinin bire bir
+kopyasıdır. admin.html'de bu fonksiyonlardan birini değiştirirsen uçtaki
+kopyayı da değiştir; ayrışırlarsa site ile panel farklı sıralama gösterir ve
+bu fark kimsenin gözüne çarpmaz. `extendPublic()`'in örnek biriktirmeye
+dayanan kısmı (`series`, `idx`, `lead`, `duel`, `rows[].spark`,
+`rows[].prevRank`) sunucuda üretilemez; zaten
+`buildPublicLeaderboard()` o alanları herkese açık belgeye yazmadan önce
+siliyor, yani belgede hiç bulunmuyorlar.
+
+Uç, `api/delete-user.js` ile AYNI ortam değişkenlerini kullanır
+(`FIREBASE_PROJECT_ID` / `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY`),
+yeni kurulum gerektirmez. Kimlik doğrulaması istemez çünkü çağıranın
+verdiği hiçbir şeyi kullanmaz ve yazdığı belge zaten herkese açık; kota
+kötüye kullanımına karşı yukarıdaki tazelik freni + lambda örneği başına
+15 sn soğuma var.

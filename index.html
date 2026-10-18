@@ -2919,6 +2919,11 @@ function fetchPublicResultsIfNeeded(force){
       _pct: (typeof r.pct === 'number') ? r.pct : null, _waiting: !!r.waiting
     }));
     renderPublicSonuclar();
+    // Okuduğumuz belge bayatsa (admin paneli kapalı) sunucudan tazelemesini
+    // isteyelim. Kendi tetiklediğimiz okumada tekrar istemeyiz, yoksa
+    // tazeleme-oku-tazeleme döngüsü olurdu: pistTazelemeIste() zaten
+    // PIST_TAZELE_ARALIK_MS ile frenli.
+    if(state.competitionActive && !state.resultsPublished && pistVeriBayatMi()) pistTazelemeIste();
   }).catch((err)=>console.warn('Sonuç verisi okunamadı:', err));
 }
 // Sekme öne gelince beklemeden tazele (arka planda atlanan turlar yüzünden
@@ -2964,6 +2969,46 @@ function pistYasMetni(ms){
 function pistVeriBayatMi(){
   const ms = pistVeriYasiMs();
   return ms !== null && ms > PIST_BAYAT_MS;
+}
+// (18 Ekim 2026) Bayat olduğunu söylemek yarı çözümdü — bu da diğer yarısı:
+// veriyi tazeletiyoruz. public_leaderboard'u yazabilmek için admin yetkisi
+// gerekiyor (yarışmacının/ziyaretçinin tarayıcısı yazamaz, kural 4.9 gereği
+// oplab_live_portfolio'yu okuyamaz bile), o yüzden işi sunucuya veriyoruz:
+// api/refresh-leaderboard.js, Firebase Admin SDK ile shared_state +
+// oplab_live_portfolio okuyup belgeyi yeniden yazıyor (bkz. o dosyanın
+// başındaki açıklama). Burada sadece "tazele" diyoruz, hiçbir veri
+// göndermiyoruz.
+//
+// Neden zamanlanmış bir iş değil: Vercel'in Hobby planında cron günde en
+// fazla bir kez çalışabiliyor. İstek üzerine tetikleme o sınırı atlıyor ve
+// yalnızca BİRİ gerçekten siteye bakarken çalışıyor — kimse bakmıyorken
+// sıralamayı tazelemenin de bir anlamı yok.
+//
+// Yol göreli ('api/...'): sayfa /fintelig/ altında açıldığında
+// /fintelig/api/refresh-leaderboard'a (ters proxy ile bu projeye), projenin
+// kendi Vercel adresinde /api/refresh-leaderboard'a gider — baştaki "/" ile
+// yazılsa ANA kulüp sitesine gidip 404 olurdu (bkz. sendNotificationEmail).
+const PIST_TAZELE_ARALIK_MS = 90000;   // aynı sekmeden en sık bu kadar
+let pistTazelemeIstendi = 0;
+function pistTazelemeIste(){
+  if(!state.competitionActive || state.resultsPublished) return;
+  if(Date.now() - pistTazelemeIstendi < PIST_TAZELE_ARALIK_MS) return;
+  pistTazelemeIstendi = Date.now();
+  fetch('api/refresh-leaderboard', { method: 'POST', cache: 'no-store' })
+    .then(function(r){
+      // 204 = sunucu "belge zaten taze" dedi, yazmadı. 500 = ortam
+      // değişkenleri eksik / uç henüz deploy edilmemiş. İkisinde de
+      // yeniden okumanın anlamı yok.
+      if(r.status !== 200) return null;
+      // Uç yazdı; birkaç saniye sonra tazelenmiş hâli okuyalım.
+      setTimeout(function(){ publicResultsLastFetch = 0; fetchPublicResultsIfNeeded(true); }, 2500);
+      return null;
+    })
+    .catch(function(e){
+      // Ağ hatası ya da uç yok: sayfa bayat uyarısıyla çalışmaya devam
+      // eder, "hiçbir şey bozulmaz".
+      console.warn('[Sıralama] Tazeleme isteği başarısız (api/refresh-leaderboard deploy edilmemiş olabilir):', e);
+    });
 }
 function pistKalanMetni(){
   const bitis = publicBoard && Number(publicBoard.competitionEndsAt);
