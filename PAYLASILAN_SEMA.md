@@ -251,3 +251,14 @@ ve yayın sayfası (yayin.html, `public_leaderboard` üzerinden) okur.
 `resultsPublishedAt`, `objectionDeadline`, `finalized`, `weeklyWinners[].status`.
 Yarışma bittikten sonra sıralama canlı değerlerden değil, doğrulanmış final
 kaydından (`competitionHistory`) yayımlanır (kural 17.1).
+
+**`public_leaderboard.updatedAt` (ISOString) — veri tazeliği (18 Ekim 2026)**:
+Bu belgeyi SADECE açık bir admin paneli yazar (`schedulePublicLeaderboard`,
+en fazla 20 sn'de bir). Panel kapandığında yazım durur ama `shared_state`
+içinde `competitionActive: true` kaldığı için index.html yarış pistini
+göstermeye devam eder. O yüzden index.html artık `updatedAt` damgasına bakar:
+yaş 5 dakikayı (`PIST_BAYAT_MS`) geçtiyse "CANLI" rozeti griye düşüp
+"GÜNCELLENMİYOR" olur ve pistin üstüne verinin kaç saat/gün önce yazıldığını
+söyleyen bir uyarı bandı çıkar. Damga yoksa (eski sürümün yazdığı belge) yaş
+iddia edilmez. Bu alan admin.html'de `fresh.updatedAt` olarak her yazımda
+set edilir — KALDIRILMAMALI.

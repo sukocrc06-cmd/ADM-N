@@ -59,6 +59,14 @@ input.pw-bad{border-color:rgba(239,68,68,0.55)!important;}
 .ftp-head{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px;}
 .ftp-canli{display:inline-flex;align-items:center;gap:8px;font-family:'Oswald',sans-serif;font-weight:700;letter-spacing:2px;font-size:13px;color:#fca5a5;}
 .ftp-canli i{width:9px;height:9px;border-radius:50%;background:var(--red);box-shadow:0 0 0 4px var(--red-glow);animation:ftpNabiz 1.8s ease-in-out infinite;}
+/* (18 Ekim 2026 — "bayat sıralama") Yayın belgesi (public_leaderboard) yalnızca
+   admin paneli açıkken yazılıyor. Panel kapalıyken site, saatler önceki
+   değerleri yanıp sönen "CANLI" rozetiyle canlıymış gibi gösteriyordu. Veri
+   PIST_BAYAT_MS'den eskiyse rozet nabız atmayı bırakıp griye düşer. */
+.ftp-canli.bayat{color:var(--text-dimmer);}
+.ftp-canli.bayat i{background:var(--text-dimmer);box-shadow:none;animation:none;}
+.ftp-tazelik{margin:-6px 0 14px;font-size:12px;color:var(--text-dimmer);}
+.ftp-tazelik.bayat{padding:9px 13px;border-radius:var(--radius-sm);background:var(--yellow-glow);border:1px solid rgba(234,179,8,0.3);color:#fde68a;margin:0 0 14px;line-height:1.6;}
 @keyframes ftpNabiz{0%,100%{opacity:1;}50%{opacity:.35;}}
 .ftp-week{font-family:'Oswald',sans-serif;font-size:22px;font-weight:700;}
 .ftp-kalan{margin-left:auto;text-align:right;}
@@ -949,10 +957,11 @@ body.theme-light .test-notice{color:#b91c1c;background:rgba(239,68,68,.08);}
         <div class="pub-section-label" data-i18n="pist_label">CANLI YARIŞ PİSTİ</div>
         <div class="card" style="margin-top:14px;">
           <div class="ftp-head">
-            <span class="ftp-canli"><i></i>CANLI</span>
+            <span class="ftp-canli" id="pubPistCanli"><i></i><span id="pubPistCanliTxt">CANLI</span></span>
             <span class="ftp-week" id="pubPistWeek"></span>
             <span class="ftp-kalan"><b id="pubPistKalan">—</b><span data-i18n="pist_kalan">KALAN SÜRE</span></span>
           </div>
+          <div class="ftp-tazelik" id="pubPistTazelik" style="display:none;"></div>
           <div id="pubPistRows"></div>
           <div class="ftp-stats" id="pubPistStats"></div>
           <div class="ftp-duyuru" id="pubPistDuyuru" style="display:none;"></div>
@@ -1605,6 +1614,13 @@ const T = {
   sonuc_not_published: {tr:'Sonuçlar henüz yayınlanmadı.', en:'Results have not been published yet.'},
   pist_label: {tr:'CANLI YARIŞ PİSTİ', en:'LIVE RACE TRACK'},
   pist_kalan: {tr:'KALAN SÜRE', en:'TIME LEFT'},
+  pist_canli: {tr:'CANLI', en:'LIVE'},
+  pist_bayat_rozet: {tr:'GÜNCELLENMİYOR', en:'NOT UPDATING'},
+  pist_yas_dk: {tr:(n)=>`${n} dakika`, en:(n)=>`${n} minute${n===1?'':'s'}`},
+  pist_yas_sa: {tr:(n)=>`${n} saat`, en:(n)=>`${n} hour${n===1?'':'s'}`},
+  pist_yas_gun: {tr:(n)=>`${n} gün`, en:(n)=>`${n} day${n===1?'':'s'}`},
+  pist_taze_not: {tr:(y)=>`Sıralama ${y} önce güncellendi · dakikada bir tazelenir.`, en:(y)=>`Standings updated ${y} ago · refreshed every minute.`},
+  pist_bayat_not: {tr:(y)=>`⚠ Bu sıralama ${y} önce güncellendi. Canlı yayın şu an durduğu için aşağıdaki değerler yarışmanın ANLIK durumunu göstermiyor; yayın yeniden açıldığında kendiliğinden tazelenecek.`, en:(y)=>`⚠ These standings were updated ${y} ago. The live feed is currently paused, so the values below do not reflect the competition's current state; they will refresh automatically once the feed resumes.`},
   pist_canli_not: {tr:'Yarışma sürüyor — sıralama canlı, dakikada bir tazeleniyor.', en:'Competition in progress — live standings, refreshed every minute.'},
   pist_islem_yok: {tr:'işlem yok', en:'no trades'},
   pist_bekleniyor: {tr:'Yarışmacılar henüz işleme başlamadı.', en:'Competitors have not started trading yet.'},
@@ -2920,6 +2936,35 @@ function boardPct(c){
   if(!base) return 0;
   return (((c && c.equity) || 0) - base) / base * 100;
 }
+// (18 Ekim 2026 — "bayat sıralama") public_leaderboard belgesini SADECE açık bir
+// admin paneli yazıyor (bkz. admin.html / schedulePublicLeaderboard). Panel
+// kapandığında yazım durur, ama yarışma Firestore'da "competitionActive: true"
+// kaldığı için bu sayfa son yazılan satırları yanıp sönen bir "CANLI" rozetiyle
+// göstermeye devam ediyordu — 17 Ekim'de 1,5 günlük veri canlıymış gibi duruyordu.
+// Site veriyi kendisi hesaplayamaz (oplab_live_portfolio kural 4.9 gereği
+// yalnızca admine açık), ama yaşını bilebilir: belgedeki updatedAt damgasına
+// bakıp eşiği geçtiğinde "CANLI" iddiasını geri çekiyoruz.
+// Admin en fazla 20 sn'de bir yazıyor; 5 dakika = yayın gerçekten durmuş.
+const PIST_BAYAT_MS = 300000;
+function pistVeriYasiMs(){
+  const ts = publicBoard && publicBoard.updatedAt;
+  if(!ts) return null;
+  const ms = Date.parse(ts);
+  if(!isFinite(ms)) return null;
+  return Math.max(0, Date.now() - ms);
+}
+function pistYasMetni(ms){
+  if(ms < 90000) return t('pist_yas_dk', Math.max(1, Math.round(ms / 60000)));
+  if(ms < 5400000) return t('pist_yas_dk', Math.round(ms / 60000));
+  if(ms < 172800000) return t('pist_yas_sa', Math.round(ms / 3600000));
+  return t('pist_yas_gun', Math.round(ms / 86400000));
+}
+// Damga hiç yoksa (eski bir sürümün yazdığı belge) yaş iddia etmiyoruz ama
+// bayat da saymayız — sayfa eskiden olduğu gibi davranır.
+function pistVeriBayatMi(){
+  const ms = pistVeriYasiMs();
+  return ms !== null && ms > PIST_BAYAT_MS;
+}
 function pistKalanMetni(){
   const bitis = publicBoard && Number(publicBoard.competitionEndsAt);
   if(!bitis || !isFinite(bitis)) return '—';
@@ -2944,6 +2989,20 @@ function renderPublicPist(){
   if(hafta) hafta.textContent = String(publicBoard.weekLabel || publicBoard.compName || '');
   const kalan = document.getElementById('pubPistKalan');
   if(kalan) kalan.textContent = pistKalanMetni();
+
+  const yas = pistVeriYasiMs(), bayat = pistVeriBayatMi();
+  const rozet = document.getElementById('pubPistCanli'), rozetTxt = document.getElementById('pubPistCanliTxt');
+  if(rozet) rozet.classList.toggle('bayat', bayat);
+  if(rozetTxt) rozetTxt.textContent = bayat ? t('pist_bayat_rozet') : t('pist_canli');
+  const tazelik = document.getElementById('pubPistTazelik');
+  if(tazelik){
+    if(yas === null){ tazelik.style.display = 'none'; tazelik.textContent = ''; tazelik.classList.remove('bayat'); }
+    else {
+      tazelik.style.display = '';
+      tazelik.classList.toggle('bayat', bayat);
+      tazelik.textContent = t(bayat ? 'pist_bayat_not' : 'pist_taze_not', pistYasMetni(yas));
+    }
+  }
 
   const yuzdeler = satirlar.map(boardPct);
   const enIyi = Math.max.apply(null, yuzdeler.concat([0]));
@@ -2994,6 +3053,10 @@ function pistBasHarf(ad){
 if(fsPortfolioDoc){
   setTimeout(()=>fetchPublicResultsIfNeeded(true), 3000);
   setInterval(()=>fetchPublicResultsIfNeeded(false), PUBLIC_RESULTS_POLL_MS);
+  // Yazım durduğunda fetch yeni veri getirmez, dolayısıyla renderPublicPist de
+  // çağrılmaz ve "3 dakika önce" metni olduğu yerde donardı. Pist görünürken
+  // yaşı ve kalan süreyi dakikada bir yerelde tazeliyoruz (ekstra okuma yok).
+  setInterval(()=>{ try{ if(pistGorunur && !document.hidden) renderPublicPist(); }catch(e){} }, 60000);
 }
 // (30 Eylül 2026) Haftalık kazananlar — yalnızca admin'in İLAN ETTİĞİ haftalar (isim + getiri; işlem bilgisi yok, kural 4.9)
 function renderWeeklyWinners(){
@@ -3053,7 +3116,12 @@ function renderPublicSonuclar(){
 
   const sorted = data.slice().sort((a,b)=> (b.equity||0) - (a.equity||0));
   const rankable = sorted.filter(c => !(c._dq || isRankExcluded(c.id)));
-  const canliEtiket = canli ? ' <span class="status-pill red" style="font-size:9px;padding:1px 6px;">' + t('sonuc_live_status') + '</span>' : '';
+  // Bayat veride kırmızı "CANLI" rozeti yerine yaşını anlatan gri bir rozet.
+  const canliEtiket = canli
+    ? (pistVeriBayatMi()
+        ? ' <span class="status-pill" style="font-size:9px;padding:1px 6px;">' + escapeHtml(t('pist_bayat_rozet')) + '</span>'
+        : ' <span class="status-pill red" style="font-size:9px;padding:1px 6px;">' + t('sonuc_live_status') + '</span>')
+    : '';
   // rank-card sırası HTML'de 02/01/03 (ortadaki lider) olarak dizili —
   // buildViewModeHtml (admin.html) ile aynı üç kişiyi kullanıyoruz, sadece
   // DOM sırası farklı (kart 0 → 2., kart 1 → 1., kart 2 → 3.).
@@ -3214,6 +3282,7 @@ function updatePublicZirveAvailability(){
 function refreshDynamicPublicText(){
   syncGlobalStatus();
   updateEmailVerifyStatusUI();
+  try{ renderPublicSonuclar(); }catch(e){}
 
   const basvuruDurumEl = document.getElementById('pubBasvuruDurum');
   if(basvuruDurumEl){
