@@ -10664,6 +10664,10 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
         // yarışmacı siteye girip gezebilir, erişim kapalıyken hiç giremez
         // (OPLab tam ekran kapıyı gösterir).
         erisimBlok: !!a.accessBlocked,
+        // (20 Ekim 2026) Bu blogu HAFTA KAPISI mi koydu, yoksa admin elle mi?
+        // Kapinin koydugu kilit, kisinin haftasi gelince kendiliginden kalkar.
+        haftaKapisi: !!a.ftlWeekLock,
+        kapiMuaf: !!a.ftlWeekLockOverride,
         // (14 Ekim 2026) Yarış pistinde/yayında görünmesin — bkz. rankingPool
         gizli: !!a.hiddenFromBoard
       }))
@@ -10719,7 +10723,13 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
         : (k.blok ? '<span class="status-pill red">ALIM-SATIM KAPALI</span>'
                   : '<span class="status-pill green">İŞLEM YAPABİLİR</span>'))
         + (k.gizli ? '<span class="status-pill yellow">SIRALAMADA YOK</span>' : '');
-      const hafta = k.haftaDisi ? '<span class="status-pill yellow">bu hafta değil</span>' : '';
+      const hafta = k.haftaDisi
+        ? (k.haftaKapisi
+            ? '<span class="status-pill yellow" title="Hafta kapısı otomatik kapattı — kendi haftası gelince kendiliğinden açılır.">HAFTA KAPISI</span>'
+            : (k.kapiMuaf
+                ? '<span class="status-pill" style="border-color:var(--yellow);color:var(--yellow);" title="Hafta kapısından elle muaf tutuldu — haftası olmadığı hâlde işlem yapabilir.">KAPI MUAF</span>'
+                : '<span class="status-pill yellow">bu hafta değil</span>'))
+        : '';
       return `
       <div class="list-item" style="cursor:default;${k.blok ? 'opacity:.72;' : ''}">
         <div>
@@ -10777,6 +10787,24 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
     const kapat = btn.dataset.kapat === '1';
     if(kapat && !confirm(`${app.name} OPLab'a HİÇ giremesin mi?\n\nSiteyi açtığında tam ekran bir uyarı görür; gezemez, işlem yapamaz. Portföyü ve kaydı korunur.`)) return;
     app.accessBlocked = !!kapat;
+    // (20 Ekim 2026) Hafta kapısı otomatik çalışıyor: haftası gelmemiş birine
+    // elle "Erişim: aç" dersen, kapı bir dahaki kayıtta onu yine kapatırdı.
+    // Bu yüzden elle açma, o kişiyi kapıdan MUAF tutar (lockOverride ile aynı
+    // mantık). Yeniden kapatınca muafiyet kalkar.
+    if(kapat){
+      delete app.ftlWeekLockOverride;
+    } else {
+      const buHafta = Number(state.currentCohortId);
+      if(app.cohortId && isFinite(buHafta) && Number(app.cohortId) !== buHafta){
+        app.ftlWeekLockOverride = true;
+      }
+      delete app.ftlWeekLock;
+      if(Number(app.tradeLockUntil) === Number(window.FTL_BLOCK_UNTIL)){
+        const geri = Number(app.tradeLockPrev);
+        app.tradeLockUntil = (isFinite(geri) && geri > Date.now()) ? geri : null;
+        delete app.tradeLockPrev;
+      }
+    }
     kaydet(`${app.name} — OPLab erişimi ${kapat ? 'KAPATILDI' : 'açıldı'} (kişiye özel).`);
   });
 
@@ -10785,9 +10813,13 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
 
   const btnHafta = document.getElementById('oplabKapatHaftaDisi');
   if(btnHafta) btnHafta.addEventListener('click', function(){
-    const hedef = kisiler().filter(k => k.haftaDisi && !k.blok);
+    // (20 Ekim 2026) Hafta kapısının kilitlediklerini ATLA. Bu düğme
+    // `tradingBlocked` yazar — yani ADMININ ELLE blogu; kapı onu hafta
+    // gelince AÇMAZ (elle niyet kazanır). Kapının zaten kapattığı kişiye
+    // basılsa, haftası geldiğinde 15 kişiyi tek tek elle açmak gerekirdi.
+    const hedef = kisiler().filter(k => k.haftaDisi && !k.blok && !k.haftaKapisi);
     if(!hedef.length){
-      if(typeof showToast === 'function') showToast('Bu haftanın dışında, alım-satımı açık yarışmacı yok.', 'warn');
+      if(typeof showToast === 'function') showToast('Bu haftanın dışında, alım-satımı açık yarışmacı yok — hafta kapısı bunu zaten otomatik yapıyor.', 'warn');
       return;
     }
     if(!confirm(`${hedef.length} yarışmacının alım-satımı kapatılsın mı? (Bu haftanın yarışmacısı olmayanlar)`)) return;
@@ -10832,6 +10864,167 @@ body:has(#stageModeOverlay:not(.hidden)) #fileModeBanner{display:none !important
   }
   render();
   window.ftlKisiBlokRender = render;
+})();
+</script>
+
+<!-- ============ (20 Ekim 2026) HAFTA KAPISI — OTOMATİK ERİŞİM KİLİDİ ============
+     SORUN: Hafta 2 sürerken Hafta 3'e onaylanan yarışmacıların OPLab erişimi
+     açık kalıyordu; işlem yapıp hafta başlamadan portföyünü oynatabiliyorlardı.
+
+     NEDEN eski çözümler yetmedi:
+     1) `applications[i].accessBlocked` (14 Ekim 2026) — admin panelinde
+        "Erişim: kapat" düğmesi bunu yazıyor ve panel "ERİŞİM KAPALI" rozetini
+        gösteriyor, AMA bu alan PAYLASILAN_SEMA.md'de hiç tanımlı değil ve
+        depoda yalnızca admin.html içinde, yalnızca YAZILAN yer olarak geçiyor.
+        OPLab (finteclubBridge.js) bu alanı okumuyor — yani düğme fiilen
+        hiçbir şey yapmıyordu. 15 Hafta-3 yarışmacısının hepsinde
+        accessBlocked=true olmasına rağmen erişimlerinin sürmesinin sebebi bu.
+     2) Şemada (satır 243) OPLab'ın hafta kontrolü var ama "SEZON PLANI AÇIKKEN"
+        şartlı; bu kurulumda `ligSeasonOn()` sabit `false` döndüğü ve
+        `season.enabled` canlıda `false` olduğu için o kontrol hiç çalışmıyor.
+     3) "Hafta dışını kapat" toplu düğmesi işi görüyordu ama ELLE: her yeni
+        onaydan sonra yeniden basmak gerekiyordu, basılmazsa kişi açıkta
+        kalıyordu.
+
+     ÇÖZÜM: Hafta filtresini, OPLab'ın GERÇEKTEN okuduğu alan üzerinden
+     otomatik uygula: `applications[i].tradeLockUntil` (şema satır 245,
+     yaptırım akışı kural 21.2 bununla çalışıyor — üretimde kanıtlı).
+     `accessBlocked` de birlikte yazılıyor; bugün OPLab'da karşılığı yok ama
+     ileride okunmaya başlarsa kapı kendiliğinden tam kapıya dönüşür.
+
+     NEREDE ÇALIŞIR: `saveShared()` sarmalayıcısında — yani onay, hafta
+     rotasyonu, hafta geri alma, LİG modülü ve elle hafta taşıma dâhil
+     state'i kaydeden HER yol kapıdan geçer. Tek tek çağrı noktası yamamak
+     yerine tek boğaz noktası seçildi; ileride eklenen akışlar da kapsanır.
+
+     SAHİPLİK: Kapının koyduğu kilit `ftlWeekLock` ile işaretlenir. Kişinin
+     haftası gelince yalnızca KAPININ koyduğu kilit kalkar; adminin elle
+     koyduğu blok (`tradingBlocked`) ve yaptırım kilidi korunur. -->
+<script>
+(function(){
+  'use strict';
+
+  // Kapinin DOKUNMAYACAGI durumlar burada toplu halde: gecmis yarismaci,
+  // onaylanmamis basvuru ve haftasi hic atanmamis eski kayit.
+  function kapsamda(a){
+    return !!a && a.status === 'onayli' && !a.pastCompetitor
+      && isFinite(Number(a.cohortId)) && Number(a.cohortId) > 0;
+  }
+
+  function haftaKapisi(){
+    const buHafta = Number(state && state.currentCohortId);
+    // Yarim yuklenmis state'te calisirsa AKTIF haftayi da kilitleyebilirdi.
+    if(!isFinite(buHafta) || buHafta <= 0) return null;
+    if(!Array.isArray(state.applications) || !state.applications.length) return null;
+    const BLOK = Number(window.FTL_BLOCK_UNTIL);
+    if(!isFinite(BLOK) || BLOK <= 0) return null;
+
+    const kapanan = [], acilan = [], temizlenen = [];
+    state.applications.forEach(function(a){
+      if(!kapsamda(a)) return;
+      const disarida = Number(a.cohortId) !== buHafta;
+
+      if(disarida){
+        if(a.ftlWeekLock) return;           // kapi zaten kapatmis
+        if(a.ftlWeekLockOverride) return;   // admin elle muaf tuttu
+        // Yaptirimdan gelen kisa sureli kilit varsa sakla: kapi acilinca geri
+        // gelsin, yoksa kural 21.2 kesintisi sessizce silinirdi.
+        const mevcut = Number(a.tradeLockUntil);
+        if(isFinite(mevcut) && mevcut > Date.now() && mevcut !== BLOK) a.tradeLockPrev = mevcut;
+        a.tradeLockUntil = BLOK;
+        a.accessBlocked = true;
+        a.ftlWeekLock = true;
+        kapanan.push(a);
+      } else {
+        // Haftasi geldi: muafiyet artik anlamsiz. Bu temizlik ftlWeekLock
+        // kontrolunden ONCE olmali — kapi hic kilitlemedigi (muaf) kiside
+        // bayrak kalici kalir, kisi ileride baska haftaya tasininca kapi onu
+        // sessizce atlardi.
+        let defter = false;
+        if(a.ftlWeekLockOverride){ delete a.ftlWeekLockOverride; defter = true; }
+        if(!a.ftlWeekLock){                 // kilidi kapi koymadi: elleme
+          if(defter) temizlenen.push(a);
+          return;
+        }
+        delete a.ftlWeekLock;
+        if(a.tradingBlocked){               // adminin elle blogu kazanir
+          temizlenen.push(a);
+          return;
+        }
+        // Kapi kapattiktan sonra kilit baska bir sey tarafindan (yaptirim)
+        // degistirilmisse ona dokunmuyoruz.
+        if(Number(a.tradeLockUntil) !== BLOK){
+          temizlenen.push(a);
+          return;
+        }
+        const geri = Number(a.tradeLockPrev);
+        a.tradeLockUntil = (isFinite(geri) && geri > Date.now()) ? geri : null;
+        delete a.tradeLockPrev;
+        a.accessBlocked = false;
+        acilan.push(a);
+      }
+    });
+    return (kapanan.length || acilan.length || temizlenen.length)
+      ? { kapanan: kapanan, acilan: acilan, temizlenen: temizlenen }
+      : null;
+  }
+
+  // Kapiyi saveShared()'in ONUNE tak: degisiklik ayni yazimla gitsin, ekstra
+  // tur atmasin. Kapi idempotent — ikinci kez calisinca hicbir sey degismez,
+  // bu yuzden paneller arasi yazma dongusu olusmaz.
+  const origSave = window.saveShared;
+  if(typeof origSave === 'function'){
+    window.saveShared = function(){
+      let sonuc = null;
+      try{ sonuc = haftaKapisi(); }catch(e){ console.warn('[Hafta kapisi] atlandi:', e); }
+      const out = origSave.apply(this, arguments);
+      if(sonuc && (sonuc.kapanan.length || sonuc.acilan.length)){
+        const parca = [];
+        if(sonuc.kapanan.length) parca.push(sonuc.kapanan.length + ' yarışmacının erişimi kapatıldı (bu haftanın dışında)');
+        if(sonuc.acilan.length) parca.push(sonuc.acilan.length + ' yarışmacının erişimi açıldı (haftası geldi)');
+        try{ if(typeof addActivity === 'function') addActivity('Hafta kapısı: ' + parca.join(', ') + '.'); }catch(e){}
+        try{ if(typeof window.ftlKisiBlokRender === 'function') window.ftlKisiBlokRender(); }catch(e){}
+        try{ if(typeof renderKullaniciVeritabani === 'function') renderKullaniciVeritabani(); }catch(e){}
+      }
+      return out;
+    };
+  }
+
+  // Panel acilisinda bir kez: halihazirda acikta kalmis, haftasi gelmemis
+  // yarismacilari kapat; haftasi gelmis olanlari ac. Degisiklik varsa kaydet.
+  let ilkGecisYapildi = false;
+  function ilkGecis(){
+    if(ilkGecisYapildi) return;
+    let sonuc = null;
+    try{ sonuc = haftaKapisi(); }catch(e){ console.warn('[Hafta kapisi] ilk gecis atlandi:', e); return; }
+    if(!Array.isArray(state.applications) || !state.applications.length) return;
+    ilkGecisYapildi = true;
+    if(!sonuc) return;
+    const gercek = sonuc.kapanan.length || sonuc.acilan.length;
+    if(gercek){ try{ if(typeof addActivity === 'function') addActivity('Hafta kapısı ilk geçiş: ' + sonuc.kapanan.length + ' kapatıldı, ' + sonuc.acilan.length + ' açıldı.'); }catch(e){} }
+    // saveShared sarmalayicisi kapiyi tekrar calistirir; idempotent oldugu icin
+    // bos doner ve ikinci bir bildirim basmaz.
+    try{ if(typeof saveShared === 'function') saveShared(); }catch(e){}
+    try{ if(typeof window.ftlKisiBlokRender === 'function') window.ftlKisiBlokRender(); }catch(e){}
+    if(gercek && typeof showToast === 'function'){
+      showToast('Hafta kapısı: ' + sonuc.kapanan.length + ' erişim kapatıldı, ' + sonuc.acilan.length + ' açıldı.', 'success');
+    }
+  }
+
+  // Firestore'dan ilk veri gelmeden calisirsa isi yok; senkron sonrasina birak.
+  const origHydrate = window.hydrateFromShared;
+  if(typeof origHydrate === 'function'){
+    window.hydrateFromShared = function(){
+      const out = origHydrate.apply(this, arguments);
+      if(!ilkGecisYapildi && Array.isArray(state.applications) && state.applications.length){
+        setTimeout(ilkGecis, 0);
+      }
+      return out;
+    };
+  }
+  setTimeout(function(){ try{ ilkGecis(); }catch(e){} }, 4000);
+
+  window.ftlHaftaKapisi = haftaKapisi;
 })();
 </script>
 
