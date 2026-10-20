@@ -240,11 +240,32 @@ ve yayın sayfası (yayin.html, `public_leaderboard` üzerinden) okur.
 | `season` | admin.html | admin.html, finteclubBridge.js | `{enabled, term, sessionStart, sessionEnd, lateMinutes, arriveMinutes, autoSession, sanctionLockMin, sanctionCutPct, objectionBusinessDays, requireVerifiedEmail, holidays[], halfDays{tarih:'HH:MM'}, weeks[{no, start, end, quota, viop, status, startedAt, finishedAt, historyId, resultsPublishedAt, objectionDeadline, ceremonyAt, finalizedAt, lockoutDoneAt, draw, waitlist[], objections[], finalist, finalistHistory[]}]}` |
 | `oplabAnnouncement` | admin.html | finteclubBridge.js | `{text, level:'info'\|'warn', at}` — OPLab ekranının üstündeki duyuru bandı |
 | `tieBreak` | admin.html | finteclubBridge.js | `{weekNo, historyId, appIds[], names[], minutes, startedAt, endsAt, done}` — kural 9.11 ek süresi, yalnızca `appIds` işlem yapabilir |
-| `applications[i].cohortId` | admin.html | finteclubBridge.js | Yarışmacının haftası. Sezon planı açıkken OPLab yalnızca `cohortId === currentCohortId` olanı yarışmacı sayar |
+| `applications[i].cohortId` | admin.html | finteclubBridge.js | Yarışmacının haftası. Sezon planı açıkken OPLab yalnızca `cohortId === currentCohortId` olanı yarışmacı sayar. **⚠ Bu kurulumda o kontrol ÇALIŞMIYOR**: `ligSeasonOn()` admin.html'de sabit `false` döndürüyor ve canlıda `season.enabled === false`. Hafta filtresi bu yüzden HAFTA KAPISI ile (aşağıda) uygulanıyor |
+| `applications[i].accessBlocked` | admin.html | **(hiçbir şey)** | ⚠ Admin panelindeki "Erişim: kapat" düğmesi bunu yazar ve panel "ERİŞİM KAPALI" rozeti gösterir, ama OPLab bu alanı OKUMUYOR — tek başına hiçbir şeyi engellemez. Gerçek engel `tradeLockUntil` ile kurulur. İleride OPLab okumaya başlarsa kapı tam kapıya döner |
+| `applications[i].ftlWeekLock` | admin.html (hafta kapısı) | admin.html | Bu kişinin `tradeLockUntil` kilidini HAFTA KAPISI koydu demektir — sahiplik işareti. Kişinin haftası gelince yalnızca bu işaretli kilitler kaldırılır; adminin elle koyduğu blok ve yaptırım kilidi korunur |
+| `applications[i].ftlWeekLockOverride` | admin.html (hafta kapısı) | admin.html | Admin, haftası gelmemiş birine elle "Erişim: aç" dediyse kapı o kişiyi atlar. Kişinin haftası gelince bu bayrak temizlenir (bayat kalırsa kişi ileride başka haftaya taşındığında kapıdan kaçardı) |
 | `applications[i].checkInAt / idChecked / lockedOut / lockOverride` | admin.html | finteclubBridge.js | Yoklama ve 15 dk kuralı (kural 15) |
 | `applications[i].reviewHalt / tradeLockUntil / violations[] / disqualified / dqReason` | admin.html | finteclubBridge.js | İnceleme (12.3) ve yaptırımlar (21.2–21.3) |
 | `applications[i].rulesAcceptedAt / kvkkAcceptedAt / imageConsent / rulesVersion` | index.html | admin.html | Başvuru formundaki zorunlu onaylar (kural 22.2, 19.4) |
 | `oplab_balance_commands.commands[id].penaltyPct` | admin.html | finteclubBridge.js | 2. ihlal: yarışmacının cihazında, o anki portföy değerinin %X'i kadar bakiyeden kesinti |
+
+**HAFTA KAPISI (20 Ekim 2026)** — aktif hafta dışındaki yarışmacıların OPLab
+erişimi otomatik kilitlenir. Kaynak: admin.html'in son `<script>` bloğu
+(`window.ftlHaftaKapisi`).
+
+| Konu | Karar |
+|---|---|
+| Kapsam | `status === 'onayli'` + `!pastCompetitor` + `cohortId` atanmış kayıtlar. Bekleyen başvuru, geçmiş yarışmacı ve haftasız eski kayıt dokunulmaz |
+| Kilit aracı | `tradeLockUntil = FTL_BLOCK_UNTIL` (4070908800000). OPLab'ın gerçekten okuduğu alan budur (yaptırım akışı 21.2 ile aynı mekanizma) |
+| Nerede koşar | `saveShared()` sarmalayıcısı — onay, hafta rotasyonu, hafta geri alma, LİG modülü ve elle hafta taşıma dâhil state kaydeden HER yol kapıdan geçer. Ayrıca panel açılışında bir kez (geçmişte açıkta kalanları kapatmak için) |
+| Döngü riski | Kapı idempotent: ikinci çalışmada hiçbir şey değişmez, `null` döner ve ek yazım tetiklemez. İki panel açık olsa da yazma döngüsü oluşmaz |
+| Güvenlik freni | `currentCohortId` sonlu/pozitif değilse veya `applications` boşsa kapı HİÇ çalışmaz — yarım yüklenmiş state'te aktif haftayı kilitlemesin |
+| Yaptırım koruması | Kapı kapatırken mevcut (süresi geçmemiş) yaptırım kilidi `tradeLockPrev`'e saklanır, hafta gelince geri yüklenir. Kapı kapattıktan SONRA kilit başka bir şey tarafından değiştirilmişse kapı ona dokunmaz |
+| Elle blok üstünlüğü | `tradingBlocked` varsa hafta gelse bile kilit açılmaz — adminin niyeti kazanır |
+
+⚠ `ftlWeekLock` / `ftlWeekLockOverride` alanlarını silmeyin: kapının neyi
+kendi koyduğunu ayırt etmesini sağlar. Silinirse kapı, adminin elle koyduğu
+blokları da kendi kilidi sanıp hafta gelince açar.
 
 `public_leaderboard` ek alanları (admin yazar, yayin.html okur): `rows[].spark`,
 `rows[].prevRank`, `stats`, `series`, `session`, `ceremonyAt`,
