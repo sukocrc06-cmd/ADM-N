@@ -1621,11 +1621,23 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
     <!-- ============ PAGE: KULLANICI PORTFÖYLERİ ============ -->
     <section id="page-portfoy" class="page">
       <div class="card" style="margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;">
+        <!-- (20 Ekim 2026) HAFTA FİLTRESİ. Önceden liste yalnızca aktif
+             haftanın yarışmacılarını gösteriyordu, AMA canlı portföy verisi
+             olan herkes "eski kayıt" etiketiyle listeye ekleniyordu — geçen
+             haftanın yarışmacıları bu haftanınkilerle karışıyordu. Artık
+             hafta seçilebiliyor ve her isim hangi haftaya ait olduğunu
+             söylüyor. "Eski kayıtlar" (gerçekten başvurusu olmayan
+             test/hayalet kayıtlar) kendi seçeneğine ayrıldı. -->
+        <div style="min-width:210px;">
+          <label class="field-label" style="margin-bottom:8px;display:block;">HAFTA</label>
+          <select id="portfoyHaftaSelect" style="width:100%;background:var(--card-bg-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:12px 14px;color:var(--text);font-size:14px;"></select>
+        </div>
         <div style="flex:1;min-width:240px;">
           <label class="field-label" style="margin-bottom:8px;display:block;">YARIŞMACI SEÇ</label>
           <select id="portfoySelect" disabled style="width:100%;background:var(--card-bg-2);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:12px 14px;color:var(--text-dim);font-size:14px;">
             <option>Kayıtlı yarışmacı yok</option>
           </select>
+          <div id="portfoyHaftaOzet" style="font-size:11.5px;color:var(--text-dimmer);margin-top:7px;"></div>
         </div>
         <div style="text-align:right;">
           <div class="field-label" style="margin-bottom:6px;">ANLIK SIRA</div>
@@ -6489,11 +6501,50 @@ function renderCanliDetay(){
    Artık liste ONAYLI YARIŞMACILARIN TAMAMINDAN kuruluyor; canlı verisi
    olmayanlar "veri yok" etiketiyle görünüyor ve seçilebiliyor.
    Havuz ölçütü rankingPool() ile aynı (sezon/hafta, pastCompetitor, lockout). */
+/* (20 Ekim 2026) Portföy ekranı hafta filtresi.
+   null     -> aktif hafta (varsayılan, eski davranış)
+   <sayı>   -> o haftanın TÜM onaylı kayıtları (geçmiş yarışmacılar dâhil —
+               geçen haftayı inceleyebilmek bu filtrenin asıl amacı)
+   'hepsi'  -> tüm haftalar + eski kayıtlar
+   'hayalet'-> yalnızca başvurusu olmayan eski/test kayıtları */
+let portfoySecilenHafta = null;
+
+// Hangi haftada kaç onaylı kayıt var? (geçmiş/aktif ayrı sayılır)
+function portfoyHaftaGruplari(){
+  const g = new Map();
+  (state.applications || []).forEach(a => {
+    if(a.status !== 'onayli') return;
+    const no = Number(a.cohortId);
+    if(!isFinite(no) || no <= 0) return;
+    if(!g.has(no)) g.set(no, { no: no, aktif: 0, gecmis: 0 });
+    const o = g.get(no);
+    if(a.pastCompetitor) o.gecmis++; else o.aktif++;
+  });
+  return [...g.values()].sort((x, y) => x.no - y.no);
+}
+
+/* GERÇEK hayalet: canlı portföy verisi var ama HİÇBİR onaylı başvuruya
+   karşılık gelmiyor (test/silinmiş kayıt). Önceden ölçüt "aktif haftanın
+   listesinde yok" idi; o yüzden geçen haftanın gerçek yarışmacıları da
+   hayalet sayılıp listeye karışıyordu. */
+function portfoyHayaletler(){
+  const kayitli = new Set((state.applications || [])
+    .filter(a => a.status === 'onayli').map(a => String(a.id)));
+  return (oplabPortfolioData || []).filter(c => !kayitli.has(String(c.id)));
+}
+
 function portfoyAdaylari(){
-  const apps = (state.applications || []).filter(a =>
-    a.status === 'onayli' && !a.pastCompetitor &&
-    buHaftaninYarismacisiMi(a) &&
-    !(a.lockedOut && !a.lockOverride));
+  const f = portfoySecilenHafta;
+  const haftaNo = (f !== null && f !== 'hepsi' && f !== 'hayalet' && isFinite(Number(f))) ? Number(f) : null;
+  const apps = (state.applications || []).filter(a => {
+    if(a.status !== 'onayli') return false;
+    if(f === 'hayalet') return false;
+    if(f === 'hepsi') return true;
+    if(haftaNo !== null) return Number(a.cohortId) === haftaNo;
+    // Varsayılan (aktif hafta): eski davranışın birebir aynısı.
+    return !a.pastCompetitor && buHaftaninYarismacisiMi(a) &&
+      !(a.lockedOut && !a.lockOverride);
+  });
   const liveById = {}, actById = {};
   (oplabPortfolioData || []).forEach(c => { liveById[String(c.id)] = c; });
   // Aktivasyon (oplab_activity) AYRI bir belge: kisi OPLab'a girdiginde yazilir.
@@ -6505,43 +6556,99 @@ function portfoyAdaylari(){
   // oplabPortfolioData'daki id'ler de metindir. state.applications'taki id
   // ise SAYI — karistirilirsa (x.id === selectedPortfoyAppId) hep false olur
   // ve secim her cizimde basa doner (kisiler arasi gecis calismaz).
-  const list = apps.map(a => ({
+  let list = apps.map(a => ({
     id: String(a.id),
     name: a.name,
     email: a.email,
+    hafta: Number(a.cohortId) || null,
+    gecmis: !!a.pastCompetitor,
+    kilitli: !!(a.lockedOut && !a.lockOverride),
     live: liveById[String(a.id)] || null,
     act: actById[String(a.id)] || null
   }));
-  // Onaylı listede olmayan ama canlı verisi gelen kayıtlar (eski/hayalet
-  // kayıtlar) da görünmeye devam etsin — "listeden kaldır" düğmesi bunlar için.
-  const seen = new Set(apps.map(a => String(a.id)));
-  (oplabPortfolioData || []).forEach(c => {
-    if(!seen.has(String(c.id))) list.push({ id: String(c.id), name: c.name, email: c.email, live: c, act: actById[String(c.id)] || null, ghost: true });
+  // Eski/hayalet kayıtlar: "listeden kaldır" düğmesi bunlar için. Artık
+  // yalnızca kendi seçeneğinde ve "tüm haftalar"da görünüyorlar — hafta
+  // görünümünü kirletmiyorlar.
+  if(f === 'hayalet' || f === 'hepsi'){
+    list = list.concat(portfoyHayaletler().map(c => ({
+      id: String(c.id), name: c.name, email: c.email,
+      hafta: null, gecmis: false, kilitli: false,
+      live: c, act: actById[String(c.id)] || null, ghost: true
+    })));
+  }
+  return list.sort((a, b) => {
+    // "Tüm haftalar"da hafta hafta grupla; tek hafta görünümünde ada göre.
+    if(f === 'hepsi'){
+      const ha = a.hafta || 99, hb = b.hafta || 99;
+      if(ha !== hb) return ha - hb;
+    }
+    return (a.name || '').localeCompare(b.name || '', 'tr');
   });
-  return list.sort((a,b)=> (a.name||'').localeCompare(b.name||'', 'tr'));
+}
+
+function populatePortfoyHaftaSelect(){
+  const sel = document.getElementById('portfoyHaftaSelect');
+  if(!sel) return;
+  const cur = Number(state.currentCohortId) || 1;
+  const gruplar = portfoyHaftaGruplari();
+  const hayalet = portfoyHayaletler().length;
+  const toplam = gruplar.reduce((t, g) => t + g.aktif + g.gecmis, 0) + hayalet;
+  const f = portfoySecilenHafta;
+  const secili = (f === null) ? 'aktif' : String(f);
+
+  let out = `<option value="aktif">Aktif hafta (Hafta ${cur})</option>`;
+  gruplar.forEach(g => {
+    const parca = [];
+    if(g.aktif) parca.push(g.aktif + ' aktif');
+    if(g.gecmis) parca.push(g.gecmis + ' geçmiş');
+    const etiket = 'Hafta ' + g.no + (g.no === cur ? ' · şu an' : '')
+      + (parca.length ? ' · ' + parca.join(', ') : '');
+    out += `<option value="${g.no}">${escapeHtml(etiket)}</option>`;
+  });
+  out += `<option value="hepsi">Tüm haftalar (${toplam})</option>`;
+  if(hayalet) out += `<option value="hayalet">Eski/test kayıtları (${hayalet})</option>`;
+  sel.innerHTML = out;
+  sel.value = [...sel.options].some(o => o.value === secili) ? secili : 'aktif';
 }
 
 function populatePortfoySelect(){
   const select = document.getElementById('portfoySelect');
   const removeBtn = document.getElementById('removeGhostPortfoyBtn');
   if(!select) return;
+  populatePortfoyHaftaSelect();
   const list = portfoyAdaylari();
+  const ozet = document.getElementById('portfoyHaftaOzet');
   if(!list.length){
-    select.innerHTML = '<option value="">Onaylı yarışmacı yok</option>';
+    select.innerHTML = '<option value="">Bu seçimde yarışmacı yok</option>';
     select.disabled = true;
     selectedPortfoyAppId = null;
     if(removeBtn) removeBtn.disabled = true;
+    if(ozet) ozet.textContent = 'Bu haftaya onaylanmış kayıt yok.';
     return;
   }
+  if(ozet){
+    const verili = list.filter(c => c.live).length;
+    ozet.textContent = list.length + ' kayıt · ' + verili + ' tanesinin canlı portföy verisi var';
+  }
   select.disabled = false;
+  const cur = Number(state.currentCohortId) || 1;
   select.innerHTML = list.map(c=>{
-    // Uc ayri durum birbirine karismasin:
+    // Her isim HANGİ HAFTAYA ait olduğunu söylesin — karışıklığın kökü buydu.
+    // Ayrıca üç veri durumu birbirine karışmasın:
     //   canli portfoy var            -> etiket yok
     //   giris yapmis, portfoy yok    -> "giris yapti, veri yok"
     //   hic giris yapmamis           -> "hic giris yapmadi"
-    const etiket = c.ghost ? ' — eski kayıt'
-      : (c.live ? '' : (c.act ? ' — giriş yaptı, veri yok' : ' — hiç giriş yapmadı'));
-    return `<option value="${escapeAttr(c.id)}">${escapeHtml(c.name) || 'İsimsiz'} (${escapeHtml(c.email) || 'e-posta yok'})${etiket}</option>`;
+    const parca = [];
+    if(c.ghost){
+      parca.push('eski/test kaydı');
+    } else {
+      if(c.hafta) parca.push('Hafta ' + c.hafta + (c.hafta === cur ? ' · şu an' : ''));
+      if(c.gecmis) parca.push('geçmiş yarışmacı');
+      if(c.kilitli) parca.push('yoklama kilidi');
+    }
+    if(!c.live) parca.push(c.act ? 'giriş yaptı, veri yok' : 'hiç giriş yapmadı');
+    const etiket = parca.length ? ' — ' + parca.join(' · ') : '';
+    return `<option value="${escapeAttr(c.id)}">${escapeHtml(c.name) || 'İsimsiz'} (${escapeHtml(c.email) || 'e-posta yok'})${escapeHtml(etiket)}</option>`;
   }).join('');
   if(!selectedPortfoyAppId || !list.some(c=>c.id===String(selectedPortfoyAppId))){
     // Açılışta canlı verisi OLAN birini seç — boş ekranla karşılaşmasın
@@ -6551,6 +6658,18 @@ function populatePortfoySelect(){
   select.value = selectedPortfoyAppId;
   if(removeBtn) removeBtn.disabled = !(list.find(c=>c.id===selectedPortfoyAppId) || {}).live;
 }
+// (20 Ekim 2026) Hafta değişince seçili kişi o haftada yoksa listenin ilk
+// (tercihen canlı verisi olan) kaydına geçilir — populatePortfoySelect bunu
+// zaten yapıyor, burada sadece seçimi sıfırlıyoruz.
+document.getElementById('portfoyHaftaSelect')?.addEventListener('change', function(){
+  const v = this.value;
+  portfoySecilenHafta = (v === 'aktif') ? null
+    : ((v === 'hepsi' || v === 'hayalet') ? v : Number(v));
+  const list = portfoyAdaylari();
+  if(!list.some(c => c.id === String(selectedPortfoyAppId))) selectedPortfoyAppId = null;
+  renderKullaniciPortfoyleri();
+});
+
 document.getElementById('removeGhostPortfoyBtn').addEventListener('click', ()=>{
   if(!selectedPortfoyAppId) return;
   const c = oplabPortfolioData.find(x=>x.id===selectedPortfoyAppId);
