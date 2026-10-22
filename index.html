@@ -2421,6 +2421,11 @@ function hydrateFromShared(){
   state.deletedZirveIds = Object.assign({}, shared.deletedZirveIds, state.deletedZirveIds);
   state.zirveKontenjan = shared.zirveKontenjan ?? state.zirveKontenjan;
   state.ligFlow = shared.ligFlow ?? state.ligFlow;
+  // (22 Ekim 2026) Aktif hafta numarasi — kapanmisHaftaOluSlot() hangi
+  // haftalarin kapandigini bundan biliyor. SALT OKUNUR: saveShared()
+  // yalnizca applications / zirveRegistrations / iki sayaci yaziyor, bu
+  // alan payload'a girmiyor, yani bayat bir deger Firestore'a geri donmez.
+  state.currentCohortId = shared.currentCohortId ?? state.currentCohortId;
   if(shared.appIdCounter) appIdCounter = shared.appIdCounter;
   if(shared.zirveIdCounter) zirveIdCounter = shared.zirveIdCounter;
 }
@@ -3264,7 +3269,10 @@ function kapanmisHaftaOluSlot(){
   if(!lf) return 0;
   const kota = Number(lf.quota);
   if(!isFinite(kota) || kota <= 0) return 0;             // 0 = haftalık sınır yok
-  const cur = Number(state.currentCohortId) || 1;
+  const cur = Number(state.currentCohortId);
+  // Aktif hafta bilinmiyorsa hangi haftanin kapandigini da bilemeyiz —
+  // tahmin yuruterek olu kontenjan uydurmak yerine 0 don (eski davranis).
+  if(!isFinite(cur) || cur <= 1) return 0;
   const apps = state.applications || [];
   let olu = 0;
   for(let w = 1; w < cur; w++){                          // yalnızca KAPANMIŞ haftalar
