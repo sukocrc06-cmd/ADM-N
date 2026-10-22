@@ -3246,9 +3246,49 @@ function firebaseConnNoticeHtml(){
 function basvuruKontenjanSayisi(){
   return (state.applications || []).filter(a => a.status === 'bekliyor' || a.status === 'onayli').length;
 }
+/* (22 Ekim 2026) GERÇEK KONTENJAN — haftalık kotalardan hesaplanır.
+
+   Önceden limit yalnızca elle girilen `state.basvuruKontenjan` idi (60).
+   O sayı haftaların gerçekte ne kadar yer bıraktığını BİLMİYOR: bir hafta
+   kotası dolmadan kapandığında kalan yerler kalıcı olarak kaybolur, çünkü
+   geçmiş bir haftaya onay verilemiyor (bkz. admin.html lfWeekGuard:
+   "Hafta N geçti — geçmiş bir haftaya onay verilemez").
+
+   Canlı örnek (22 Ekim 2026): Hafta 1, 15 kişilik kotasının yalnızca 8'iyle
+   kapandı → 7 kontenjan kalıcı kayıp. Hafta 2 ve 3 doldu. Açık tek hafta
+   Hafta 4 (15 boş). Site "50/60 — 10 kişilik yer kaldı" diyordu; gerçekte
+   12 bekleyen başvuru o 15 yeri zaten talep ettiği için sadece 3 yer vardı.
+
+   Yeni hesap: limit = onaylı toplam + AÇIK haftalardaki boş slot.
+   Sayaç (basvuruKontenjanSayisi) bekliyor+onaylı saydığı için ikisi aynı
+   kümeden türüyor; fark doğrudan "kaç yeni başvuru alınabilir"i verir.
+   Elle girilen kontenjan TAVAN olarak korunuyor — ikisinden küçüğü uygulanır. */
+function acikHaftaBosSlot(){
+  const lf = state.ligFlow;
+  if(!lf) return null;                                   // hafta sistemi yok
+  const kota = Number(lf.quota);
+  if(!isFinite(kota) || kota <= 0) return null;          // 0 = haftalık sınır yok
+  const toplamHafta = Number(lf.totalWeeks);
+  if(!isFinite(toplamHafta) || toplamHafta <= 0) return null;
+  const cur = Number(state.currentCohortId) || 1;
+  const apps = state.applications || [];
+  let bos = 0;
+  // Yalnızca AÇIK haftalar (aktif hafta ve sonrası) — geçmiş haftanın boş
+  // yeri doldurulamaz, onu kontenjana saymak yanıltıcı olur.
+  for(let w = cur; w <= toplamHafta; w++){
+    const onayli = apps.filter(a => a.status === 'onayli' && Number(a.cohortId) === w).length;
+    bos += Math.max(0, kota - onayli);
+  }
+  return bos;
+}
 function basvuruKontenjanLimiti(){
   const n = Number(state.basvuruKontenjan);
-  return (isFinite(n) && n > 0) ? n : 0;   // 0 = sınırsız
+  const elle = (isFinite(n) && n > 0) ? n : 0;           // 0 = sınırsız
+  const bos = acikHaftaBosSlot();
+  if(bos === null) return elle;                          // eski davranış
+  const onayliToplam = (state.applications || []).filter(a => a.status === 'onayli').length;
+  const gercek = onayliToplam + bos;
+  return elle > 0 ? Math.min(elle, gercek) : gercek;
 }
 function basvuruKontenjanDoluMu(){
   const limit = basvuruKontenjanLimiti();
