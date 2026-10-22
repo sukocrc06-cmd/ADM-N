@@ -1662,7 +1662,9 @@ const T = {
   basvuru_toast_pwchars: {tr:'Şifrede yalnızca İngilizce harf (a-z, A-Z) ve rakam (0-9) kullanabilirsin — Türkçe karakter, boşluk ve sembol olmaz.', en:'The password may contain only English letters (a-z, A-Z) and digits (0-9) — no accented characters, spaces or symbols.'},
   basvuru_pw_hint: {tr:'6–8 karakter · yalnızca harf (a-z, A-Z) ve rakam (0-9) · Türkçe karakter, boşluk ve sembol kullanılamaz', en:'6–8 characters · letters (a-z, A-Z) and digits (0-9) only · no accented characters, spaces or symbols'},
   basvuru_toast_dupemail: {tr:'Bu e-posta adresiyle daha önce başvuru yapılmış. Bir e-posta ile yalnızca bir kez başvurulabilir.', en:'An application has already been made with this email address. Only one application is allowed per email.'},
-  basvuru_toast_dupstudent: {tr:'Bu öğrenci numarasıyla daha önce başvuru yapılmış. Aynı dönem içinde yarışmaya yalnızca bir kez katılabilirsin (kural 2.15).', en:'An application has already been made with this student number. Only one application is allowed per student number.'},
+  basvuru_toast_dupstudent: {tr:'Bu öğrenci numarası şu an sistemde kayıtlı bir başvuruya ait. Haftan tamamlandıktan sonra yeniden başvurabilirsin.', en:'This student number belongs to an application currently in the system. You can apply again once your week is complete.'},
+  basvuru_toast_dqstudent: {tr:'Bu öğrenci numarası diskalifiye edilmiş bir yarışmacıya ait — yeniden başvuru yapılamaz (kural 21.3).', en:'This student number belongs to a disqualified competitor — re-application is not possible (rule 21.3).'},
+  basvuru_toast_rejstudent: {tr:'Bu öğrenci numarasıyla yapılan başvuru daha önce reddedilmiş. Durumunu öğrenmek için kulüple iletişime geç.', en:'An application with this student number was previously rejected. Please contact the club about your status.'},
   basvuru_toast_success: {tr:(name)=>`Başvurunuz alındı, ${name}! E-postana gönderdiğimiz doğrulama bağlantısına tıkla, sonra admin onayını bekle.`, en:(name)=>`Your application has been received, ${name}! Click the verification link we sent to your email, then wait for admin approval.`},
   // (22 Eylül 2026 — Madde 3 "sessiz e-posta hatası" düzeltmesi) Önceden
   // başvuru her zaman yukarıdaki "başarılı" mesajıyla kapanıyordu, doğrulama
@@ -3433,9 +3435,40 @@ document.getElementById('pubBasvuruForm').addEventListener('submit', function(e)
   // (Öğrenci numarası ile yinelenen-başvuru koruması) Aynı kişi farklı bir
   // e-posta adresiyle tekrar başvurup sistemi ikinci kez kullanmaya
   // çalışamasın diye e-posta kontrolüne ek olarak öğrenci numarası da
-  // tekilliğe göre kontrol ediliyor — bir öğrenci numarası yalnızca bir
-  // başvuruda geçebilir, farklı e-postalarla tekrarlanamaz.
-  if(state.applications.some(a => (a.studentNumber||'').toLowerCase() === studentNumber.toLowerCase())){
+  // kontrol ediliyor.
+  //
+  // (22 Ekim 2026 — admin kararı) HAFTASI BİTMİŞ yarışmacı aynı öğrenci
+  // numarasıyla YENİDEN başvurabilir. Önceden tek bir eşleşme bile başvuruyu
+  // kesiyordu; artık yalnızca aşağıdaki kayıtlar engelliyor:
+  //
+  //   • henüz yarışmamış olan  — 'bekliyor', ya da onaylı ama haftası daha
+  //     gelmemiş (pastCompetitor false). Aksi halde aynı kişi iki slot
+  //     kapatıp kotayı doldurabilirdi; kontrolün asıl amacı buydu.
+  //   • diskalifiye edilmiş    — kural 21.3. Diskalifiye biri haftası
+  //     bitince pastCompetitor olur; bu ayrı kontrol olmasa yeni bir
+  //     e-postayla sisteme geri dönüp cezayı boşa çıkarabilirdi.
+  //   • reddedilmiş            — kararı admin verdi, form üzerinden
+  //     delinmesin.
+  //
+  // SİLİNEN kayıtlar bu kontrole hiç takılmaz: deleteApplications() kaydı
+  // state.applications'tan ÇIKARIR (yalnızca deletedApplicationIds'e mezar
+  // taşı bırakır), yani silinen kişi zaten yeniden başvurabiliyordu.
+  //
+  // NOT: E-posta kontrolü BİLEREK sıkı kaldı — oplab_portfolios/{e-posta}
+  // belgeleri e-postaya göre anahtarlanıyor (bkz. PAYLASILAN_SEMA.md), aynı
+  // e-postayla ikinci kayıt eski portföyle AYNI belgeyi paylaşırdı. Yeniden
+  // başvuru yeni bir e-posta ile yapılır.
+  const ayniNo = state.applications.filter(a =>
+    (a.studentNumber||'').toLowerCase() === studentNumber.toLowerCase());
+  if(ayniNo.some(a => a.disqualified)){
+    showToast(t('basvuru_toast_dqstudent'), 'error');
+    return;
+  }
+  if(ayniNo.some(a => a.status === 'reddedildi')){
+    showToast(t('basvuru_toast_rejstudent'), 'error');
+    return;
+  }
+  if(ayniNo.some(a => !a.pastCompetitor)){
     showToast(t('basvuru_toast_dupstudent'), 'error');
     return;
   }
