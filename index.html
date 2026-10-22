@@ -3243,8 +3243,39 @@ function firebaseConnNoticeHtml(){
    Sayıma HANGİ başvurular giriyor: durumu 'bekliyor' veya 'onayli' olanlar.
    Reddedilen bir başvuru kontenjandan düşer (yerini boşaltır) — aksi halde
    admin birini reddettiğinde o yer kalıcı olarak ölü kalırdı. */
+/* (22 Ekim 2026) KAPANAN HAFTANIN ÖLÜ KONTENJANI
+
+   Bir hafta kotası dolmadan kapandığında kalan yerler geri kazanılamaz:
+   geçmiş bir haftaya onay verilemiyor (bkz. admin.html lfWeekGuard —
+   "Hafta N geçti — geçmiş bir haftaya onay verilemez"). O yerler fiilen
+   harcanmış sayılmalı, yoksa site olmayan bir kapasiteyi vaat eder.
+
+   Canlı örnek (22 Ekim 2026): Hafta 1, 15 kişilik kotasının yalnızca 8'iyle
+   kapandı → 7 yer öldü. Site "50/60 — 10 kişilik yer kaldı" diyordu, oysa
+   açık tek hafta (Hafta 4) 15 yer sunuyor ve bekleyen 12 başvuru onu zaten
+   talep ediyor: gerçek boş yer 3. Ölü 7 sayılınca 57/60 → 3 çıkıyor.
+
+   Hiç yarışmacısı olmayan hafta SAYILMAZ: 12 Ekim'de bayat bir
+   cohortStartedAt yüzünden rotasyon 20 saniyede üç hafta ilerlemişti
+   (bkz. lfRewindWeek yorumu). Öyle bir kaza tüm kotayı ölü gösterip
+   başvuruları gereksiz yere kapatırdı. */
+function kapanmisHaftaOluSlot(){
+  const lf = state.ligFlow;
+  if(!lf) return 0;
+  const kota = Number(lf.quota);
+  if(!isFinite(kota) || kota <= 0) return 0;             // 0 = haftalık sınır yok
+  const cur = Number(state.currentCohortId) || 1;
+  const apps = state.applications || [];
+  let olu = 0;
+  for(let w = 1; w < cur; w++){                          // yalnızca KAPANMIŞ haftalar
+    const onayli = apps.filter(a => a.status === 'onayli' && Number(a.cohortId) === w).length;
+    if(onayli > 0) olu += Math.max(0, kota - onayli);    // hiç kullanılmayan haftayı atla
+  }
+  return olu;
+}
 function basvuruKontenjanSayisi(){
-  return (state.applications || []).filter(a => a.status === 'bekliyor' || a.status === 'onayli').length;
+  const basvuru = (state.applications || []).filter(a => a.status === 'bekliyor' || a.status === 'onayli').length;
+  return basvuru + kapanmisHaftaOluSlot();
 }
 function basvuruKontenjanLimiti(){
   const n = Number(state.basvuruKontenjan);
