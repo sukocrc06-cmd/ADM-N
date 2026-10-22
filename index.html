@@ -3243,52 +3243,43 @@ function firebaseConnNoticeHtml(){
    Sayıma HANGİ başvurular giriyor: durumu 'bekliyor' veya 'onayli' olanlar.
    Reddedilen bir başvuru kontenjandan düşer (yerini boşaltır) — aksi halde
    admin birini reddettiğinde o yer kalıcı olarak ölü kalırdı. */
-function basvuruKontenjanSayisi(){
-  return (state.applications || []).filter(a => a.status === 'bekliyor' || a.status === 'onayli').length;
-}
-/* (22 Ekim 2026) GERÇEK KONTENJAN — haftalık kotalardan hesaplanır.
+/* (22 Ekim 2026) KAPANAN HAFTANIN ÖLÜ KONTENJANI
 
-   Önceden limit yalnızca elle girilen `state.basvuruKontenjan` idi (60).
-   O sayı haftaların gerçekte ne kadar yer bıraktığını BİLMİYOR: bir hafta
-   kotası dolmadan kapandığında kalan yerler kalıcı olarak kaybolur, çünkü
-   geçmiş bir haftaya onay verilemiyor (bkz. admin.html lfWeekGuard:
-   "Hafta N geçti — geçmiş bir haftaya onay verilemez").
+   Bir hafta kotası dolmadan kapandığında kalan yerler geri kazanılamaz:
+   geçmiş bir haftaya onay verilemiyor (bkz. admin.html lfWeekGuard —
+   "Hafta N geçti — geçmiş bir haftaya onay verilemez"). O yerler fiilen
+   harcanmış sayılmalı, yoksa site olmayan bir kapasiteyi vaat eder.
 
    Canlı örnek (22 Ekim 2026): Hafta 1, 15 kişilik kotasının yalnızca 8'iyle
-   kapandı → 7 kontenjan kalıcı kayıp. Hafta 2 ve 3 doldu. Açık tek hafta
-   Hafta 4 (15 boş). Site "50/60 — 10 kişilik yer kaldı" diyordu; gerçekte
-   12 bekleyen başvuru o 15 yeri zaten talep ettiği için sadece 3 yer vardı.
+   kapandı → 7 yer öldü. Site "50/60 — 10 kişilik yer kaldı" diyordu, oysa
+   açık tek hafta (Hafta 4) 15 yer sunuyor ve bekleyen 12 başvuru onu zaten
+   talep ediyor: gerçek boş yer 3. Ölü 7 sayılınca 57/60 → 3 çıkıyor.
 
-   Yeni hesap: limit = onaylı toplam + AÇIK haftalardaki boş slot.
-   Sayaç (basvuruKontenjanSayisi) bekliyor+onaylı saydığı için ikisi aynı
-   kümeden türüyor; fark doğrudan "kaç yeni başvuru alınabilir"i verir.
-   Elle girilen kontenjan TAVAN olarak korunuyor — ikisinden küçüğü uygulanır. */
-function acikHaftaBosSlot(){
+   Hiç yarışmacısı olmayan hafta SAYILMAZ: 12 Ekim'de bayat bir
+   cohortStartedAt yüzünden rotasyon 20 saniyede üç hafta ilerlemişti
+   (bkz. lfRewindWeek yorumu). Öyle bir kaza tüm kotayı ölü gösterip
+   başvuruları gereksiz yere kapatırdı. */
+function kapanmisHaftaOluSlot(){
   const lf = state.ligFlow;
-  if(!lf) return null;                                   // hafta sistemi yok
+  if(!lf) return 0;
   const kota = Number(lf.quota);
-  if(!isFinite(kota) || kota <= 0) return null;          // 0 = haftalık sınır yok
-  const toplamHafta = Number(lf.totalWeeks);
-  if(!isFinite(toplamHafta) || toplamHafta <= 0) return null;
+  if(!isFinite(kota) || kota <= 0) return 0;             // 0 = haftalık sınır yok
   const cur = Number(state.currentCohortId) || 1;
   const apps = state.applications || [];
-  let bos = 0;
-  // Yalnızca AÇIK haftalar (aktif hafta ve sonrası) — geçmiş haftanın boş
-  // yeri doldurulamaz, onu kontenjana saymak yanıltıcı olur.
-  for(let w = cur; w <= toplamHafta; w++){
+  let olu = 0;
+  for(let w = 1; w < cur; w++){                          // yalnızca KAPANMIŞ haftalar
     const onayli = apps.filter(a => a.status === 'onayli' && Number(a.cohortId) === w).length;
-    bos += Math.max(0, kota - onayli);
+    if(onayli > 0) olu += Math.max(0, kota - onayli);    // hiç kullanılmayan haftayı atla
   }
-  return bos;
+  return olu;
+}
+function basvuruKontenjanSayisi(){
+  const basvuru = (state.applications || []).filter(a => a.status === 'bekliyor' || a.status === 'onayli').length;
+  return basvuru + kapanmisHaftaOluSlot();
 }
 function basvuruKontenjanLimiti(){
   const n = Number(state.basvuruKontenjan);
-  const elle = (isFinite(n) && n > 0) ? n : 0;           // 0 = sınırsız
-  const bos = acikHaftaBosSlot();
-  if(bos === null) return elle;                          // eski davranış
-  const onayliToplam = (state.applications || []).filter(a => a.status === 'onayli').length;
-  const gercek = onayliToplam + bos;
-  return elle > 0 ? Math.min(elle, gercek) : gercek;
+  return (isFinite(n) && n > 0) ? n : 0;   // 0 = sınırsız
 }
 function basvuruKontenjanDoluMu(){
   const limit = basvuruKontenjanLimiti();
