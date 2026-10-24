@@ -47,7 +47,8 @@ Aynı dala ikinci commit gidince PR başlığını/gövdesini de güncelle.
 | `api/delete-user.js` (~10 KB) | Kullanıcı silme (Firebase Admin SDK) |
 | `api/send-email.js` | E-posta gönderme |
 | `PAYLASILAN_SEMA.md` | Firestore şema sözleşmesi — ikinci yazar, alan listesi, kurallar burada |
-| `oplabRules.js` | OPLab kural motoru — **admin.html henüz yüklemiyor** |
+| `oplabRules.js` | OPLab kural motoru (rekabet-testi/oplabRules.js ile BİREBİR aynı) — admin.html ve api/settle-trades.js yükler |
+| `api/settle-trades.js` | Sayfası kapalı yarışmacıların bekleyen fiyat netleştirmesi (kural 6.13); OPLab backend (Render) seans günlerinde 5 dk'da bir tetikler |
 
 ## 6. DOSYA BOYUTLARI — bütünü okuma
 
@@ -120,8 +121,6 @@ node --check /tmp/blok.js
 ## 12. AÇIK KALICI SORUNLAR (henüz çözülmedi)
 
 - **`firestore.rules`:** Kimliksiz `update`'e izin veriyor — yarışmacı `shared_state`'teki kendi yaptırımını silebilir.
-- **`oplabRules.js`:** `admin.html` tarafından hiç yüklenmiyor; `rf` bayrağı görmezden geliniyor.
-- **`tradingEngine.min.js`:** `applyTrueUp` minified versiyonda yok; `?v=` hâlâ `20261013a`.
 - **`ligFlow.weekStarts/weekEnds`:** 2. ve 3. hafta tarihleri `null`.
 - **Kural 23:** Geriye dönük 5× kaldıraç değişikliği duyurulmadı.
 - **`ftlAcKuralHash()`:** Yüklenmedi (kural popup bağlantısı kırık, görsel hata).

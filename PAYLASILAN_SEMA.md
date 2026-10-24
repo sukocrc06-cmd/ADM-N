@@ -19,9 +19,10 @@ map'ler olarak):
 |---|---|---|---|
 | `finteclub/shared_state` | admin.html, index.html (FinTeClub) | admin.html, index.html | Başvurular, zirve kayıtları, yarışma ayarları |
 | `finteclub/oplab_activity` | OptiPulseLab (finteclubBridge.js) | admin.html | Doğrulanmış ziyaretçi/aktivasyon özeti |
-| `finteclub/oplab_live_portfolio` | OptiPulseLab (finteclubBridge.js) | admin.html | Canlı liderlik tablosu / işlem akışı özeti |
-| `oplab_portfolios/{e-posta}` | OptiPulseLab (finteclubBridge.js) — her yarışmacı SADECE kendi belgesine | OptiPulseLab, admin.html (şüpheli işlem taraması) | **24 Eylül 2026'dan itibaren** çoklu cihaz senkronu (yarışmacı başına ayrı belge) |
+| `finteclub/oplab_live_portfolio` | OptiPulseLab (finteclubBridge.js); api/settle-trades.js netleştirince ilgili girdinin `equity/balance/openPnl/settledAt` alanlarını günceller | admin.html | Canlı liderlik tablosu / işlem akışı özeti |
+| `oplab_portfolios/{e-posta}` | OptiPulseLab (finteclubBridge.js) — her yarışmacı SADECE kendi belgesine; **ikinci yazar:** `api/settle-trades.js` (Admin SDK, yalnızca sayfası 5 dk'dır kapalı yarışmacının bekleyen fiyat netleştirmesi, `deviceId: 'server-settle'`, rev+1) | OptiPulseLab, admin.html (şüpheli işlem taraması) | **24 Eylül 2026'dan itibaren** çoklu cihaz senkronu (yarışmacı başına ayrı belge) |
 | `finteclub/oplab_user_portfolios` | (artık yazılmıyor) | finteclubBridge.js (tek seferlik taşıma), admin.html | ESKİ ortak senkron belgesi — sadece geriye dönük okuma |
+| `finteclub/oplab_settle_state` | api/settle-trades.js | api/settle-trades.js | `{lastRunAt}` — sunucu netleştirmesinin 4 dk frenı |
 | `finteclub/oplab_balance_commands` | admin.html | OptiPulseLab (finteclubBridge.js) | Admin'den öğrenciye tek yönlü bakiye ayarla/sıfırla komutu |
 
 Güvenlik kuralları `optipulselab/firestore.rules` dosyasında tanımlı — bu
