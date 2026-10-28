@@ -1728,8 +1728,8 @@ body.theme-light ::-webkit-scrollbar-thumb{background:#d7deee;}
           <div id="portfoyPendingOrdersBox"><div class="empty-state" style="padding:20px 0;"><span>Bekleyen emir yok.</span></div></div>
         </div>
         <div class="card">
-          <h3 class="section-title">Son İşlemler</h3>
-          <p class="section-desc">En son gerçekleşen alım/satım/kapama işlemleri.</p>
+          <h3 class="section-title">İşlem Geçmişi</h3>
+          <p class="section-desc" id="portfoyTradesDesc">Yarışmacının tüm alım/satım/kapama işlemleri — yeniden eskiye.</p>
           <div id="portfoyRecentTradesBox"><div class="empty-state" style="padding:20px 0;"><span>Henüz işlem yok.</span></div></div>
         </div>
       </div>
@@ -6372,10 +6372,75 @@ function renderPortfoyPendingOrders(c){
     </div>`;
   }).join('');
 }
+/* (28 Ekim 2026) Bu kutu yalnızca canlı özetteki recentTrades'i gösteriyordu;
+   OPLab oraya son 10 işlemi koyuyor, dolayısıyla panelde de 10 işlem görünüyordu.
+   Tam geçmiş kişisel portföy kaydında: oplab_portfolios/{e-posta} içindeki
+   portfolio.history (pay) + portfolio.viopHistory (VİOP). exportTradesCsv de
+   aynı kaynaktan okuyor.
+   Burada o kayıt okunup iki defter birleştiriliyor, zamana göre yeniden eskiye
+   sıralanıyor. Okuma her çizimde değil, yarışmacı başına 60 sn'de bir yapılıyor
+   (bu fonksiyon canlı veri her geldiğinde çağrılıyor). Kayıt okunamazsa
+   eski davranışa düşülüyor — kutu asla boş kalmıyor.
+   SINIR: OPLab her defterde son 50 işlemi tutuyor, yani üst sınır 50 pay +
+   50 VİOP. Bunun ötesi kaynakta da yok. */
+const FTL_TRADES_TTL = 60000;
+const ftlTradesCache = {};   // e-posta -> { at, list, err }
+let ftlTradesInflight = null;
+
+function ftlMergeLedgers(pf){
+  const out = [];
+  const push = (list, market) => (list || []).forEach(h => {
+    if(!h) return;
+    out.push({ symbol: h.symbol, market: market, side: h.side, type: h.type,
+      qty: h.qty, price: h.price, pnl: (h.pnl === undefined ? null : h.pnl),
+      commission: h.commission, ts: h.ts });
+  });
+  push(pf && pf.history, 'BIST');
+  push(pf && pf.viopHistory, 'VIOP');
+  // Zaman damgası olmayan kayıt en sona düşsün, yoksa yeniden eskiye
+  out.sort((a, b) => (Number(b.ts) || 0) - (Number(a.ts) || 0));
+  return out;
+}
+
+function ftlFetchAllTrades(c){
+  const email = String((c && c.email) || '').trim().toLowerCase();
+  if(!email || typeof firebase === 'undefined' || !firebase.firestore) return;
+  const hit = ftlTradesCache[email];
+  if(hit && Date.now() - hit.at < FTL_TRADES_TTL) return;
+  if(ftlTradesInflight === email) return;
+  ftlTradesInflight = email;
+  firebase.firestore().collection('oplab_portfolios').doc(email).get()
+    .then(snap => {
+      const pf = snap.exists ? ((snap.data() || {}).portfolio || {}) : null;
+      ftlTradesCache[email] = { at: Date.now(), list: pf ? ftlMergeLedgers(pf) : null, err: !pf };
+    })
+    .catch(e => { console.warn('[Portföy] İşlem geçmişi okunamadı:', e);
+      ftlTradesCache[email] = { at: Date.now(), list: null, err: true }; })
+    .then(() => {
+      ftlTradesInflight = null;
+      // Arada başka yarışmacıya geçilmiş olabilir — yalnızca hâlâ seçili olan çizilir
+      const cur = (oplabPortfolioData || []).find(x => String(x.id) === String(selectedPortfoyAppId));
+      if(cur && String(cur.email || '').trim().toLowerCase() === email) renderPortfoyRecentTrades(cur);
+    });
+}
+
 function renderPortfoyRecentTrades(c){
   const box = document.getElementById('portfoyRecentTradesBox');
   if(!box) return;
-  const trades = (c && c.recentTrades) || [];
+  const desc = document.getElementById('portfoyTradesDesc');
+  const email = String((c && c.email) || '').trim().toLowerCase();
+  const cached = email ? ftlTradesCache[email] : null;
+  if(c) ftlFetchAllTrades(c);
+
+  const tam = !!(cached && cached.list);
+  const trades = tam ? cached.list : ((c && c.recentTrades) || []);
+  if(desc){
+    desc.textContent = tam
+      ? `Tüm işlemler — ${trades.length} kayıt, yeniden eskiye. OPLab her defterde (pay / VİOP) son 50 işlemi tutar.`
+      : (cached && cached.err
+          ? 'Kişisel işlem kaydı okunamadı — canlı özetteki son işlemler gösteriliyor.'
+          : 'İşlem geçmişi yükleniyor — şimdilik canlı özetteki son işlemler.');
+  }
   if(!trades.length){
     box.innerHTML = `<div class="empty-state" style="padding:20px 0;"><span>Henüz işlem yok.</span></div>`;
     return;
